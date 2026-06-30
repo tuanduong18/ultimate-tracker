@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    # "production" environment lets you require manual approval before this
+    # job runs — set this up under Settings -> Environments -> production
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Render deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Wait for Render to pick up the deploy
+        run: sleep 30
+
+      - name: Set up Python (for running migrations)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run production database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: alembic upgrade head
+
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    if: failure()
+    steps:
+      - name: Failure notice
+        run: |
+          echo "Deploy failed — check the Actions tab for details."
+          # Optional: add a Slack/Discord webhook step here later
