@@ -375,7 +375,7 @@ Or run `docker compose up --build` from the repo root to start everything at onc
 
 ## 9. CI/CD Pipeline
 
-Three GitHub Actions workflows:
+Two CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
 
 **`backend-ci.yml`** — on every PR touching `backend/`:
 1. Install dependencies
@@ -389,11 +389,10 @@ Three GitHub Actions workflows:
 3. Run `npm run test`
 4. Run `npm run build` to catch build-time errors
 
-**`deploy.yml`** — on merge to `main`:
-1. Backend: build and push Docker image, trigger Render deploy hook
-2. Frontend: Vercel auto-deploys on push to `main` (connected via Vercel's GitHub integration, no extra workflow step needed)
-3. Run database migrations against production via a manual-approval step (`alembic upgrade head`)
-4. Notify on failure (GitHub Actions email or optional Slack webhook)
+**Deployment (no workflow needed):**
+- **Backend** — Render auto-deploys on push to `main`: it rebuilds the Docker image and restarts the service.
+- **Frontend** — Vercel auto-deploys `main` to production and every PR to a preview, via its GitHub integration.
+- **Migrations** — run manually when the schema changes (`alembic upgrade head` against the production database). There is no auto-migrate on deploy; Render's pre-deploy command can automate this on paid instance types.
 
 Every PR also gets a Vercel preview deployment automatically — useful for visually checking frontend changes before merge.
 
