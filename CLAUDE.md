@@ -85,6 +85,16 @@ Run lint + tests before considering any change complete. CI will reject PRs that
 **Current release target: v0.1 (Weeks 1–4)**
 Scope: Auth, Finance domain (transactions, categories, budgets, breach alerts), Steps domain (manual log + goal), dashboard skeleton, CI/CD pipeline live.
 
+**Status (as of 2026-07-01):**
+- Repo scaffolded end to end (frontend + backend + Docker + Alembic) and **deployed live**: backend on Render, frontend on Vercel, Postgres + Auth on Supabase. `backend-ci` and `frontend-ci` pass.
+- First vertical slice proving the full chain works: `GET`/`PATCH /api/v1/auth/me` (JWT-verified, get-or-create `profiles`) wired to the dashboard's Supabase sign-in. Use it as the reference pattern for new domains.
+- Up next in v0.1: build out the **Finance** and **Steps** domains (model → schema → service → route → test), then fill in the dashboard. (Auth + sign-up flow works but is still rough — polish later.)
+
+**Deployment model (native, not a GitHub Actions job):**
+- Render auto-deploys the backend on push to `main`; Vercel auto-deploys the frontend. There is **no `deploy.yml`** — don't re-add one.
+- **Migrations are run manually** (`alembic upgrade head` against the prod DB) — nothing auto-migrates on deploy, so apply them yourself after any model change.
+- `NEXT_PUBLIC_*` vars are baked at **build** time on Vercel; changing one requires a redeploy.
+
 When asked to build a feature, check first whether it belongs to the current release scope (see [`DeveloperGuide.md` § Release Plan](./DeveloperGuide.md#14-release-plan)). If it's scoped for a later release, flag that before building it — scope creep across releases is the biggest risk to this project shipping on time.
 
 ## When in doubt
