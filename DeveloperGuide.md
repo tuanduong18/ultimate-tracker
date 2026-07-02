@@ -352,7 +352,7 @@ Condensed from the full planning session. Each item tagged **[Core]** (ship by v
 1. Create a free Supabase project at [supabase.com](https://supabase.com).
 2. Copy `.env.example` to `.env` in both `frontend/` and `backend/`, filling in:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (frontend)
-   - `DATABASE_URL`, `SUPABASE_JWT_SECRET` (backend)
+   - `DATABASE_URL`, `SUPABASE_JWKS_URL` (backend)
 3. Run database migrations: `cd backend && alembic upgrade head`
 4. Seed local dev data (optional): `python -m app.scripts.seed`
 5. Start backend: `uvicorn app.main:app --reload`

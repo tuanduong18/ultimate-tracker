@@ -16,8 +16,11 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/ultimate_tracker"
     )
 
-    # Supabase JWT verification (HS256 shared secret).
-    supabase_jwt_secret: str = ""
+    # Supabase JWT verification. Tokens are signed with the project's
+    # asymmetric JWT Signing Keys (ES256); we verify against the public keys
+    # published at the project's JWKS endpoint:
+    # https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+    supabase_jwks_url: str = ""
     supabase_jwt_audience: str = "authenticated"
 
     # CORS — origins allowed to call the API. Override via env as a JSON list.
