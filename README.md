@@ -6,6 +6,8 @@ Most tracking apps live in isolation. Your budget app doesn't know you slept bad
 
 This is a personal project built to be genuinely used daily, while serving as a portfolio piece demonstrating full-stack engineering, clean architecture, and real CI/CD practices.
 
+**🔗 Live app: [ultimate-tracker-one.vercel.app](https://ultimate-tracker-one.vercel.app)**
+
 ---
 
 ## Why this exists
