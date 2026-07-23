@@ -43,10 +43,18 @@ jobs:
       run:
         working-directory: frontend
 
+    # Fall back to placeholders when the secrets are unavailable. Dependabot-
+    # triggered runs (and runs from forks) do not receive repository secrets, so
+    # without this `createClient()` in lib/supabase.ts throws "supabaseUrl is
+    # required" and both the tests and the build fail on every dependency PR.
+    #
+    # Placeholders are safe here: NEXT_PUBLIC_* values are baked into the client
+    # bundle and are public by definition, and this build only validates that the
+    # app compiles. Vercel does the real build with the real values.
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+      NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000' }}
 
     steps:
       - name: Checkout code
