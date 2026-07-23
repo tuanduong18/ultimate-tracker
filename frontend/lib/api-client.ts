@@ -1,11 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from '@/lib/supabase';
 
 // Single typed entry point for the FastAPI backend. Never call fetch() directly
 // in a component — go through here so auth headers and error handling stay
 // consistent.
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 export interface ApiErrorBody {
   code: string;
@@ -19,7 +18,7 @@ export class ApiError extends Error {
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
     this.code = body.code;
     this.status = status;
   }
@@ -40,19 +39,19 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     ...(await authHeaders()),
     ...(options.headers ?? {}),
   };
 
   const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
-    method: options.method ?? "GET",
+    method: options.method ?? 'GET',
     body: options.body,
     headers,
   });
 
   if (!res.ok) {
-    let body: ApiErrorBody = { code: "UNKNOWN", message: res.statusText };
+    let body: ApiErrorBody = { code: 'UNKNOWN', message: res.statusText };
     try {
       const json = (await res.json()) as { error?: ApiErrorBody };
       if (json.error) body = json.error;
@@ -69,8 +68,8 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: "POST", body: JSON.stringify(body) }),
+    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 };

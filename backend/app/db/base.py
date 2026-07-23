@@ -3,6 +3,7 @@
 Alembic imports ``Base.metadata`` (and the ``app.models`` package) to discover
 the schema for autogenerate.
 """
+
 from sqlalchemy.orm import DeclarativeBase
 
 

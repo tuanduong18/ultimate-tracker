@@ -1,0 +1,32 @@
+# Opt-in local hooks so lint/format failures surface before CI.
+# Install once with:  pip install pre-commit && pre-commit install
+# CI does not run this file — it runs ruff / prettier / eslint directly.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # Keep this rev in sync with the ruff pin in backend/requirements.txt, otherwise
+  # the hook and CI can disagree on formatting. Bump both with `pre-commit autoupdate`.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        files: ^frontend/
+        exclude: ^frontend/(package-lock\.json|next-env\.d\.ts)$

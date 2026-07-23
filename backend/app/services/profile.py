@@ -1,4 +1,5 @@
 """Profile business logic, keyed to the Supabase user id."""
+
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,9 +18,7 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
     return profile
 
 
-async def update_profile_timezone(
-    db: AsyncSession, user_id: uuid.UUID, timezone: str
-) -> Profile:
+async def update_profile_timezone(db: AsyncSession, user_id: uuid.UUID, timezone: str) -> Profile:
     """Update (creating first if needed) the user's timezone."""
     profile = await get_or_create_profile(db, user_id)
     profile.timezone = timezone

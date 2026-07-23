@@ -1,4 +1,5 @@
 """Health check — used by Render and uptime monitoring."""
+
 from typing import Any
 
 from fastapi import APIRouter

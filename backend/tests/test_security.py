@@ -4,6 +4,7 @@ Tokens are signed with a locally generated ES256 key pair and the JWKS client
 is stubbed out, so verification runs exactly as in production minus the
 network fetch.
 """
+
 import datetime
 import uuid
 from types import SimpleNamespace
@@ -48,9 +49,7 @@ def as_credentials(token: str) -> HTTPAuthorizationCredentials:
 def stub_jwks_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """Serve the test public key instead of fetching Supabase's JWKS."""
     stub = SimpleNamespace(
-        get_signing_key_from_jwt=lambda token: SimpleNamespace(
-            key=_private_key.public_key()
-        )
+        get_signing_key_from_jwt=lambda token: SimpleNamespace(key=_private_key.public_key())
     )
     monkeypatch.setattr(security, "_jwks_client", lambda: stub)
 
@@ -62,25 +61,19 @@ async def test_valid_token_returns_user_id(stub_jwks_client: None) -> None:
 
 async def test_token_signed_with_wrong_key_is_rejected(stub_jwks_client: None) -> None:
     with pytest.raises(HTTPException) as exc_info:
-        await security.get_current_user_id(
-            as_credentials(make_token(key=_wrong_key))
-        )
+        await security.get_current_user_id(as_credentials(make_token(key=_wrong_key)))
     assert exc_info.value.status_code == 401
 
 
 async def test_expired_token_is_rejected(stub_jwks_client: None) -> None:
     with pytest.raises(HTTPException) as exc_info:
-        await security.get_current_user_id(
-            as_credentials(make_token(expires_in=-60))
-        )
+        await security.get_current_user_id(as_credentials(make_token(expires_in=-60)))
     assert exc_info.value.status_code == 401
 
 
 async def test_wrong_audience_is_rejected(stub_jwks_client: None) -> None:
     with pytest.raises(HTTPException) as exc_info:
-        await security.get_current_user_id(
-            as_credentials(make_token(aud="anon"))
-        )
+        await security.get_current_user_id(as_credentials(make_token(aud="anon")))
     assert exc_info.value.status_code == 401
 
 

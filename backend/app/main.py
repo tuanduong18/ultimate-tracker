@@ -2,6 +2,7 @@
 
 Wires CORS, the standard error envelope, and the versioned API router.
 """
+
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -26,9 +27,7 @@ app.add_middleware(
 
 
 @app.exception_handler(StarletteHTTPException)
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Wrap HTTP errors in the standard {"error": {code, message}} shape."""
     detail: Any = exc.detail
     if isinstance(detail, dict) and "code" in detail:

@@ -1,4 +1,5 @@
 """Health endpoint smoke test."""
+
 from httpx import AsyncClient
 
 
