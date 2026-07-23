@@ -46,6 +46,7 @@ Full feature breakdown with functional requirements lives in [`DeveloperGuide.md
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |
 | Background jobs | APScheduler / Celery (TBD in v0.3) | Weekly digest + correlation engine need scheduled compute |
 | CI/CD | GitHub Actions | Lint, test, build, deploy on every PR |
+| Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
 | Frontend hosting | Vercel (free tier) | Zero-config Next.js deploys |
 | Backend hosting | Render (free tier) | Simple Docker-based deploys for FastAPI |
 | Error tracking | Sentry (free tier) | Catch production errors before users report them |
@@ -155,9 +156,12 @@ CI runs both suites on every pull request — see [`DeveloperGuide.md`](./Develo
 
 This is a solo personal project, but built with team-ready practices:
 
-- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`)
-- Every change goes through a PR, even solo — keeps a clean history and forces CI to run
-- See [`DeveloperGuide.md`](./DeveloperGuide.md#8-branching-strategy--git-workflow) for the full workflow
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`) — PRs are squash-merged, so the PR title is what gets linted
+- Every change goes through a PR, even solo — `main` is protected, keeps a clean history, and forces CI to run
+- Migrations are applied to production **before** the code that uses them merges
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full workflow, and
+[`DeveloperGuide.md`](./DeveloperGuide.md) for architecture and schema.
 
 ---
 

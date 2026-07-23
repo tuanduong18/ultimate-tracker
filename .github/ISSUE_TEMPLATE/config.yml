@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Developer Guide
+    url: https://github.com/tuanduong18/ultimate-tracker/blob/main/DeveloperGuide.md
+    about: Architecture, schema, API conventions, and the release plan.
+  - name: Contributing guide
+    url: https://github.com/tuanduong18/ultimate-tracker/blob/main/CONTRIBUTING.md
+    about: Branching, commit format, PR workflow, and migration rules.
