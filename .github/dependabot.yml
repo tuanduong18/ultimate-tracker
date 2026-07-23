@@ -1,25 +1,19 @@
 version: 2
 
-# Solo project: keep the PR volume low. Minor + patch bumps are grouped into a
-# single PR per ecosystem; majors stay separate because they need real review.
-# `commit-message.prefix: chore` keeps Dependabot's PR titles passing the
+# Solo project: keep PR volume low and predictable.
+#
+# Each ecosystem gets ONE grouped PR for minor + patch updates. Majors that need
+# a deliberate migration are ignored outright rather than left to reopen every
+# week — see the per-ecosystem notes below. The first run opened 16 PRs because
+# almost everything available was a major, and those crowded out the grouped
+# minor/patch PR that carries security patches. Ignoring them fixes that.
+#
+# `commit-message.prefix: chore` keeps Dependabot's titles passing the
 # Conventional Commits check in .github/workflows/pr-title.yml.
+#
+# To take one of the ignored majors, do it as a normal PR with the migration
+# work included, then drop its ignore entry here.
 updates:
-  - package-ecosystem: pip
-    directory: /backend
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      backend-minor-patch:
-        update-types:
-          - minor
-          - patch
-
   - package-ecosystem: npm
     directory: /frontend
     schedule:
@@ -30,7 +24,49 @@ updates:
       prefix: chore
       include: scope
     groups:
-      frontend-minor-patch:
+      frontend:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # React 19 requires Next 15. Migrate the framework first, together.
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
+      # Next 15 is a deliberate migration. Majors only — 14.x patches still come
+      # through, which is how the current security fix reaches us.
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      # Tailwind 4 replaces the JS config with CSS-first config; full rewrite.
+      - dependency-name: tailwindcss
+        update-types: [version-update:semver-major]
+      # eslint 9+ needs flat config, which eslint-config-next 14 doesn't support.
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      # recharts 3 breaks the chart API. Fold into the v0.2 dashboard work.
+      - dependency-name: recharts
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      backend:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
@@ -45,8 +81,13 @@ updates:
       prefix: chore
       include: scope
     groups:
-      actions-minor-patch:
+      # Actions majors are low-risk and self-testing: if one breaks, the CI run
+      # on its own PR fails. Group them in with the rest.
+      actions:
+        patterns:
+          - "*"
         update-types:
+          - major
           - minor
           - patch
 
@@ -60,7 +101,19 @@ updates:
       prefix: chore
       include: scope
     groups:
-      docker-minor-patch:
+      docker:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
+    ignore:
+      # The runtime is pinned to 3.11 in four places: requires-python and
+      # ruff's target-version in pyproject.toml, mypy's python_version, and
+      # backend-ci's setup-python. A base-image bump to 3.12+ reads as a *minor*
+      # Docker tag bump but silently diverges prod from what CI tests, so ignore
+      # minor as well as major and take only 3.11.x patches.
+      - dependency-name: python
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
