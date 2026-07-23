@@ -185,9 +185,30 @@ is visible in the tracker rather than only in a markdown table.
 
 ## Dependencies
 
-Dependabot opens grouped PRs weekly (minor + patch bundled per ecosystem; majors separately)
-for pip, npm, GitHub Actions, and Docker. Treat a major-version PR like any other change —
-read the changelog, let CI run, squash merge.
+Dependabot opens **one grouped PR per ecosystem per week** — minor and patch bundled — for
+pip, npm, GitHub Actions, and Docker. Majors that need a deliberate migration (React, Next,
+Tailwind, eslint, recharts, the python base image) are listed under `ignore` in
+[`.github/dependabot.yml`](./.github/dependabot.yml) with the reason inline. Taking one of
+those is a normal PR with the migration work included, minus its `ignore` entry.
+
+### Pinning policy
+
+**Every dependency carries an upper bound.**
+
+The frontend has `package-lock.json`, so `npm ci` is reproducible. The backend has **no lock
+file** — an unbounded pin in `requirements.txt` means pip installs whatever is newest at build
+time, and a release elsewhere can turn CI red on a PR that touched nothing related.
+
+That is not hypothetical: a declared `mypy>=1.10` was silently resolving to **mypy 2.3.0**, and
+`pytest>=8.2` to **pytest 9.1.1** — whole major versions arriving with no PR and no signal.
+
+- **Floor** = the version CI is known to pass on
+- **Ceiling** = the next major, or the next *minor* for `0.x` packages, where minors are
+  allowed to break
+
+Dependabot proposes range widenings as ordinary PRs, so a major shows up as a decision rather
+than a surprise. Keep the `ruff` pin in sync with the rev in `.pre-commit-config.yaml`, or the
+hook and CI can disagree about formatting.
 
 Adding a new **major** dependency by hand means noting it in `README.md`'s tech stack table.
 
