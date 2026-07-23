@@ -1,22 +1,47 @@
 name: Frontend CI
 
+# Note: no workflow-level `paths:` filter. A path-filtered workflow that doesn't
+# trigger reports no status at all, which would deadlock a required status check
+# on PRs that don't touch frontend/. Filtering happens per-job below instead, and
+# `frontend-ci-ok` always runs so it can safely be the required check.
 on:
   pull_request:
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-ci.yml"
   push:
     branches: [main]
-    paths:
-      - "frontend/**"
 
-defaults:
-  run:
-    working-directory: frontend
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint-test-build:
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect frontend changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/frontend-ci.yml'
+
+  lint-test-build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -40,6 +65,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check formatting with prettier
+        run: npm run format:check
+
       - name: Type check
         run: npx tsc --noEmit
 
@@ -48,3 +76,18 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # Always runs, so it is safe to mark as a required status check in the branch
+  # ruleset. Passes when lint-test-build succeeded or was skipped as irrelevant.
+  frontend-ci-ok:
+    needs: [lint-test-build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report frontend CI result
+        run: |
+          result="${{ needs.lint-test-build.result }}"
+          echo "lint-test-build: $result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi

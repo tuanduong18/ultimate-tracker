@@ -5,6 +5,7 @@ Supabase signs access tokens with the project's asymmetric JWT Signing Keys
 project's JWKS endpoint; we never trust an unverified token. PyJWKClient
 caches the fetched keys, so verification does not hit the network per request.
 """
+
 import uuid
 from functools import lru_cache
 

@@ -1,0 +1,72 @@
+name: Feature request
+description: A new capability or an improvement to an existing one.
+title: "feat: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the need, not the solution. What can't you do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: >-
+        Prefer the simpler implementation that's easy to extend later over a
+        complex one that tries to predict future needs.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: Which part of the app? See DeveloperGuide.md section 6.
+      options:
+        - Finance & Budgeting
+        - Steps & Walking
+        - Fitness
+        - Time Tracking
+        - Wellness
+        - Cross-Domain Insights
+        - Gaming Performance
+        - Platform / Auth / Dashboard
+        - Infrastructure / CI / Deploy
+    validations:
+      required: true
+
+  - type: dropdown
+    id: release
+    attributes:
+      label: Target release
+      description: >-
+        See DeveloperGuide.md section 14. Scope creep across releases is the
+        biggest risk to this project shipping on time — be honest here.
+      options:
+        - v0.1 — Auth, Finance, Steps, dashboard skeleton, CI/CD
+        - v0.2 — Focus timer, entertainment budgets, fitness, dashboard charts
+        - v0.3 — Sleep/mood, habits, correlation engine, weekly digest
+        - v0.4 — Polish, performance, observability, launch
+        - Later / unscoped
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not require a mobile app, React Native, or any Android-specific code (explicitly out of scope for this repo)
+          required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Schema implications, API shape, mockups, or links.
+    validations:
+      required: false

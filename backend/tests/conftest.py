@@ -1,4 +1,5 @@
 """Shared pytest fixtures."""
+
 from collections.abc import AsyncGenerator
 
 import pytest

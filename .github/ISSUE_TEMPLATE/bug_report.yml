@@ -1,0 +1,80 @@
+name: Bug report
+description: Something behaves differently than expected.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The actual behaviour, including any error message shown.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to /finance
+        2. Log a transaction of -50 in the "Food" category
+        3. Budget summary still shows the old total
+    validations:
+      required: true
+
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: Which part of the app? See DeveloperGuide.md section 6.
+      options:
+        - Finance & Budgeting
+        - Steps & Walking
+        - Fitness
+        - Time Tracking
+        - Wellness
+        - Cross-Domain Insights
+        - Gaming Performance
+        - Platform / Auth / Dashboard
+        - Infrastructure / CI / Deploy
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Where does it surface?
+      options:
+        - Frontend (Vercel)
+        - Backend API (Render)
+        - Database / migration
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and version, and whether this is local or production.
+      placeholder: |
+        Browser: Chrome 127
+        Environment: production
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Sentry link
+      description: Relevant console output, API response, or Sentry issue.
+      render: shell
+    validations:
+      required: false

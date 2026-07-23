@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from '@supabase/supabase-js';
 
-import { api, ApiError } from "@/lib/api-client";
-import { supabase } from "@/lib/supabase";
+import { api, ApiError } from '@/lib/api-client';
+import { supabase } from '@/lib/supabase';
 
 interface Profile {
   id: string;
@@ -15,10 +15,10 @@ interface Profile {
 
 export default function DashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState('');
 
   // Keep local state in sync with Supabase's auth session.
   useEffect(() => {
@@ -36,19 +36,19 @@ export default function DashboardPage() {
       setProfile(null);
       return;
     }
-    setStatus("Calling backend GET /api/v1/auth/me …");
+    setStatus('Calling backend GET /api/v1/auth/me …');
     api
-      .get<Profile>("/auth/me")
+      .get<Profile>('/auth/me')
       .then((p) => {
         setProfile(p);
-        setStatus("Round-trip OK ✓ (Supabase JWT → backend → Postgres → back)");
+        setStatus('Round-trip OK ✓ (Supabase JWT → backend → Postgres → back)');
       })
       .catch((err: unknown) => {
         setProfile(null);
         setStatus(
           err instanceof ApiError
             ? `Backend error — ${err.code}: ${err.message}`
-            : `Request failed: ${String(err)}`,
+            : `Request failed: ${String(err)}`
         );
       });
   }, [session]);
@@ -58,7 +58,7 @@ export default function DashboardPage() {
     setStatus(
       error
         ? `Sign-up failed: ${error.message}`
-        : "Signed up. If email confirmation is on, confirm then log in.",
+        : 'Signed up. If email confirmation is on, confirm then log in.'
     );
   }
 
@@ -70,7 +70,7 @@ export default function DashboardPage() {
   async function handleSignOut() {
     await supabase.auth.signOut();
     setProfile(null);
-    setStatus("");
+    setStatus('');
   }
 
   return (

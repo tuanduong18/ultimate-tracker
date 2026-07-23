@@ -1,4 +1,5 @@
 """Aggregate v1 router — mounts every domain router under /api/v1."""
+
 from fastapi import APIRouter
 
 from app.api.v1 import (

@@ -3,6 +3,7 @@
 Exercises the full auth path: verify the Supabase JWT, then read/write the
 profile in the database. Business logic lives in app/services/profile.py.
 """
+
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -33,7 +34,5 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ) -> ProfileRead:
     """Update the authenticated user's timezone."""
-    profile = await profile_service.update_profile_timezone(
-        db, user_id, payload.timezone
-    )
+    profile = await profile_service.update_profile_timezone(db, user_id, payload.timezone)
     return ProfileRead.model_validate(profile)

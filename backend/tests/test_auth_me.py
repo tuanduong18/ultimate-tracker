@@ -2,6 +2,7 @@
 
 Exercises the full route -> service -> DB path with auth dependency-overridden.
 """
+
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -27,9 +28,7 @@ async def me_client() -> AsyncGenerator[AsyncClient, None]:
     )
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    session_factory = async_sessionmaker(
-        engine, expire_on_commit=False, class_=AsyncSession
-    )
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         async with session_factory() as session:

@@ -122,16 +122,24 @@ ultimate-tracker/
 │
 ├── docs/
 │   └── adr/                    # architecture decision records
-├── .github/workflows/
-│   ├── backend-ci.yml
-│   ├── frontend-ci.yml
-│   └── deploy.yml
+├── .github/
+│   ├── workflows/
+│   │   ├── backend-ci.yml
+│   │   ├── frontend-ci.yml
+│   │   └── pr-title.yml        # Conventional Commits check on PR titles
+│   ├── ISSUE_TEMPLATE/         # bug / feature / chore issue forms
+│   ├── pull_request_template.md
+│   └── dependabot.yml
 ├── docker-compose.yml
+├── .pre-commit-config.yaml
 ├── .env.example
 ├── README.md
+├── CONTRIBUTING.md
 ├── DeveloperGuide.md
 └── CLAUDE.md
 ```
+
+> There is no `deploy.yml` — Render and Vercel deploy natively on push to `main`. Don't re-add one.
 
 **Pattern for adding a new domain feature:** model → schema → service → API route → test. Always in that order. Never write business logic directly in a route handler — it belongs in `services/`.
 
@@ -365,34 +373,59 @@ Or run `docker compose up --build` from the repo root to start everything at onc
 
 ## 8. Branching Strategy & Git Workflow
 
-- **`main`** is always deployable. No direct commits — every change goes through a PR.
+- **`main`** is always deployable. No direct commits — every change goes through a PR. This is enforced by a branch ruleset, not just convention.
 - Branch naming: `feat/finance-budget-alerts`, `fix/step-log-timezone-bug`, `chore/update-deps`
-- Commit messages follow **Conventional Commits**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
+- Commit messages follow **Conventional Commits**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`, `ci:`, `perf:`, `style:`
 - Even working solo: open a PR for every feature, let CI run, then merge. This keeps history clean and forces the test suite to actually run before code lands on `main`.
-- Squash merge into `main` to keep a linear, readable history.
+- Squash merge into `main` to keep a linear, readable history. **Because merges are squashed, the PR title becomes the commit message** — so the PR title is what `pr-title.yml` lints, not the individual commits.
+
+**Ruleset on `main`** (Settings → Rules → Rulesets): restrict deletions, block force pushes,
+require a PR, require the `backend-ci-ok` and `frontend-ci-ok` status checks, require branches
+to be up to date, require linear history.
+
+Day-to-day workflow, PR sizing, label scheme, and the migration rules live in
+[`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ---
 
 ## 9. CI/CD Pipeline
 
-Two CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
+Three CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
 
-**`backend-ci.yml`** — on every PR touching `backend/`:
+**`backend-ci.yml`** — when a PR touches `backend/`:
 1. Install dependencies
-2. Run `ruff check` and `mypy`
-3. Run `pytest` with coverage
-4. Build Docker image (no push, just validate it builds)
+2. Run `ruff check`, `ruff format --check`, and `mypy`
+3. Run migrations against a Postgres service, then guard them: `alembic check` (models must not drift from migrations), a single-head check, and a `downgrade base` → `upgrade head` round trip to prove reversibility
+4. Run `pytest` with coverage
+5. Build Docker image (no push, just validate it builds)
 
-**`frontend-ci.yml`** — on every PR touching `frontend/`:
+**`frontend-ci.yml`** — when a PR touches `frontend/`:
 1. Install dependencies
-2. Run `eslint` and `tsc --noEmit`
+2. Run `eslint`, `prettier --check`, and `tsc --noEmit`
 3. Run `npm run test`
 4. Run `npm run build` to catch build-time errors
+
+**`pr-title.yml`** — on every PR: lints the title against Conventional Commits, since squash merging makes the title the commit message on `main`.
+
+**Why the workflows aren't path-filtered at the top level:** a workflow with a `paths:` filter
+that doesn't trigger reports *no status at all*, so requiring it as a status check would leave
+frontend-only PRs waiting forever on `backend-ci`. Instead each workflow has a `changes` job
+that does the filtering via `dorny/paths-filter`, gating the real job with an `if:`, plus a
+`backend-ci-ok` / `frontend-ci-ok` job that always runs and reports the outcome. **Those gate
+jobs are the required status checks.**
+
+**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker — minor and patch bundled per ecosystem, majors separate.
 
 **Deployment (no workflow needed):**
 - **Backend** — Render auto-deploys on push to `main`: it rebuilds the Docker image and restarts the service.
 - **Frontend** — Vercel auto-deploys `main` to production and every PR to a preview, via its GitHub integration.
 - **Migrations** — run manually when the schema changes (`alembic upgrade head` against the production database). There is no auto-migrate on deploy; Render's pre-deploy command can automate this on paid instance types.
+
+> ⚠️ **Ordering matters.** Render redeploys the backend the instant a PR merges, but migrations
+> don't run themselves. Merging code that expects a new column before that column exists takes
+> production down. Always apply additive migrations to prod **before** merging the code that
+> uses them, and split destructive changes expand → contract across two PRs. See
+> [`CONTRIBUTING.md` § Database migrations](./CONTRIBUTING.md#database-migrations).
 
 Every PR also gets a Vercel preview deployment automatically — useful for visually checking frontend changes before merge.
 
@@ -414,14 +447,21 @@ Minimum bar: every new service function and API endpoint needs at least one test
 ## 11. Coding Standards & Linting
 
 **Backend (Python):**
-- `ruff` for linting + formatting (replaces Black + Flake8 + isort)
-- `mypy` for static type checking — all functions require type hints
+- `ruff check` for linting and `ruff format` for formatting (replaces Black + Flake8 + isort) — both enforced in CI
+- `mypy --strict` for static type checking — all functions require type hints
+- Line length 100 (`pyproject.toml`)
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes/Pydantic models
 
 **Frontend (TypeScript):**
-- `eslint` + `prettier`
+- `eslint` (`next/core-web-vitals`) for correctness, `prettier` for formatting — `eslint-config-prettier` disables the rules that would conflict
+- Both enforced in CI via `npm run lint` and `npm run format:check`; fix locally with `npm run format`
+- Print width 100, single quotes, semicolons (`.prettierrc`)
 - Strict TypeScript (`strict: true` in `tsconfig.json`)
 - Naming: `camelCase` for variables/functions, `PascalCase` for components, files match component names
+
+**Both languages:** `.pre-commit-config.yaml` runs ruff, ruff-format, and prettier on staged
+files, plus `detect-private-key` and friends. Install with `pre-commit install` — optional, but
+it catches these before CI does.
 
 **General:**
 - No `any` types without a comment explaining why

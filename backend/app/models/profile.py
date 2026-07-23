@@ -3,6 +3,7 @@
 We do not duplicate auth data; this table only references the user's UUID and
 stores fields the app owns (e.g. timezone).
 """
+
 import uuid
 from datetime import datetime
 

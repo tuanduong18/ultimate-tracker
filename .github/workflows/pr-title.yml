@@ -1,0 +1,56 @@
+name: PR Title
+
+# PRs are squash-merged, so the PR title becomes the commit message on `main`.
+# That makes the title — not the individual commits — the thing worth linting
+# against Conventional Commits.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            test
+            docs
+            chore
+            ci
+            perf
+            style
+          # Scopes are optional, but when present must name a domain from
+          # DeveloperGuide.md section 6 (or a cross-cutting concern).
+          scopes: |
+            finance
+            steps
+            fitness
+            time
+            wellness
+            insights
+            gaming
+            auth
+            dashboard
+            api
+            db
+            ci
+            deps
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+[^.]$
+          subjectPatternError: |
+            The subject "{subject}" in "{title}" is invalid: it must start with a
+            lowercase letter and must not end with a period.

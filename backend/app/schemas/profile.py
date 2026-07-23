@@ -3,6 +3,7 @@
 Profiles are created implicitly from the verified JWT (no client-supplied
 Create payload), so only Read and Update are exposed.
 """
+
 import uuid
 from datetime import datetime
 
