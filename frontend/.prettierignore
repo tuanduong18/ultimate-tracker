@@ -3,4 +3,6 @@ node_modules/
 coverage/
 out/
 package-lock.json
+# Next rewrites these on every build; let it own their formatting.
 next-env.d.ts
+tsconfig.json
