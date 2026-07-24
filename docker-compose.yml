@@ -28,7 +28,8 @@ services:
       start_period: 10s
 
   frontend:
-    image: node:20
+    # Keep in sync with node-version in .github/workflows/frontend-ci.yml.
+    image: node:24
     working_dir: /app
     env_file:
       - frontend/.env.local
@@ -39,10 +40,15 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/app
+      # Keep node_modules and the build cache inside the container: sharing them
+      # with the host mixes two Node versions' artefacts and makes Next rewrite
+      # next-env.d.ts on the host every run.
       - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
     depends_on:
       backend:
         condition: service_healthy
 
 volumes:
   frontend_node_modules:
+  frontend_next:
