@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     # CORS — origins allowed to call the API. Override via env as a JSON list.
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Exchange rates. open.er-api.com needs no API key and quotes 160+ currencies
+    # including VND; the ECB-backed alternatives quote ~30 and omit it.
+    exchange_rates_url: str = "https://open.er-api.com/v6/latest/USD"
+    # The upstream publishes once a day, so anything under a few hours only adds
+    # load without adding freshness.
+    exchange_rates_ttl_seconds: int = 6 * 60 * 60
+
     # Observability.
     sentry_dsn: str | None = None
 
