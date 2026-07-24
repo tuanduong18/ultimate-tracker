@@ -20,7 +20,7 @@ TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
-async def me_client() -> AsyncGenerator[AsyncClient, None]:
+async def me_client() -> AsyncGenerator[AsyncClient]:
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         poolclass=StaticPool,
@@ -30,7 +30,7 @@ async def me_client() -> AsyncGenerator[AsyncClient, None]:
         await conn.run_sync(Base.metadata.create_all)
     session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession]:
         async with session_factory() as session:
             yield session
 

@@ -15,7 +15,7 @@ engine = create_async_engine(settings.database_url, future=True, pool_pre_ping=T
 SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession]:
     """FastAPI dependency that yields a request-scoped async session."""
     async with SessionLocal() as session:
         yield session
