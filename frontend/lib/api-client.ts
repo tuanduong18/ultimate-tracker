@@ -37,6 +37,19 @@ async function authHeaders(): Promise<Record<string, string>> {
   return session ? { Authorization: `Bearer ${session.access_token}` } : {};
 }
 
+/**
+ * A 401 means the token we sent is no longer accepted — expired beyond refresh,
+ * revoked, or signed by a key the backend no longer trusts. Dropping the local
+ * session turns that into a redirect to /login via AuthGuard, rather than a
+ * screen that keeps retrying with a token that will never be taken.
+ */
+async function clearRejectedSession(): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session) await supabase.auth.signOut();
+}
+
 async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -51,6 +64,8 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
   });
 
   if (!res.ok) {
+    if (res.status === 401) await clearRejectedSession();
+
     let body: ApiErrorBody = { code: 'UNKNOWN', message: res.statusText };
     try {
       const json = (await res.json()) as { error?: ApiErrorBody };
