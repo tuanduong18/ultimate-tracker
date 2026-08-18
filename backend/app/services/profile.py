@@ -2,19 +2,38 @@
 
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.profile import Profile
 
 
 async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile:
-    """Return the user's profile, creating a default one on first access."""
+    """Return the user's profile, creating a default one on first access.
+
+    Two requests can arrive for a brand-new user at the same time — React strict
+    mode double-invokes effects in development, and a first paint can fan out
+    several calls. Both would read no row and both would insert the same primary
+    key, so the loser of that race re-reads the winner's row rather than turning
+    a normal first login into a 500.
+    """
     profile = await db.get(Profile, user_id)
-    if profile is None:
-        profile = Profile(id=user_id)
-        db.add(profile)
+    if profile is not None:
+        return profile
+
+    profile = Profile(id=user_id)
+    db.add(profile)
+    try:
         await db.commit()
-        await db.refresh(profile)
+    except IntegrityError:
+        await db.rollback()
+        existing = await db.get(Profile, user_id)
+        if existing is None:
+            # Not the race — the insert failed for some other reason.
+            raise
+        return existing
+
+    await db.refresh(profile)
     return profile
 
 
