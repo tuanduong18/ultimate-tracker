@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     # https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
     supabase_jwks_url: str = ""
     supabase_jwt_audience: str = "authenticated"
+    # Expected `iss` claim: https://<project-ref>.supabase.co/auth/v1. Checked
+    # only when set — the JWKS URL already pins verification to one project, so
+    # this is defence in depth rather than the primary control.
+    supabase_jwt_issuer: str = ""
+    # Only the algorithms the project actually signs with. Keeping this narrow
+    # means a token cannot ask to be verified some other way; ES256 is what
+    # Supabase issues for this project, RS256 is here for projects on RSA keys.
+    supabase_jwt_algorithms: list[str] = ["ES256"]
 
     # CORS — origins allowed to call the API. Override via env as a JSON list.
     cors_origins: list[str] = ["http://localhost:3000"]
