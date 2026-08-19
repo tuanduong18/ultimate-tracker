@@ -24,6 +24,14 @@ from app.db.base import Base
 # adding a currency needs no migration.
 _CURRENCY_LEN = 3
 
+# Money columns. Scale 3 because KWD, BHD, JOD, OMR, LYD and TND are quoted in
+# thousandths — scale 2 would silently round every amount in those currencies.
+# Precision 20 leaves headroom for the currencies with no minor unit at all: a
+# mid-range car is a ten-digit number of VND before any decimals are involved.
+# numeric is variable-width in Postgres, so the generous bound costs no storage.
+_AMOUNT_PRECISION = 20
+_AMOUNT_SCALE = 3
+
 
 class Category(Base):
     """A user-defined expense category. A preset set is seeded at signup."""
@@ -63,7 +71,9 @@ class Expense(Base):
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
-    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(
+        Numeric(_AMOUNT_PRECISION, _AMOUNT_SCALE), nullable=False
+    )
     currency: Mapped[str] = mapped_column(String(_CURRENCY_LEN), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     spent_on: Mapped[date] = mapped_column(Date, nullable=False)
@@ -90,7 +100,9 @@ class Budget(Base):
     )
     # A label matters once a budget spans several categories ("Essentials").
     name: Mapped[str] = mapped_column(String(80), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(
+        Numeric(_AMOUNT_PRECISION, _AMOUNT_SCALE), nullable=False
+    )
     currency: Mapped[str] = mapped_column(String(_CURRENCY_LEN), nullable=False)
     # Inclusive range, replacing the old month-only cap.
     starts_on: Mapped[date] = mapped_column(Date, nullable=False)
