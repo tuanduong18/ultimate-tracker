@@ -46,6 +46,10 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 2. Supabase issues a JWT.
 3. Frontend attaches the JWT as a Bearer token on every request to FastAPI.
 4. FastAPI verifies the JWT against Supabase's public key (no separate auth database needed).
+5. Rejections are uniform: `401` with `MISSING_TOKEN` (no/!Bearer header) or `INVALID_TOKEN`
+   (bad signature, expired, wrong audience or issuer, unusable subject), always with a
+   `WWW-Authenticate: Bearer` header. If the JWKS endpoint itself is unreachable the answer is
+   `503 AUTH_UNAVAILABLE` — an outage must not look to the client like a bad token.
 
 ---
 
@@ -72,17 +76,18 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 ultimate-tracker/
 ├── frontend/
 │   ├── app/
-│   │   ├── (auth)/login/
+│   │   ├── (auth)/login/    # public — no session required
 │   │   ├── (auth)/signup/
-│   │   ├── dashboard/
-│   │   ├── finance/
-│   │   ├── steps/
-│   │   ├── fitness/
-│   │   ├── time/
-│   │   ├── wellness/
-│   │   ├── insights/
-│   │   ├── settings/
-│   │   └── onboarding/
+│   │   ├── (app)/           # signed-in routes; layout.tsx wraps them in AuthGuard
+│   │   │   ├── dashboard/
+│   │   │   ├── finance/
+│   │   │   ├── steps/
+│   │   │   ├── fitness/
+│   │   │   ├── time/
+│   │   │   ├── wellness/
+│   │   │   ├── insights/
+│   │   │   ├── settings/
+│   │   │   └── onboarding/
 │   ├── components/
 │   │   ├── ui/              # shadcn primitives
 │   │   ├── charts/

@@ -20,7 +20,9 @@ app = FastAPI(title=settings.project_name)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    # The API authenticates with a Bearer header, never a cookie, so browsers
+    # have no credentials to send and allowing them only widens the surface.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,7 +36,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         error = detail
     else:
         error = {"code": "HTTP_ERROR", "message": str(detail)}
-    return JSONResponse(status_code=exc.status_code, content={"error": error})
+    # Carry the exception's headers through — a 401 has to keep its
+    # WWW-Authenticate header to stay a valid Bearer challenge.
+    return JSONResponse(status_code=exc.status_code, content={"error": error}, headers=exc.headers)
 
 
 @app.exception_handler(RequestValidationError)
