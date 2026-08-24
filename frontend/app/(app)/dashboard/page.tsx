@@ -1,67 +1,35 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
-import { api, ApiError } from '@/lib/api-client';
+import { MODULES } from '@/components/shared/app-nav';
 import { useSession } from '@/lib/hooks/use-session';
-import { supabase } from '@/lib/supabase';
-
-interface Profile {
-  id: string;
-  timezone: string;
-  created_at: string;
-}
 
 export default function DashboardPage() {
-  // AuthGuard only renders this page once there is a session, so the fetch below
-  // never races an unauthenticated first paint.
+  // AuthGuard only renders this once there is a session, so the email is safe
+  // to read as soon as the hook resolves.
   const { session } = useSession();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [status, setStatus] = useState('Loading your profile…');
-
-  useEffect(() => {
-    api
-      .get<Profile>('/auth/me')
-      .then((p) => {
-        setProfile(p);
-        setStatus('');
-      })
-      .catch((err: unknown) => {
-        setStatus(
-          err instanceof ApiError
-            ? `Backend error — ${err.code}: ${err.message}`
-            : `Request failed: ${String(err)}`
-        );
-      });
-  }, []);
 
   return (
-    <main className="mx-auto max-w-md p-8">
+    <main className="p-8">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <p className="mt-2 text-sm text-gray-500">
+        {session ? `Signed in as ${session.user.email}` : 'Loading…'}
+      </p>
 
-      <div className="mt-6 space-y-3">
-        {session && (
-          <p className="text-sm">
-            Signed in as <span className="font-mono">{session.user.email}</span>
-          </p>
-        )}
-
-        <button
-          type="button"
-          className="rounded border px-3 py-1 text-sm"
-          onClick={() => void supabase.auth.signOut()}
-        >
-          Log out
-        </button>
-
-        {profile && (
-          <pre className="overflow-x-auto rounded bg-gray-100 p-3 text-xs">
-            {JSON.stringify(profile, null, 2)}
-          </pre>
-        )}
-      </div>
-
-      {status && <p className="mt-4 text-sm text-gray-600">{status}</p>}
+      <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {MODULES.filter((module) => module.href !== '/dashboard').map((module) => (
+          <li key={module.href}>
+            <Link
+              href={module.href}
+              className="block rounded-lg border border-gray-200 p-4 hover:border-gray-400"
+            >
+              <span className="font-medium">{module.label}</span>
+              <span className="mt-1 block text-sm text-gray-500">{module.blurb}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }
