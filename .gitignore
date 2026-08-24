@@ -33,3 +33,7 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- AI assistant context (kept local-only by choice) ---
+CLAUDE.md
+.claude

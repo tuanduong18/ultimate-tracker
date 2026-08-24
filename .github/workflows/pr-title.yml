@@ -49,6 +49,7 @@ jobs:
             db
             ci
             deps
+            deps-dev
           requireScope: false
           subjectPattern: ^(?![A-Z]).+[^.]$
           subjectPatternError: |
