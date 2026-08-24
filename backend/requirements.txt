@@ -10,7 +10,7 @@
 # of a surprise.
 
 # --- Runtime ---
-fastapi>=0.111,<0.116
+fastapi>=0.141.1,<0.142
 uvicorn[standard]>=0.30,<0.35
 sqlalchemy[asyncio]>=2.0.51,<2.1
 asyncpg>=0.31,<0.32
