@@ -33,9 +33,23 @@ services:
     working_dir: /app
     env_file:
       - frontend/.env.local
-    # Install once into the named volume, then run the dev server on all
-    # interfaces so it's reachable from the host.
-    command: sh -c "[ -d node_modules/next ] || npm ci; npm run dev -- -H 0.0.0.0 -p 3000"
+    # Reinstall into the named volume whenever package-lock.json changes, then
+    # run the dev server on all interfaces so it's reachable from the host.
+    #
+    # The previous guard was `[ -d node_modules/next ] || npm ci`, which installed
+    # exactly once ever: the volume kept serving whatever versions were current
+    # when it was first created. Four Next upgrades later the container was still
+    # running the 14.2.5 from the initial scaffold, and since ./frontend is bind
+    # mounted while only node_modules and .next are shadowed, that stale Next
+    # rewrote next-env.d.ts and tsconfig.json on the host on every `up`.
+    command:
+      - sh
+      - -c
+      - |
+        if ! cmp -s package-lock.json node_modules/.lock-stamp; then
+          npm ci && cp package-lock.json node_modules/.lock-stamp
+        fi
+        npm run dev -- -H 0.0.0.0 -p 3000
     ports:
       - "3000:3000"
     volumes:
