@@ -33,6 +33,6 @@ async def update_me(
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> ProfileRead:
-    """Update the authenticated user's timezone."""
-    profile = await profile_service.update_profile_timezone(db, user_id, payload.timezone)
+    """Update the authenticated user's preferences."""
+    profile = await profile_service.update_profile(db, user_id, payload)
     return ProfileRead.model_validate(profile)
