@@ -95,6 +95,30 @@ def _check_scale(amount: Any, currency: Any) -> None:
 
 # --- Categories ---------------------------------------------------------------
 
+# Seeded for every new profile. A brand-new user would otherwise land on an
+# empty finance page unable to create a budget at all, since BudgetCreate
+# requires at least one category. Distinct colours so the first chart is
+# readable without anyone picking swatches.
+DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
+    ("Food", "#22c55e"),
+    ("Rent", "#ef4444"),
+    ("Education", "#3b82f6"),
+    ("Entertainment", "#a855f7"),
+    ("Other", "#94a3b8"),
+)
+
+
+def build_default_categories(user_id: uuid.UUID) -> list[Category]:
+    """The starter set, unsaved.
+
+    Returned rather than committed so the caller can persist them in the same
+    transaction that creates the profile — a user with a profile but no
+    categories would be a state nothing else in the app expects.
+    """
+    return [
+        Category(user_id=user_id, name=name, colour=colour) for name, colour in DEFAULT_CATEGORIES
+    ]
+
 
 async def list_categories(db: AsyncSession, user_id: uuid.UUID) -> Sequence[Category]:
     result = await db.scalars(
