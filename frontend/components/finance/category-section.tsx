@@ -2,22 +2,29 @@
 
 import { useState } from 'react';
 
+import { DeleteButton } from '@/components/finance/delete-button';
 import { api } from '@/lib/api-client';
-import { describeError, useCollection } from '@/lib/hooks/use-collection';
+import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import type { Category } from '@/lib/types/finance';
 
 const DEFAULT_COLOUR = '#94a3b8';
 
-export function CategorySection() {
-  const { items, loading, error, reload, setError } =
-    useCollection<Category>('/finance/categories');
+interface CategorySectionProps {
+  /**
+   * Owned by the page, not by this section: the expense and budget forms pick
+   * from the same list, and two copies of it drift the moment one is edited.
+   */
+  categories: Collection<Category>;
+  /** Deleting a category uncategorises its expenses, so that list goes stale. */
+  onChange: () => void;
+}
+
+export function CategorySection({ categories, onChange }: CategorySectionProps) {
+  const { items, loading, error, reload, setError } = categories;
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [colour, setColour] = useState(DEFAULT_COLOUR);
   const [busy, setBusy] = useState(false);
-  // Inline rather than window.confirm: deleting a category silently
-  // uncategorises its expenses, which is worth spelling out before they click.
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
@@ -27,6 +34,7 @@ export function CategorySection() {
     try {
       await action();
       await reload();
+      onChange();
       return true;
     } catch (err: unknown) {
       setError(describeError(err, fallback));
@@ -59,7 +67,6 @@ export function CategorySection() {
 
   async function handleDelete(id: string) {
     await run(() => api.delete(`/finance/categories/${id}`), 'Could not delete that category.');
-    setConfirmingDelete(null);
   }
 
   return (
@@ -164,48 +171,21 @@ export function CategorySection() {
                   <>
                     <span className="flex-1 text-sm">{category.name}</span>
 
-                    {confirmingDelete === category.id ? (
-                      <>
-                        <span className="text-sm text-gray-500">
-                          Delete? Its expenses become uncategorised.
-                        </span>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className="text-sm text-red-600 underline disabled:opacity-50"
-                          onClick={() => void handleDelete(category.id)}
-                        >
-                          Yes, delete
-                        </button>
-                        <button
-                          type="button"
-                          className="text-sm text-gray-500 underline"
-                          onClick={() => setConfirmingDelete(null)}
-                        >
-                          Keep
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="text-sm underline"
-                          onClick={() => {
-                            setEditing(category.id);
-                            setEditName(category.name);
-                          }}
-                        >
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          className="text-sm text-red-600 underline"
-                          onClick={() => setConfirmingDelete(category.id)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      className="text-sm underline"
+                      onClick={() => {
+                        setEditing(category.id);
+                        setEditName(category.name);
+                      }}
+                    >
+                      Rename
+                    </button>
+                    <DeleteButton
+                      prompt="Delete? Its expenses become uncategorised."
+                      busy={busy}
+                      onConfirm={() => void handleDelete(category.id)}
+                    />
                   </>
                 )}
               </li>

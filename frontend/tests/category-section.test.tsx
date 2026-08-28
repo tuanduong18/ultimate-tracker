@@ -14,7 +14,16 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 import { ApiError } from '@/lib/api-client';
+import { useCollection } from '@/lib/hooks/use-collection';
+import type { Category } from '@/lib/types/finance';
 import { CategorySection } from '@/components/finance/category-section';
+
+// The page owns the collection now — the expense and budget forms read the same
+// one — so the test stands in for the page.
+function Harness({ onChange = () => {} }: { onChange?: () => void }) {
+  const categories = useCollection<Category>('/finance/categories');
+  return <CategorySection categories={categories} onChange={onChange} />;
+}
 
 const FOOD = { id: 'c1', name: 'Food', colour: '#22c55e', created_at: '2026-08-01T00:00:00Z' };
 const RENT = { id: 'c2', name: 'Rent', colour: '#ef4444', created_at: '2026-08-01T00:00:00Z' };
@@ -24,7 +33,7 @@ afterEach(() => vi.clearAllMocks());
 describe('CategorySection', () => {
   it('lists what the API returns', async () => {
     get.mockResolvedValue([FOOD, RENT]);
-    render(<CategorySection />);
+    render(<Harness />);
 
     expect(await screen.findByText('Food')).toBeInTheDocument();
     expect(screen.getByText('Rent')).toBeInTheDocument();
@@ -32,7 +41,7 @@ describe('CategorySection', () => {
 
   it('explains the ordering when a new user has none', async () => {
     get.mockResolvedValue([]);
-    render(<CategorySection />);
+    render(<Harness />);
 
     // Budgets require at least one category, so the empty state has to say so.
     expect(await screen.findByText(/create one before setting a budget/i)).toBeInTheDocument();
@@ -41,7 +50,7 @@ describe('CategorySection', () => {
   it('creates a category and refetches rather than guessing the new list', async () => {
     get.mockResolvedValueOnce([]).mockResolvedValueOnce([FOOD]);
     post.mockResolvedValue(FOOD);
-    render(<CategorySection />);
+    render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New category' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Food' } });
@@ -62,7 +71,7 @@ describe('CategorySection', () => {
     post.mockRejectedValue(
       new ApiError(409, { code: 'CATEGORY_NAME_TAKEN', message: "A category named 'Food' exists." })
     );
-    render(<CategorySection />);
+    render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New category' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Food' } });
@@ -76,7 +85,7 @@ describe('CategorySection', () => {
   it('renames through PATCH', async () => {
     get.mockResolvedValue([FOOD]);
     patch.mockResolvedValue({ ...FOOD, name: 'Groceries' });
-    render(<CategorySection />);
+    render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Rename' }));
     fireEvent.change(screen.getByLabelText('Rename Food'), { target: { value: 'Groceries' } });
@@ -90,7 +99,7 @@ describe('CategorySection', () => {
   it('warns that deleting uncategorises expenses, and needs a second click', async () => {
     get.mockResolvedValue([FOOD]);
     del.mockResolvedValue(undefined);
-    render(<CategorySection />);
+    render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(screen.getByText(/expenses become uncategorised/i)).toBeInTheDocument();
@@ -102,7 +111,7 @@ describe('CategorySection', () => {
 
   it('backs out of a delete without calling the API', async () => {
     get.mockResolvedValue([FOOD]);
-    render(<CategorySection />);
+    render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
@@ -113,7 +122,7 @@ describe('CategorySection', () => {
 
   it('surfaces a failed load instead of showing an empty list', async () => {
     get.mockRejectedValue(new ApiError(503, { code: 'AUTH_UNAVAILABLE', message: 'Down.' }));
-    render(<CategorySection />);
+    render(<Harness />);
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
