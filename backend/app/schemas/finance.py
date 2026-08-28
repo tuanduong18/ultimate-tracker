@@ -197,3 +197,24 @@ class BudgetRead(BaseModel):
     # chart does not need a second round trip.
     categories: list[CategoryRead]
     created_at: datetime
+
+
+# --- Summary ------------------------------------------------------------------
+
+
+class SummaryRead(BaseModel):
+    """Totals for a date range, expressed in the profile's display currency.
+
+    Expenses and budgets keep whatever currency they were recorded in; only
+    these totals are converted, and at today's rates — so a figure for last
+    month can move as rates move. That is the documented trade-off in
+    app.services.exchange_rates, not a bug.
+    """
+
+    currency: str
+    starts_on: date
+    ends_on: date
+    spent: Decimal
+    budgeted: Decimal
+    # Can be negative: that is the overspend, and the UI should say so.
+    remaining: Decimal
