@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
 from app.models.profile import Profile
+from app.schemas.profile import ProfileUpdate
 from app.services import profile as profile_service
 
 TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
@@ -42,7 +43,9 @@ async def test_returns_the_existing_profile_on_later_calls(
 ) -> None:
     async with session_factory() as db:
         await profile_service.get_or_create_profile(db, TEST_USER_ID)
-        await profile_service.update_profile_timezone(db, TEST_USER_ID, "Asia/Singapore")
+        await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(timezone="Asia/Singapore")
+        )
         again = await profile_service.get_or_create_profile(db, TEST_USER_ID)
     assert again.timezone == "Asia/Singapore"
 
@@ -76,3 +79,28 @@ async def test_losing_the_first_login_race_returns_the_winners_row(
 
     assert missed
     assert profile.timezone == "Europe/Berlin"
+
+
+async def test_partial_update_leaves_untouched_preferences_alone(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """A PATCH carrying only a timezone must not reset the display currency."""
+    async with session_factory() as db:
+        await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(display_currency="vnd")
+        )
+        profile = await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(timezone="Asia/Singapore")
+        )
+
+    assert profile.timezone == "Asia/Singapore"
+    assert profile.display_currency == "VND"
+
+
+async def test_display_currency_is_normalised_and_validated() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    assert ProfileUpdate(display_currency="usd").display_currency == "USD"
+    with pytest.raises(ValidationError):
+        ProfileUpdate(display_currency="XYZ")

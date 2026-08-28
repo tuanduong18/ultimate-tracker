@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.currencies import DEFAULT_CURRENCY
 from app.db.base import Base
 
 
@@ -19,6 +20,11 @@ class Profile(Base):
     # Mirrors auth.users.id — same UUID, no foreign key (auth lives in Supabase).
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     timezone: Mapped[str] = mapped_column(String, default="UTC", nullable=False)
+    # The currency totals are reported in. Expenses keep the currency they were
+    # spent in; only the summary converts, so changing this rewrites no history.
+    display_currency: Mapped[str] = mapped_column(
+        String(3), default=DEFAULT_CURRENCY, server_default=DEFAULT_CURRENCY, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
