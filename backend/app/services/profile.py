@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.profile import Profile
+from app.services import finance as finance_service
 
 
 async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile:
@@ -16,6 +17,9 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
     several calls. Both would read no row and both would insert the same primary
     key, so the loser of that race re-reads the winner's row rather than turning
     a normal first login into a 500.
+
+    A new profile is seeded with the default categories in the same commit, so
+    the loser of the race does not double-seed either.
     """
     profile = await db.get(Profile, user_id)
     if profile is not None:
@@ -23,6 +27,10 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
 
     profile = Profile(id=user_id)
     db.add(profile)
+    # Same transaction as the profile itself: a user who ends up with a profile
+    # but no categories cannot create a budget, and nothing would ever retry the
+    # seeding for them.
+    db.add_all(finance_service.build_default_categories(user_id))
     try:
         await db.commit()
     except IntegrityError:
