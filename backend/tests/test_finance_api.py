@@ -16,12 +16,14 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.currencies import CURRENCY_CODES
 from app.core.security import get_current_user_id
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.finance import Category
 from app.models.profile import Profile
+from app.services import exchange_rates
 
 TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 OTHER_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
@@ -307,3 +309,101 @@ async def test_delete_budget_leaves_categories_alone(finance_client: AsyncClient
     assert (await finance_client.get("/api/v1/finance/budgets")).json() == []
     categories = (await finance_client.get("/api/v1/finance/categories")).json()
     assert [c["name"] for c in categories] == ["Food"]
+
+
+# --- Summary ------------------------------------------------------------------
+
+
+@pytest.fixture
+def stub_rates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fixed rates so totals are asserted against arithmetic, not the network."""
+
+    async def _rates() -> dict[str, Decimal]:
+        return {"USD": Decimal("1"), "SGD": Decimal("1.28"), "VND": Decimal("25000")}
+
+    monkeypatch.setattr(exchange_rates, "get_rates", _rates)
+
+
+async def test_summary_converts_mixed_currencies_into_one_total(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    await make_expense(finance_client, amount="10.00", currency="USD", spent_on="2026-08-10")
+    await make_expense(finance_client, amount="12.80", currency="SGD", spent_on="2026-08-11")
+
+    resp = await finance_client.get(
+        "/api/v1/finance/summary",
+        params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # SGD 12.80 / 1.28 = USD 10.00, so the total is USD 20.00 rather than 22.80.
+    assert body["currency"] == "USD"
+    assert Decimal(body["spent"]) == Decimal("20.00")
+
+
+async def test_summary_counts_budgets_overlapping_the_window(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client)
+    await make_budget(finance_client, [food["id"]])  # 500.00 USD, Aug 1-31
+    await make_expense(finance_client, amount="30.00", currency="USD", spent_on="2026-08-10")
+
+    resp = await finance_client.get(
+        "/api/v1/finance/summary",
+        params={"start_date": "2026-08-05", "end_date": "2026-08-15"},
+    )
+    body = resp.json()
+    assert Decimal(body["budgeted"]) == Decimal("500.00")
+    assert Decimal(body["remaining"]) == Decimal("470.00")
+
+
+async def test_summary_remaining_goes_negative_when_overspent(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    await make_expense(finance_client, amount="80.00", currency="USD", spent_on="2026-08-10")
+
+    resp = await finance_client.get(
+        "/api/v1/finance/summary",
+        params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+    )
+    body = resp.json()
+    # No budgets, so the overspend is the whole spend and must not clamp to zero.
+    assert Decimal(body["remaining"]) == Decimal("-80.00")
+
+
+async def test_summary_rejects_an_inverted_range(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    resp = await finance_client.get(
+        "/api/v1/finance/summary",
+        params={"start_date": "2026-08-31", "end_date": "2026-08-01"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "INVALID_DATE_RANGE"
+
+
+async def test_summary_reports_a_missing_rate_as_our_outage(
+    finance_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rate we cannot fetch is 503, not a total that quietly omits money."""
+
+    async def _partial() -> dict[str, Decimal]:
+        return {"USD": Decimal("1")}
+
+    monkeypatch.setattr(exchange_rates, "get_rates", _partial)
+    await make_expense(finance_client, amount="50000", currency="VND", spent_on="2026-08-10")
+
+    resp = await finance_client.get(
+        "/api/v1/finance/summary",
+        params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+    )
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "RATE_UNAVAILABLE"
+
+
+async def test_currencies_endpoint_matches_the_validated_set(
+    finance_client: AsyncClient,
+) -> None:
+    body = (await finance_client.get("/api/v1/finance/currencies")).json()
+    assert "VND" in body and "USD" in body
+    assert len(body) == len(CURRENCY_CODES)

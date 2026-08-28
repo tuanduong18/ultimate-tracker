@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.profile import Profile
+from app.schemas.profile import ProfileUpdate
+from app.services import finance as finance_service
 
 
 async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile:
@@ -16,6 +18,9 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
     several calls. Both would read no row and both would insert the same primary
     key, so the loser of that race re-reads the winner's row rather than turning
     a normal first login into a 500.
+
+    A new profile is seeded with the default categories in the same commit, so
+    the loser of the race does not double-seed either.
     """
     profile = await db.get(Profile, user_id)
     if profile is not None:
@@ -23,6 +28,10 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
 
     profile = Profile(id=user_id)
     db.add(profile)
+    # Same transaction as the profile itself: a user who ends up with a profile
+    # but no categories cannot create a budget, and nothing would ever retry the
+    # seeding for them.
+    db.add_all(finance_service.build_default_categories(user_id))
     try:
         await db.commit()
     except IntegrityError:
@@ -37,10 +46,17 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
     return profile
 
 
-async def update_profile_timezone(db: AsyncSession, user_id: uuid.UUID, timezone: str) -> Profile:
-    """Update (creating first if needed) the user's timezone."""
+async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpdate) -> Profile:
+    """Apply the fields the caller actually sent, creating the profile if needed.
+
+    ``exclude_unset`` matters: every field on ProfileUpdate is optional, so a
+    PATCH carrying only a timezone must leave display_currency alone rather
+    than resetting it to the field default.
+    """
     profile = await get_or_create_profile(db, user_id)
-    profile.timezone = timezone
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(profile, field, value)
     await db.commit()
     await db.refresh(profile)
     return profile

@@ -5,11 +5,16 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
+from app.models.finance import Category
 from app.models.profile import Profile
+from app.schemas.profile import ProfileUpdate
+from app.services import finance as finance_service
 from app.services import profile as profile_service
 
 TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
@@ -42,7 +47,9 @@ async def test_returns_the_existing_profile_on_later_calls(
 ) -> None:
     async with session_factory() as db:
         await profile_service.get_or_create_profile(db, TEST_USER_ID)
-        await profile_service.update_profile_timezone(db, TEST_USER_ID, "Asia/Singapore")
+        await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(timezone="Asia/Singapore")
+        )
         again = await profile_service.get_or_create_profile(db, TEST_USER_ID)
     assert again.timezone == "Asia/Singapore"
 
@@ -76,3 +83,103 @@ async def test_losing_the_first_login_race_returns_the_winners_row(
 
     assert missed
     assert profile.timezone == "Europe/Berlin"
+
+
+async def test_partial_update_leaves_untouched_preferences_alone(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """A PATCH carrying only a timezone must not reset the display currency."""
+    async with session_factory() as db:
+        await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(display_currency="vnd")
+        )
+        profile = await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(timezone="Asia/Singapore")
+        )
+
+    assert profile.timezone == "Asia/Singapore"
+    assert profile.display_currency == "VND"
+
+
+async def test_display_currency_is_normalised_and_validated() -> None:
+    assert ProfileUpdate(display_currency="usd").display_currency == "USD"
+    with pytest.raises(ValidationError):
+        ProfileUpdate(display_currency="XYZ")
+
+
+async def _category_names(
+    session_factory: async_sessionmaker[AsyncSession], user_id: uuid.UUID
+) -> list[str]:
+    async with session_factory() as db:
+        rows = await db.scalars(
+            select(Category).where(Category.user_id == user_id).order_by(Category.name)
+        )
+        return [c.name for c in rows.all()]
+
+
+async def test_a_new_profile_is_seeded_with_the_default_categories(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as db:
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+
+    assert await _category_names(session_factory, TEST_USER_ID) == [
+        "Education",
+        "Entertainment",
+        "Food",
+        "Other",
+        "Rent",
+    ]
+
+
+async def test_seeded_categories_carry_distinct_colours(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as db:
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+        rows = (await db.scalars(select(Category).where(Category.user_id == TEST_USER_ID))).all()
+
+    colours = [c.colour for c in rows]
+    assert len(set(colours)) == len(colours), "a shared colour makes the first chart unreadable"
+    assert all(c.startswith("#") for c in colours)
+
+
+async def test_seeding_happens_once_not_on_every_access(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as db:
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+
+    assert len(await _category_names(session_factory, TEST_USER_ID)) == len(
+        finance_service.DEFAULT_CATEGORIES
+    )
+
+
+async def test_losing_the_race_does_not_double_seed(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """The loser rolls back its own seed rather than duplicating the winner's."""
+    async with session_factory() as winner:
+        winner.add(Profile(id=TEST_USER_ID))
+        winner.add_all(finance_service.build_default_categories(TEST_USER_ID))
+        await winner.commit()
+
+    async with session_factory() as db:
+        real_get = db.get
+        missed = False
+
+        async def get_missing_once(entity: Any, ident: Any, **kwargs: Any) -> Any:
+            nonlocal missed
+            if not missed:
+                missed = True
+                return None
+            return await real_get(entity, ident, **kwargs)
+
+        db.get = get_missing_once  # type: ignore[method-assign]
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+
+    assert len(await _category_names(session_factory, TEST_USER_ID)) == len(
+        finance_service.DEFAULT_CATEGORIES
+    )

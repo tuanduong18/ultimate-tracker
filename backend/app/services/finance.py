@@ -8,6 +8,7 @@ is a single line and every handler agrees on the mapping.
 import uuid
 from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -24,6 +25,7 @@ from app.schemas.finance import (
     ExpenseUpdate,
     check_amount_scale,
 )
+from app.services import exchange_rates
 
 
 class FinanceError(Exception):
@@ -92,6 +94,30 @@ def _check_scale(amount: Any, currency: Any) -> None:
 
 
 # --- Categories ---------------------------------------------------------------
+
+# Seeded for every new profile. A brand-new user would otherwise land on an
+# empty finance page unable to create a budget at all, since BudgetCreate
+# requires at least one category. Distinct colours so the first chart is
+# readable without anyone picking swatches.
+DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
+    ("Food", "#22c55e"),
+    ("Rent", "#ef4444"),
+    ("Education", "#3b82f6"),
+    ("Entertainment", "#a855f7"),
+    ("Other", "#94a3b8"),
+)
+
+
+def build_default_categories(user_id: uuid.UUID) -> list[Category]:
+    """The starter set, unsaved.
+
+    Returned rather than committed so the caller can persist them in the same
+    transaction that creates the profile — a user with a profile but no
+    categories would be a state nothing else in the app expects.
+    """
+    return [
+        Category(user_id=user_id, name=name, colour=colour) for name, colour in DEFAULT_CATEGORIES
+    ]
 
 
 async def list_categories(db: AsyncSession, user_id: uuid.UUID) -> Sequence[Category]:
@@ -309,3 +335,79 @@ async def delete_budget(db: AsyncSession, user_id: uuid.UUID, budget_id: uuid.UU
     budget = await _get_owned_budget(db, user_id, budget_id)
     await db.delete(budget)
     await db.commit()
+
+
+# --- Summary ------------------------------------------------------------------
+
+
+class RateUnavailableError(FinanceError):
+    status_code = 503
+    code = "RATE_UNAVAILABLE"
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"Could not convert to the display currency: {detail}")
+
+
+async def _total_in(rows: Sequence[tuple[Decimal, str]], target: str) -> Decimal:
+    """Sum (amount, currency) pairs into one target-currency total.
+
+    Converting per row rather than per currency group keeps this honest about
+    rounding: each conversion is quantized to the target's minor units, so the
+    total cannot claim precision the currency does not have.
+    """
+    total = Decimal(0)
+    for amount, currency in rows:
+        total += await exchange_rates.convert(amount, currency, target)
+    return total
+
+
+async def summarize(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    start_date: date,
+    end_date: date,
+    display_currency: str,
+) -> dict[str, Any]:
+    """Spent, budgeted and remaining over a date range, in one currency."""
+    if end_date < start_date:
+        raise InvalidDateRangeError()
+
+    spent_rows = (
+        await db.execute(
+            select(Expense.amount, Expense.currency).where(
+                Expense.user_id == user_id,
+                Expense.spent_on >= start_date,
+                Expense.spent_on <= end_date,
+            )
+        )
+    ).all()
+
+    # A budget counts when its range overlaps the window at all, which is the
+    # same rule the UI uses to call a budget "active" for a period.
+    budget_rows = (
+        await db.execute(
+            select(Budget.amount, Budget.currency).where(
+                Budget.user_id == user_id,
+                Budget.starts_on <= end_date,
+                Budget.ends_on >= start_date,
+            )
+        )
+    ).all()
+
+    try:
+        spent = await _total_in([(a, c) for a, c in spent_rows], display_currency)
+        budgeted = await _total_in([(a, c) for a, c in budget_rows], display_currency)
+    except ValueError as exc:
+        # No rate for one of the currencies involved — our problem, not the
+        # caller's, and temporary. Answering 0 would be a lie about their money.
+        raise RateUnavailableError(str(exc)) from exc
+
+    return {
+        "currency": display_currency,
+        "starts_on": start_date,
+        "ends_on": end_date,
+        "spent": spent,
+        "budgeted": budgeted,
+        "remaining": budgeted - spent,
+    }

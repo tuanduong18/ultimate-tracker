@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.currencies import CURRENCY_CODES
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.finance import (
@@ -18,8 +19,10 @@ from app.schemas.finance import (
     ExpenseCreate,
     ExpenseRead,
     ExpenseUpdate,
+    SummaryRead,
 )
 from app.services import finance as finance_service
+from app.services import profile as profile_service
 
 router = APIRouter()
 
@@ -188,3 +191,42 @@ async def delete_budget(
         await finance_service.delete_budget(db, user_id, budget_id)
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
+
+
+# --- Reference data -----------------------------------------------------------
+
+
+@router.get("/currencies", response_model=list[str])
+async def list_currencies() -> list[str]:
+    """Currency codes the API will accept.
+
+    Served rather than duplicated in the frontend so the picker cannot drift
+    from what the schemas actually validate against. Unauthenticated on
+    purpose: it is a static list, identical for everyone.
+    """
+    return list(CURRENCY_CODES)
+
+
+# --- Summary ------------------------------------------------------------------
+
+
+@router.get("/summary", response_model=SummaryRead)
+async def read_summary(
+    start_date: date,
+    end_date: date,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> SummaryRead:
+    """Spent, budgeted and remaining for a date range, in the display currency."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        totals = await finance_service.summarize(
+            db,
+            user_id,
+            start_date=start_date,
+            end_date=end_date,
+            display_currency=profile.display_currency,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return SummaryRead.model_validate(totals)
