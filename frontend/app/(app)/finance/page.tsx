@@ -1,10 +1,12 @@
 /**
  * Personal budgeting.
  *
- * Layout skeleton only for now — the sections below mirror the three resources
- * the API exposes (`/finance/categories`, `/finance/expenses`, `/finance/budgets`)
- * so wiring each one up is a local change rather than a re-layout.
+ * Categories are wired to /finance/categories. Budgets, expenses and the
+ * summary tiles are still placeholders — the sections mirror the API's
+ * resources so each can be filled in without a re-layout.
  */
+
+import { CategorySection } from '@/components/finance/category-section';
 
 function SummaryTile({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
@@ -64,9 +66,7 @@ export default function FinancePage() {
         <EmptyState>Nothing logged yet.</EmptyState>
       </Section>
 
-      <Section title="Categories" action="New category">
-        <EmptyState>No categories yet. Create one before setting a budget.</EmptyState>
-      </Section>
+      <CategorySection />
     </main>
   );
 }
