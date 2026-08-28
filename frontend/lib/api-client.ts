@@ -9,18 +9,27 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8
 export interface ApiErrorBody {
   code: string;
   message: string;
+  /**
+   * Only VALIDATION_ERROR carries this: the raw Pydantic error list, whose
+   * `message` is the useless constant "Request validation failed.". The
+   * per-field reason ("VND amounts take at most 0 decimal place(s)") is in
+   * here, so it has to survive as far as the UI.
+   */
+  details?: unknown;
 }
 
 /** Error thrown for any non-2xx response, carrying the backend error shape. */
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
+  readonly details?: unknown;
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.message);
     this.name = 'ApiError';
     this.code = body.code;
     this.status = status;
+    this.details = body.details;
   }
 }
 

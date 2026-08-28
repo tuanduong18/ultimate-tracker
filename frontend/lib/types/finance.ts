@@ -62,3 +62,18 @@ export function formatMoney(amount: string, currency: string): string {
     return `${amount} ${currency}`;
   }
 }
+
+/**
+ * Reject locally only what is wrong for *any* currency.
+ *
+ * How many decimals a currency actually allows (0 for VND, 3 for KWD) is the
+ * backend's call — it owns the minor-units table, and duplicating that here is
+ * how the two drift apart. This catches the typo; the API catches the rest, and
+ * `describeError` turns its answer into a sentence.
+ */
+export function amountProblem(raw: string): string | null {
+  const value = raw.trim();
+  if (!/^\d+(\.\d{1,3})?$/.test(value)) return 'Enter an amount like 12.50.';
+  if (Number(value) <= 0) return 'The amount must be more than zero.';
+  return null;
+}
