@@ -30,4 +30,4 @@ pytest-cov>=7.1,<8
 # Keep the ruff pin in sync with the rev in .pre-commit-config.yaml, so the hook
 # and CI cannot disagree about formatting.
 ruff>=0.15,<0.16
-mypy>=2.3,<3
+mypy>=2.3.1,<3
