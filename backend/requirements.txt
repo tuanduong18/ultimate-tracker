@@ -22,7 +22,7 @@ structlog>=26.1,<27
 sentry-sdk[fastapi]>=2.68.0,<3
 
 # --- Tooling / tests (kept here so CI installs them with one file) ---
-httpx>=0.28,<0.29
+httpx>=0.28.1,<0.29
 aiosqlite>=0.22.1,<0.23
 pytest>=9.1,<10
 pytest-asyncio>=1.4,<2
