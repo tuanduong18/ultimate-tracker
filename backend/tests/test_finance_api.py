@@ -794,3 +794,149 @@ async def test_someone_elses_budget_is_not_in_my_progress(
         await session.commit()
 
     assert (await finance_client.get("/api/v1/finance/budgets/progress")).json() == []
+
+
+# --- Breakdown filtering ------------------------------------------------------
+
+
+async def test_category_breakdown_keeps_only_the_chosen_categories(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    rent = await make_category(finance_client, name="Rent")
+    await make_expense(
+        finance_client,
+        amount="10.00",
+        currency="USD",
+        category_id=food["id"],
+        spent_on="2026-08-10",
+    )
+    await make_expense(
+        finance_client,
+        amount="500.00",
+        currency="USD",
+        category_id=rent["id"],
+        spent_on="2026-08-11",
+    )
+
+    body = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-category",
+            params={
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-31",
+                "category_ids": [food["id"]],
+            },
+        )
+    ).json()
+
+    # Rent dwarfs everything else, which is the reason to be able to drop it.
+    assert [c["name"] for c in body["categories"]] == ["Food"]
+
+
+async def test_period_breakdown_totals_only_the_chosen_categories(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    rent = await make_category(finance_client, name="Rent")
+    await make_expense(
+        finance_client,
+        amount="10.00",
+        currency="USD",
+        category_id=food["id"],
+        spent_on="2026-08-10",
+    )
+    await make_expense(
+        finance_client,
+        amount="500.00",
+        currency="USD",
+        category_id=rent["id"],
+        spent_on="2026-08-10",
+    )
+
+    body = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-period",
+            params={
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-31",
+                "category_ids": [food["id"]],
+            },
+        )
+    ).json()
+
+    assert sum(Decimal(b["spent"]) for b in body["buckets"]) == Decimal("10.00")
+
+
+async def test_uncategorized_spend_can_be_dropped_on_its_own(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    """The bucket with no id still has to be switchable, or it cannot be hidden."""
+    food = await make_category(finance_client, name="Food")
+    await make_expense(
+        finance_client,
+        amount="10.00",
+        currency="USD",
+        category_id=food["id"],
+        spent_on="2026-08-10",
+    )
+    await make_expense(finance_client, amount="99.00", currency="USD", spent_on="2026-08-11")
+    params = {"start_date": "2026-08-01", "end_date": "2026-08-31"}
+
+    with_bucket = (
+        await finance_client.get("/api/v1/finance/summary/by-category", params=params)
+    ).json()
+    assert len(with_bucket["categories"]) == 2
+
+    without = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-category",
+            params={**params, "include_uncategorized": "false"},
+        )
+    ).json()
+    # Every named category survives; only the nameless bucket goes.
+    assert [c["name"] for c in without["categories"]] == ["Food"]
+
+
+async def test_selecting_nothing_reports_nothing(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    """An empty selection must not fall back to showing everything."""
+    await make_expense(finance_client, amount="10.00", currency="USD", spent_on="2026-08-10")
+
+    body = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-period",
+            params={
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-31",
+                "category_ids": [],
+                "include_uncategorized": "false",
+            },
+        )
+    ).json()
+
+    assert sum(Decimal(b["spent"]) for b in body["buckets"]) == Decimal("0")
+
+
+async def test_no_filter_still_means_everything(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    await make_expense(
+        finance_client,
+        amount="10.00",
+        currency="USD",
+        category_id=food["id"],
+        spent_on="2026-08-10",
+    )
+    await make_expense(finance_client, amount="7.00", currency="USD", spent_on="2026-08-11")
+
+    body = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-period",
+            params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+        )
+    ).json()
+
+    assert sum(Decimal(b["spent"]) for b in body["buckets"]) == Decimal("17.00")

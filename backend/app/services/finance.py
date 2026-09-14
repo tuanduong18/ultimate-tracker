@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, false, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -416,6 +416,36 @@ async def summarize(
 
 # --- Breakdowns ---------------------------------------------------------------
 
+
+def category_clause(
+    category_ids: Sequence[uuid.UUID] | None,
+    include_uncategorized: bool,
+) -> ColumnElement[bool] | None:
+    """Restrict expenses to a chosen set of categories, or None for no restriction.
+
+    Four cases, and the one worth spelling out is the third: a caller that sends
+    no list is asking for every category, including ones created after it last
+    looked. Only the uncategorized bucket can be switched off on its own, which
+    is what makes it possible to hide the spend left behind by a deleted
+    category without naming every category that still exists.
+
+    An empty list with the bucket off selects nothing, and says so, rather than
+    quietly falling back to everything — a chart of all spending is a bad answer
+    to "show me none of it".
+    """
+    if category_ids is None:
+        return None if include_uncategorized else Expense.category_id.is_not(None)
+
+    clauses: list[ColumnElement[bool]] = []
+    if category_ids:
+        clauses.append(Expense.category_id.in_(category_ids))
+    if include_uncategorized:
+        clauses.append(Expense.category_id.is_(None))
+    if not clauses:
+        return false()
+    return or_(*clauses)
+
+
 # The bucket expenses land in once their category is deleted. The colour is the
 # one the expense list already falls back to for a null category, so a slice and
 # a row for the same spend do not disagree about what colour "no category" is.
@@ -430,6 +460,8 @@ async def summarize_by_category(
     start_date: date,
     end_date: date,
     display_currency: str,
+    category_ids: Sequence[uuid.UUID] | None = None,
+    include_uncategorized: bool = True,
 ) -> dict[str, Any]:
     """Spend per category over a range, converted into one currency.
 
@@ -442,15 +474,15 @@ async def summarize_by_category(
     if end_date < start_date:
         raise InvalidDateRangeError()
 
-    rows = (
-        await db.execute(
-            select(Expense.amount, Expense.currency, Expense.category_id).where(
-                Expense.user_id == user_id,
-                Expense.spent_on >= start_date,
-                Expense.spent_on <= end_date,
-            )
-        )
-    ).all()
+    chosen = category_clause(category_ids, include_uncategorized)
+    stmt = select(Expense.amount, Expense.currency, Expense.category_id).where(
+        Expense.user_id == user_id,
+        Expense.spent_on >= start_date,
+        Expense.spent_on <= end_date,
+    )
+    if chosen is not None:
+        stmt = stmt.where(chosen)
+    rows = (await db.execute(stmt)).all()
 
     grouped: dict[uuid.UUID | None, list[tuple[Decimal, str]]] = defaultdict(list)
     for amount, currency, category_id in rows:
@@ -531,6 +563,8 @@ async def summarize_by_period(
     end_date: date,
     granularity: str,
     display_currency: str,
+    category_ids: Sequence[uuid.UUID] | None = None,
+    include_uncategorized: bool = True,
 ) -> dict[str, Any]:
     """Spend per day or per week over a range, converted into one currency.
 
@@ -548,15 +582,15 @@ async def summarize_by_period(
     if bucketer is None:
         raise UnknownGranularityError(granularity)
 
-    rows = (
-        await db.execute(
-            select(Expense.amount, Expense.currency, Expense.spent_on).where(
-                Expense.user_id == user_id,
-                Expense.spent_on >= start_date,
-                Expense.spent_on <= end_date,
-            )
-        )
-    ).all()
+    chosen = category_clause(category_ids, include_uncategorized)
+    stmt = select(Expense.amount, Expense.currency, Expense.spent_on).where(
+        Expense.user_id == user_id,
+        Expense.spent_on >= start_date,
+        Expense.spent_on <= end_date,
+    )
+    if chosen is not None:
+        stmt = stmt.where(chosen)
+    rows = (await db.execute(stmt)).all()
 
     buckets: list[dict[str, Any]] = []
     try:

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -258,10 +259,18 @@ async def read_summary(
 async def read_category_breakdown(
     start_date: date,
     end_date: date,
+    category_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    include_uncategorized: bool = True,
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CategoryBreakdownRead:
-    """Spend per category over a date range, in the display currency."""
+    """Spend per category over a date range, in the display currency.
+
+    Both filter parameters are optional and default to everything. `category_ids`
+    absent means every category, including any created since the caller last
+    looked; `include_uncategorized` switches off the bucket holding spend whose
+    category was deleted, which has no id to name it by.
+    """
     profile = await profile_service.get_or_create_profile(db, user_id)
     try:
         breakdown = await finance_service.summarize_by_category(
@@ -270,6 +279,8 @@ async def read_category_breakdown(
             start_date=start_date,
             end_date=end_date,
             display_currency=profile.display_currency,
+            category_ids=category_ids,
+            include_uncategorized=include_uncategorized,
         )
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
@@ -281,6 +292,8 @@ async def read_period_breakdown(
     start_date: date,
     end_date: date,
     granularity: Granularity = "week",
+    category_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    include_uncategorized: bool = True,
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> PeriodBreakdownRead:
@@ -288,6 +301,11 @@ async def read_period_breakdown(
 
     The bar chart picks the granularity from how long the range is, so that a
     week shows seven bars and a quarter shows thirteen rather than ninety.
+
+    Both filter parameters are optional and default to everything. `category_ids`
+    absent means every category, including any created since the caller last
+    looked; `include_uncategorized` switches off the bucket holding spend whose
+    category was deleted, which has no id to name it by.
     """
     profile = await profile_service.get_or_create_profile(db, user_id)
     try:
@@ -298,6 +316,8 @@ async def read_period_breakdown(
             end_date=end_date,
             granularity=granularity,
             display_currency=profile.display_currency,
+            category_ids=category_ids,
+            include_uncategorized=include_uncategorized,
         )
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
