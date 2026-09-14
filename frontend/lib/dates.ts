@@ -61,11 +61,15 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * "3–9 Aug" — the span one bar of the weekly chart covers.
+ * "Aug 3 – 9" — the span one bar of the weekly chart covers.
  *
  * The first and last bar of a month are clipped by its ends, so bars are not all
  * the same width in days. Labelling each with its actual span is what stops a
  * two-day bar from reading as a quiet week.
+ *
+ * Formatted by Intl rather than by hand. Intl knows to write "Aug 3 – 9" where
+ * hand-assembling the parts produced "3 – Aug 9" in any locale that puts the
+ * month first, which is most of them.
  */
 export function formatSpan(startIso: string, endIso: string): string {
   const start = fromIso(startIso);
@@ -74,13 +78,7 @@ export function formatSpan(startIso: string, endIso: string): string {
 
   const dayMonth = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
   if (startIso === endIso) return dayMonth.format(start);
-
-  // Within one month the month name only needs saying once.
-  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
-    return `${day.format(start)}–${dayMonth.format(end)}`;
-  }
-  return `${dayMonth.format(start)} – ${dayMonth.format(end)}`;
+  return dayMonth.formatRange(start, end);
 }
 
 /** An inclusive date range, both ends as the YYYY-MM-DD the API expects. */
@@ -125,7 +123,7 @@ export function shiftRange(range: DateRange, direction: 1 | -1): DateRange {
 }
 
 /**
- * "1 – 30 Sep 2026" — the window a chart is showing.
+ * "Aug 1 – 31, 2026" — the window a chart is showing.
  *
  * Unlike formatSpan, which labels one bar inside a known window, this is the
  * only place the window itself is named, so it always carries the year.
@@ -141,13 +139,5 @@ export function formatRange(range: DateRange): string {
     year: 'numeric',
   });
   if (range.start === range.end) return full.format(start);
-
-  const sameYear = start.getFullYear() === end.getFullYear();
-  const sameMonth = sameYear && start.getMonth() === end.getMonth();
-  if (sameMonth) {
-    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
-    return `${day.format(start)} – ${full.format(end)}`;
-  }
-  const dayMonth = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
-  return `${sameYear ? dayMonth.format(start) : full.format(start)} – ${full.format(end)}`;
+  return full.formatRange(start, end);
 }

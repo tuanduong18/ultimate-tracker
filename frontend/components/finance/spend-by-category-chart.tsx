@@ -2,11 +2,16 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
+import {
+  CategoryFilter,
+  isEmptySelection,
+  type CategorySelection,
+} from '@/components/finance/category-filter';
 import { Panel, PanelNote } from '@/components/finance/panel';
 import { RangeControl } from '@/components/finance/range-control';
-import type { DateRange } from '@/lib/dates';
+import { formatRange, shiftRange, type DateRange } from '@/lib/dates';
 import type { Resource } from '@/lib/hooks/use-collection';
-import { formatMoney, type CategoryBreakdown } from '@/lib/types/finance';
+import { formatMoney, type Category, type CategoryBreakdown } from '@/lib/types/finance';
 
 /**
  * A slice, ready for recharts.
@@ -16,12 +21,43 @@ import { formatMoney, type CategoryBreakdown } from '@/lib/types/finance';
  * from the server rather than from a float round trip.
  */
 interface Slice {
+  key: string;
   name: string;
   colour: string;
   value: number;
   spent: string;
-  /** Whole percent of the range's total. Sizing a legend row, not money. */
+  /** Whole percent of this pie's total. Sizing a legend row, not money. */
   share: number;
+}
+
+/** One row of the shared legend: the same category in both pies. */
+interface Comparison {
+  key: string;
+  name: string;
+  colour: string;
+  previous: number;
+  current: number;
+}
+
+/** The uncategorized bucket has no id, so it needs a key of its own. */
+function sliceKey(categoryId: string | null): string {
+  return categoryId ?? 'uncategorised';
+}
+
+function toSlices(breakdown: CategoryBreakdown | null): Slice[] {
+  const rows = breakdown?.categories ?? [];
+  const total = rows.reduce((sum, row) => sum + Number(row.spent), 0);
+  return rows.map((row) => {
+    const value = Number(row.spent);
+    return {
+      key: sliceKey(row.category_id),
+      name: row.name,
+      colour: row.colour,
+      value,
+      spent: row.spent,
+      share: total > 0 ? Math.round((value / total) * 100) : 0,
+    };
+  });
 }
 
 function SliceTooltip({
@@ -45,87 +81,177 @@ function SliceTooltip({
   );
 }
 
-interface SpendByCategoryChartProps {
-  breakdown: Resource<CategoryBreakdown>;
-  range: DateRange;
-  onRangeChange: (range: DateRange) => void;
+function Pies({
+  slices,
+  currency,
+  caption,
+  emptyNote,
+}: {
+  slices: Slice[];
+  currency: string;
+  caption: string;
+  emptyNote: string;
+}) {
+  return (
+    <div className="flex min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        {slices.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-center text-xs text-fg-subtle">{emptyNote}</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={slices}
+                dataKey="value"
+                nameKey="name"
+                // A solid circle, not a ring: nothing sits in the middle worth
+                // cutting a hole for, and slices are easier to compare by area
+                // when each runs all the way to the centre.
+                innerRadius={0}
+                outerRadius="92%"
+                label={false}
+                stroke="none"
+                isAnimationActive={false}
+              >
+                {slices.map((slice) => (
+                  <Cell key={slice.key} fill={slice.colour} />
+                ))}
+              </Pie>
+              <Tooltip content={<SliceTooltip currency={currency} />} />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+      <p className="mt-1 truncate text-center text-[11px] text-fg-muted">{caption}</p>
+    </div>
+  );
 }
 
+/**
+ * Line up the two pies' categories so one legend can serve both.
+ *
+ * A category can be missing from either side — new this period, or nothing
+ * spent on it last period — so the rows are the union, with a zero standing in
+ * for absent. Dropping either side's extras would hide exactly the changes the
+ * comparison exists to show.
+ */
+function compare(previous: Slice[], current: Slice[]): Comparison[] {
+  const rows = new Map<string, Comparison>();
+  for (const [slices, field] of [
+    [previous, 'previous'],
+    [current, 'current'],
+  ] as const) {
+    for (const slice of slices) {
+      const row = rows.get(slice.key) ?? {
+        key: slice.key,
+        name: slice.name,
+        colour: slice.colour,
+        previous: 0,
+        current: 0,
+      };
+      row[field] = slice.share;
+      rows.set(slice.key, row);
+    }
+  }
+  return [...rows.values()].sort(
+    (a, b) => b.current - a.current || b.previous - a.previous || a.name.localeCompare(b.name)
+  );
+}
+
+interface SpendByCategoryChartProps {
+  current: Resource<CategoryBreakdown>;
+  previous: Resource<CategoryBreakdown>;
+  range: DateRange;
+  onRangeChange: (range: DateRange) => void;
+  categories: Category[];
+  selection: CategorySelection;
+  onSelectionChange: (selection: CategorySelection) => void;
+}
+
+/**
+ * Where the money went, this period against the one before it.
+ *
+ * Two pies rather than one because a single share is hard to judge — 24% on
+ * food is only high or low next to what it was. They share a legend, which is
+ * what makes the pair readable: one row per category carrying both figures,
+ * so the comparison is a line of text rather than an eye flicking between two
+ * circles.
+ */
 export function SpendByCategoryChart({
-  breakdown,
+  current,
+  previous,
   range,
   onRangeChange,
+  categories,
+  selection,
+  onSelectionChange,
 }: SpendByCategoryChartProps) {
-  const { data, loading, error } = breakdown;
-  const currency = data?.currency ?? 'USD';
+  const currency = current.data?.currency ?? 'USD';
+  const error = current.error ?? previous.error;
+  const loading = current.loading || previous.loading;
 
-  const rows = data?.categories ?? [];
-  const total = rows.reduce((sum, category) => sum + Number(category.spent), 0);
-  const slices: Slice[] = rows.map((category) => {
-    const value = Number(category.spent);
-    return {
-      name: category.name,
-      colour: category.colour,
-      value,
-      spent: category.spent,
-      share: total > 0 ? Math.round((value / total) * 100) : 0,
-    };
-  });
+  const currentSlices = toSlices(current.data);
+  const previousSlices = toSlices(previous.data);
+  const rows = compare(previousSlices, currentSlices);
+  const previousRange = shiftRange(range, -1);
 
   return (
     <Panel
       title="Spending categories"
       error={error}
-      className="h-[26rem]"
+      className="h-[30rem]"
+      action={
+        <CategoryFilter
+          categories={categories}
+          selection={selection}
+          onChange={onSelectionChange}
+          idPrefix="category-filter"
+        />
+      }
       header={<RangeControl range={range} onChange={onRangeChange} idPrefix="category" />}
     >
       {loading ? (
         <PanelNote>Loading…</PanelNote>
-      ) : slices.length === 0 ? (
-        <PanelNote>Nothing spent in this period yet.</PanelNote>
+      ) : isEmptySelection(selection) ? (
+        <PanelNote>No categories selected.</PanelNote>
+      ) : rows.length === 0 ? (
+        <PanelNote>Nothing spent in either period yet.</PanelNote>
       ) : (
-        <div className="flex h-full items-center gap-4 p-4 pt-2">
-          <div className="h-full min-w-0 flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={slices}
-                  dataKey="value"
-                  nameKey="name"
-                  // A solid circle, not a ring: nothing sits in the middle worth
-                  // cutting a hole for, and slices are easier to compare by area
-                  // when each runs all the way to the centre.
-                  innerRadius={0}
-                  outerRadius="92%"
-                  // Off, because the slices that need a label are the thin ones
-                  // and those are exactly where a label has nowhere to go. The
-                  // legend beside the chart carries the same information.
-                  label={false}
-                  stroke="none"
-                  isAnimationActive={false}
-                >
-                  {slices.map((slice) => (
-                    <Cell key={slice.name} fill={slice.colour} />
-                  ))}
-                </Pie>
-                <Tooltip content={<SliceTooltip currency={currency} />} />
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="flex h-full flex-col p-4 pt-2">
+          <div className="grid min-h-0 flex-[3] grid-cols-2 gap-3">
+            <Pies
+              slices={previousSlices}
+              currency={currency}
+              caption={formatRange(previousRange)}
+              emptyNote="Nothing spent"
+            />
+            <Pies
+              slices={currentSlices}
+              currency={currency}
+              caption={formatRange(range)}
+              emptyNote="Nothing spent"
+            />
           </div>
 
           {/* Share first, then name: the question a pie is asked is "how much of
               the total", and reading down a column of percentages answers it
               without going back to the chart. */}
-          <ul className="max-h-full w-40 shrink-0 space-y-2 overflow-y-auto text-xs">
-            {slices.map((slice) => (
-              <li key={slice.name} className="flex items-center gap-2">
+          <ul className="mt-3 min-h-0 flex-[2] space-y-1.5 overflow-y-auto text-xs">
+            {rows.map((row) => (
+              <li key={row.key} className="flex items-center gap-2">
                 <span
                   aria-hidden
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: slice.colour }}
+                  style={{ backgroundColor: row.colour }}
                 />
-                <span className="shrink-0 font-semibold tabular-nums">{slice.share}%</span>
-                <span className="min-w-0 flex-1 truncate text-fg-muted">{slice.name}</span>
+                <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                <span className="shrink-0 tabular-nums text-fg-muted">{row.previous}%</span>
+                <span aria-hidden className="shrink-0 text-fg-subtle">
+                  →
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">{row.current}%</span>
               </li>
             ))}
           </ul>

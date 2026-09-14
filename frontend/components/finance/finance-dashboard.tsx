@@ -5,10 +5,15 @@ import { useCallback, useState } from 'react';
 import { BudgetSection } from '@/components/finance/budget-section';
 import { CategorySection } from '@/components/finance/category-section';
 import { ExpenseSection } from '@/components/finance/expense-section';
+import {
+  ALL_CATEGORIES,
+  selectionQuery,
+  type CategorySelection,
+} from '@/components/finance/category-filter';
 import { granularityFor } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
-import { monthRange } from '@/lib/dates';
+import { monthRange, shiftRange } from '@/lib/dates';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type {
   BudgetProgress,
@@ -43,6 +48,12 @@ export function FinanceDashboard() {
   const [periodRange, setPeriodRange] = useState(monthRange);
   const [categoryRange, setCategoryRange] = useState(monthRange);
 
+  // Everything is included until someone says otherwise, and a filter belongs
+  // to the chart it narrows: hiding rent to read the small spending on one
+  // chart should not silently reshape the other.
+  const [periodSelection, setPeriodSelection] = useState<CategorySelection>(ALL_CATEGORIES);
+  const [categorySelection, setCategorySelection] = useState<CategorySelection>(ALL_CATEGORIES);
+
   const categories = useCollection<Category>('/finance/categories');
   const expenses = useCollection<Expense>('/finance/expenses');
   const currencies = useCollection<string>('/finance/currencies');
@@ -52,19 +63,31 @@ export function FinanceDashboard() {
   // the bars and the edit forms cannot disagree after a write.
   const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
 
-  // Each chart refetches when its own range moves: the path is the hook's
-  // dependency, so a new range is a new resource rather than a manual reload.
+  // Each chart refetches when its own range or filter moves: the path is the
+  // hook's dependency, so either is a new resource rather than a manual reload.
+  const categoryFilter = selectionQuery(categorySelection);
+  const previousCategoryRange = shiftRange(categoryRange, -1);
+
   const byCategory = useResource<CategoryBreakdown>(
-    `/finance/summary/by-category?start_date=${categoryRange.start}&end_date=${categoryRange.end}`
+    `/finance/summary/by-category?start_date=${categoryRange.start}` +
+      `&end_date=${categoryRange.end}${categoryFilter}`
+  );
+  // The same window, one length earlier — the left-hand pie. Fetched rather
+  // than derived: the API converts currencies, and last period's totals are not
+  // a subset of this period's.
+  const byCategoryBefore = useResource<CategoryBreakdown>(
+    `/finance/summary/by-category?start_date=${previousCategoryRange.start}` +
+      `&end_date=${previousCategoryRange.end}${categoryFilter}`
   );
   const byPeriod = useResource<PeriodBreakdown>(
     `/finance/summary/by-period?start_date=${periodRange.start}&end_date=${periodRange.end}` +
-      `&granularity=${granularityFor(periodRange)}`
+      `&granularity=${granularityFor(periodRange)}${selectionQuery(periodSelection)}`
   );
 
   const reloadExpenses = expenses.reload;
   const reloadBudgets = budgets.reload;
   const reloadByCategory = byCategory.reload;
+  const reloadByCategoryBefore = byCategoryBefore.reload;
   const reloadByPeriod = byPeriod.reload;
 
   /**
@@ -77,8 +100,9 @@ export function FinanceDashboard() {
    */
   const reloadAggregates = useCallback(() => {
     void reloadByCategory();
+    void reloadByCategoryBefore();
     void reloadByPeriod();
-  }, [reloadByCategory, reloadByPeriod]);
+  }, [reloadByCategory, reloadByCategoryBefore, reloadByPeriod]);
 
   /** An expense moved, so the budget bars it counts against moved with it. */
   const onExpensesChanged = useCallback(() => {
@@ -110,14 +134,21 @@ export function FinanceDashboard() {
     <div className="mt-6 space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
         <SpendByCategoryChart
-          breakdown={byCategory}
+          current={byCategory}
+          previous={byCategoryBefore}
           range={categoryRange}
           onRangeChange={setCategoryRange}
+          categories={categories.items}
+          selection={categorySelection}
+          onSelectionChange={setCategorySelection}
         />
         <SpendByPeriodChart
           breakdown={byPeriod}
           range={periodRange}
           onRangeChange={setPeriodRange}
+          categories={categories.items}
+          selection={periodSelection}
+          onSelectionChange={setPeriodSelection}
         />
       </div>
 

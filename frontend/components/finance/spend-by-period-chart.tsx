@@ -2,12 +2,17 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
+import {
+  CategoryFilter,
+  isEmptySelection,
+  type CategorySelection,
+} from '@/components/finance/category-filter';
 import { Panel, PanelNote } from '@/components/finance/panel';
 import { RangeControl } from '@/components/finance/range-control';
 import { formatSpan, type DateRange } from '@/lib/dates';
 import { useThemeColours } from '@/lib/hooks/use-theme-colours';
 import type { Resource } from '@/lib/hooks/use-collection';
-import { formatMoney, type PeriodBreakdown } from '@/lib/types/finance';
+import { formatMoney, type Category, type PeriodBreakdown } from '@/lib/types/finance';
 
 /** Unique per chart instance, since two charts on one page share a document. */
 const GRADIENT_ID = 'spend-bar-gradient';
@@ -86,6 +91,9 @@ interface SpendByPeriodChartProps {
   breakdown: Resource<PeriodBreakdown>;
   range: DateRange;
   onRangeChange: (range: DateRange) => void;
+  categories: Category[];
+  selection: CategorySelection;
+  onSelectionChange: (selection: CategorySelection) => void;
 }
 
 /**
@@ -95,7 +103,14 @@ interface SpendByPeriodChartProps {
  * because a week bucket clipped by the ends of the range is shorter than the
  * rest and should look short for a visible reason.
  */
-export function SpendByPeriodChart({ breakdown, range, onRangeChange }: SpendByPeriodChartProps) {
+export function SpendByPeriodChart({
+  breakdown,
+  range,
+  onRangeChange,
+  categories,
+  selection,
+  onSelectionChange,
+}: SpendByPeriodChartProps) {
   const { data, loading, error } = breakdown;
   // recharts styles its SVG from props, so these cannot be Tailwind classes.
   const colour = useThemeColours();
@@ -119,11 +134,21 @@ export function SpendByPeriodChart({ breakdown, range, onRangeChange }: SpendByP
     <Panel
       title="Spending amount"
       error={error}
-      className="h-[26rem]"
+      className="h-[30rem]"
+      action={
+        <CategoryFilter
+          categories={categories}
+          selection={selection}
+          onChange={onSelectionChange}
+          idPrefix="period-filter"
+        />
+      }
       header={<RangeControl range={range} onChange={onRangeChange} idPrefix="period" />}
     >
       {loading ? (
         <PanelNote>Loading…</PanelNote>
+      ) : isEmptySelection(selection) ? (
+        <PanelNote>No categories selected.</PanelNote>
       ) : !anySpend ? (
         <PanelNote>Nothing spent in this period yet.</PanelNote>
       ) : (
