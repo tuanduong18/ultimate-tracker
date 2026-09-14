@@ -2,187 +2,115 @@
 
 import { useState } from 'react';
 
-import { CurrencySelect } from '@/components/finance/currency-select';
+import { BudgetForm, type BudgetValues } from '@/components/finance/budget-form';
 import { DeleteButton } from '@/components/finance/delete-button';
+import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, monthRange } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { amountProblem, formatMoney, type Budget, type Category } from '@/lib/types/finance';
+import { formatMoney, type BudgetProgress, type Category } from '@/lib/types/finance';
 
-interface BudgetValues {
-  name: string;
-  amount: string;
-  currency: string;
-  starts_on: string;
-  ends_on: string;
-  category_ids: string[];
+/**
+ * How full the bar is drawn, 0–100.
+ *
+ * The only place this file turns money into a number, and it is for pixels:
+ * a bar is a few hundred of them wide, so float error cannot reach the figures
+ * either side of it — those stay the strings the API sent.
+ */
+function barPercent(spent: string, amount: string): number {
+  const cap = Number(amount);
+  const used = Number(spent);
+  if (!Number.isFinite(cap) || !Number.isFinite(used) || cap <= 0) return 0;
+  return Math.max(0, Math.min(100, (used / cap) * 100));
 }
 
-interface BudgetFormProps {
-  idPrefix: string;
-  initial: BudgetValues;
-  categories: Category[];
-  currencies: string[];
-  busy: boolean;
-  onSubmit: (values: BudgetValues) => void;
-  onCancel: () => void;
+/**
+ * Drop a leading minus so an overspend can be read as "$20.00 over".
+ *
+ * String surgery rather than `Math.abs`, because the point is to keep showing
+ * the exact figure the API sent and only change the word next to it.
+ */
+function withoutSign(amount: string): string {
+  return amount.startsWith('-') ? amount.slice(1) : amount;
 }
 
-function BudgetForm({
-  idPrefix,
-  initial,
-  categories,
-  currencies,
-  busy,
-  onSubmit,
-  onCancel,
-}: BudgetFormProps) {
-  const [values, setValues] = useState<BudgetValues>(initial);
-  const [localError, setLocalError] = useState<string | null>(null);
+/**
+ * The card's wash of colour, taken from the categories the budget covers.
+ *
+ * Budgets carry no colour of their own, and adding one would be a field to fill
+ * in for something the data already implies: a budget over Food should look
+ * like Food, and it is the same swatch the pie chart uses for that category.
+ * Sorted by name rather than trusting the order the join table hands back, so
+ * a budget does not change colour between two loads of the same page.
+ */
+function tintOf(budget: BudgetProgress): string {
+  const [first] = [...budget.categories].sort((a, b) => a.name.localeCompare(b.name));
+  return withAlpha(first?.colour ?? '#94a3b8', 0.14);
+}
 
-  function set<K extends keyof BudgetValues>(field: K, value: BudgetValues[K]) {
-    setValues((current) => ({ ...current, [field]: value }));
-  }
+/** #rrggbb at some opacity. Colours are `^#[0-9a-fA-F]{6}$`, enforced by the API. */
+function withAlpha(hex: string, alpha: number): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) return 'transparent';
+  const value = parseInt(match[1], 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
 
-  function toggleCategory(id: string) {
-    setValues((current) => ({
-      ...current,
-      category_ids: current.category_ids.includes(id)
-        ? current.category_ids.filter((existing) => existing !== id)
-        : [...current.category_ids, id],
-    }));
-  }
-
-  /** The three rules the API enforces, checked here so the trip is not wasted. */
-  function problem(): string | null {
-    const amount = amountProblem(values.amount);
-    if (amount) return amount;
-    if (values.ends_on < values.starts_on)
-      return 'The end date must be on or after the start date.';
-    if (values.category_ids.length === 0) return 'Pick at least one category for this budget.';
-    return null;
-  }
+/**
+ * What was paid, what is left, and a bar between them.
+ *
+ * The bar is green until the cap is passed and red after, rather than shading
+ * gradually: "am I over?" is the only question it has to answer at a glance,
+ * and a gradient makes 99% and 101% look nearly the same.
+ */
+function BudgetCard({ budget }: { budget: BudgetProgress }) {
+  const percent = barPercent(budget.spent, budget.amount);
+  // Read the sign off the string's number rather than recomputing the
+  // subtraction: no rounding error flips a sign, and the figures shown stay the
+  // strings the API sent.
+  const over = Number(budget.remaining) < 0;
 
   return (
-    <form
-      className="space-y-3 border-b border-gray-200 p-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const found = problem();
-        setLocalError(found);
-        if (!found) onSubmit(values);
-      }}
-    >
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-40 flex-1">
-          <label className="block text-sm" htmlFor={`${idPrefix}-name`}>
-            Name
-          </label>
-          <input
-            id={`${idPrefix}-name`}
-            className="mt-1 w-full rounded border px-3 py-2"
-            required
-            maxLength={80}
-            value={values.name}
-            onChange={(e) => set('name', e.target.value)}
-          />
-        </div>
-
+    <>
+      <div className="mt-3 flex items-start justify-between gap-3">
         <div>
-          <label className="block text-sm" htmlFor={`${idPrefix}-amount`}>
-            Amount
-          </label>
-          <input
-            id={`${idPrefix}-amount`}
-            className="mt-1 w-28 rounded border px-3 py-2"
-            inputMode="decimal"
-            required
-            value={values.amount}
-            onChange={(e) => set('amount', e.target.value)}
-          />
+          <p className="text-xs text-gray-500">Total Paid</p>
+          <p className="text-base font-bold">{formatMoney(budget.spent, budget.currency)}</p>
         </div>
-
-        <div>
-          <label className="block text-sm" htmlFor={`${idPrefix}-currency`}>
-            Currency
-          </label>
-          <CurrencySelect
-            id={`${idPrefix}-currency`}
-            value={values.currency}
-            currencies={currencies}
-            onChange={(currency) => set('currency', currency)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm" htmlFor={`${idPrefix}-starts`}>
-            Starts
-          </label>
-          <input
-            id={`${idPrefix}-starts`}
-            type="date"
-            className="mt-1 rounded border px-3 py-2"
-            required
-            value={values.starts_on}
-            onChange={(e) => set('starts_on', e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm" htmlFor={`${idPrefix}-ends`}>
-            Ends
-          </label>
-          <input
-            id={`${idPrefix}-ends`}
-            type="date"
-            className="mt-1 rounded border px-3 py-2"
-            required
-            value={values.ends_on}
-            onChange={(e) => set('ends_on', e.target.value)}
-          />
+        <div className="text-right">
+          <p className={`text-xs ${over ? 'text-red-600' : 'text-gray-500'}`}>
+            {over ? 'Overshooting' : 'Total Remaining'}
+          </p>
+          <p className={`text-base font-bold ${over ? 'text-red-600' : ''}`}>
+            {formatMoney(withoutSign(budget.remaining), budget.currency)}
+          </p>
         </div>
       </div>
 
-      <fieldset>
-        <legend className="text-sm">Categories it covers</legend>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {categories.map((category) => (
-            <label key={category.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={values.category_ids.includes(category.id)}
-                onChange={() => toggleCategory(category.id)}
-              />
-              {category.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          Save
-        </button>
-        <button type="button" className="text-sm underline" onClick={onCancel}>
-          Cancel
-        </button>
+      <div
+        className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-black/10"
+        role="progressbar"
+        aria-label={`${budget.name} spent`}
+        aria-valuenow={Math.round(percent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className={`h-full rounded-full ${over ? 'bg-red-600' : 'bg-green-600'}`}
+          style={{ width: `${percent}%` }}
+        />
       </div>
-
-      {localError && (
-        <p role="alert" className="text-sm text-red-600">
-          {localError}
-        </p>
-      )}
-    </form>
+    </>
   );
 }
 
 interface BudgetSectionProps {
-  budgets: Collection<Budget>;
+  /**
+   * From /finance/budgets/progress, which carries everything the plain budget
+   * list does plus what has been spent — so the forms and the bars read from
+   * one fetch instead of two lists that can disagree after a write.
+   */
+  budgets: Collection<BudgetProgress>;
   categories: Category[];
   currencies: string[];
   defaultCurrency: string;
@@ -251,102 +179,86 @@ export function BudgetSection({
   const thisMonth = monthRange();
 
   return (
-    <section className="mt-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">Budgets</h2>
-        <button
-          type="button"
+    <Panel
+      title="Budgets"
+      error={error}
+      className="h-full"
+      action={
+        <PanelButton
           disabled={blocked}
-          className="rounded border px-3 py-1 text-sm hover:bg-gray-50 disabled:opacity-50"
+          title={blocked ? 'Add a category first' : undefined}
           onClick={() => {
             setEditingId(null);
             setAdding((open) => !open);
           }}
         >
           {adding ? 'Cancel' : 'New budget'}
-        </button>
-      </div>
-
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-red-600">
-          {error}
-        </p>
+        </PanelButton>
+      }
+    >
+      {adding && !blocked && (
+        <BudgetForm
+          idPrefix="new-budget"
+          initial={{
+            name: '',
+            amount: '',
+            currency: defaultCurrency,
+            starts_on: thisMonth.start,
+            ends_on: thisMonth.end,
+            category_ids: [],
+          }}
+          categories={categories}
+          currencies={currencies}
+          busy={busy}
+          onSubmit={(values) => void handleCreate(values)}
+          onCancel={() => setAdding(false)}
+        />
       )}
 
-      <div className="mt-3 rounded-lg border border-gray-200">
-        {adding && !blocked && (
-          <BudgetForm
-            idPrefix="new-budget"
-            initial={{
-              name: '',
-              amount: '',
-              currency: defaultCurrency,
-              starts_on: thisMonth.start,
-              ends_on: thisMonth.end,
-              category_ids: [],
-            }}
-            categories={categories}
-            currencies={currencies}
-            busy={busy}
-            onSubmit={(values) => void handleCreate(values)}
-            onCancel={() => setAdding(false)}
-          />
-        )}
-
-        {loading ? (
-          <p className="p-6 text-center text-sm text-gray-500">Loading…</p>
-        ) : items.length === 0 ? (
-          !adding && (
-            <p className="p-6 text-center text-sm text-gray-500">
-              {blocked
-                ? 'Add a category first — a budget caps spending across categories.'
-                : 'No budgets yet. A budget caps spending across one or more categories.'}
-            </p>
-          )
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {items.map((budget) =>
-              editingId === budget.id ? (
-                <li key={budget.id}>
-                  <BudgetForm
-                    idPrefix={`budget-${budget.id}`}
-                    initial={{
-                      name: budget.name,
-                      amount: budget.amount,
-                      currency: budget.currency,
-                      starts_on: budget.starts_on,
-                      ends_on: budget.ends_on,
-                      category_ids: budget.categories.map((category) => category.id),
-                    }}
-                    categories={categories}
-                    currencies={currencies}
-                    busy={busy}
-                    onSubmit={(values) => void handleUpdate(budget.id, values)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                </li>
-              ) : (
-                <li key={budget.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{budget.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(budget.starts_on)} – {formatDate(budget.ends_on)}
-                      {budget.categories.length > 0 && (
-                        <>
-                          {' · '}
-                          {budget.categories.map((category) => category.name).join(', ')}
-                        </>
-                      )}
-                    </p>
-                  </div>
-
-                  <span className="w-32 shrink-0 text-right text-sm font-medium">
-                    {formatMoney(budget.amount, budget.currency)}
-                  </span>
+      {loading ? (
+        <PanelNote>Loading…</PanelNote>
+      ) : items.length === 0 ? (
+        !adding && (
+          <PanelNote>
+            {blocked
+              ? 'Add a category first — a budget caps spending across categories.'
+              : 'No budgets yet. A budget caps spending across one or more categories.'}
+          </PanelNote>
+        )
+      ) : (
+        <ul className="space-y-3 p-3">
+          {items.map((budget) =>
+            editingId === budget.id ? (
+              <li key={budget.id} className="overflow-hidden rounded-lg border border-gray-200">
+                <BudgetForm
+                  idPrefix={`budget-${budget.id}`}
+                  initial={{
+                    name: budget.name,
+                    amount: budget.amount,
+                    currency: budget.currency,
+                    starts_on: budget.starts_on,
+                    ends_on: budget.ends_on,
+                    category_ids: budget.categories.map((category) => category.id),
+                  }}
+                  categories={categories}
+                  currencies={currencies}
+                  busy={busy}
+                  onSubmit={(values) => void handleUpdate(budget.id, values)}
+                  onCancel={() => setEditingId(null)}
+                />
+              </li>
+            ) : (
+              <li
+                key={budget.id}
+                className="rounded-lg p-4"
+                style={{ backgroundColor: tintOf(budget) }}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm font-semibold">{budget.name}</p>
 
                   <button
                     type="button"
-                    className="text-sm underline"
+                    className="shrink-0 text-xs underline"
                     onClick={() => {
                       setAdding(false);
                       setEditingId(budget.id);
@@ -364,12 +276,26 @@ export function BudgetSection({
                       )
                     }
                   />
-                </li>
-              )
-            )}
-          </ul>
-        )}
-      </div>
-    </section>
+                </div>
+
+                {/* Kept, unlike the mock: budgets here span any range the user
+                    picks, so which days a card covers is not a given. */}
+                <p className="truncate text-xs text-gray-500">
+                  {formatDate(budget.starts_on)} – {formatDate(budget.ends_on)}
+                  {budget.categories.length > 0 && (
+                    <>
+                      {' · '}
+                      {budget.categories.map((category) => category.name).join(', ')}
+                    </>
+                  )}
+                </p>
+
+                <BudgetCard budget={budget} />
+              </li>
+            )
+          )}
+        </ul>
+      )}
+    </Panel>
   );
 }

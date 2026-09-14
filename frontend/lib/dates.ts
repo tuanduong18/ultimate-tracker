@@ -37,15 +37,48 @@ export function monthLabel(on: Date = new Date()): string {
   return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(on);
 }
 
+/**
+ * Parse a YYYY-MM-DD into a local Date, or null if it is not one.
+ *
+ * Built from parts rather than Date.parse(iso), which reads a bare date as UTC
+ * midnight and then renders it as the previous day for anyone west of Greenwich.
+ */
+function fromIso(iso: string): Date | null {
+  const [year, month, day] = iso.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
 /** "12 Aug 2026" — dates in a list, where the year matters but the weekday does not. */
 export function formatDate(iso: string): string {
-  const [year, month, day] = iso.split('-').map(Number);
-  if (!year || !month || !day) return iso;
-  // Constructed from parts rather than Date.parse(iso), which reads a bare
-  // YYYY-MM-DD as UTC midnight and then renders it as the previous day.
+  const parsed = fromIso(iso);
+  if (!parsed) return iso;
   return new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(year, month - 1, day));
+  }).format(parsed);
+}
+
+/**
+ * "3–9 Aug" — the span one bar of the weekly chart covers.
+ *
+ * The first and last bar of a month are clipped by its ends, so bars are not all
+ * the same width in days. Labelling each with its actual span is what stops a
+ * two-day bar from reading as a quiet week.
+ */
+export function formatSpan(startIso: string, endIso: string): string {
+  const start = fromIso(startIso);
+  const end = fromIso(endIso);
+  if (!start || !end) return `${startIso} – ${endIso}`;
+
+  const dayMonth = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+  if (startIso === endIso) return dayMonth.format(start);
+
+  // Within one month the month name only needs saying once.
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
+    return `${day.format(start)}–${dayMonth.format(end)}`;
+  }
+  return `${dayMonth.format(start)} – ${dayMonth.format(end)}`;
 }

@@ -43,7 +43,15 @@ const STRAY: Expense = {
   amount: '3.000',
 };
 
-function Harness({ onChange = () => {} }: { onChange?: () => void }) {
+function Harness({
+  onChange = () => {},
+  limit,
+  seeAllHref,
+}: {
+  onChange?: () => void;
+  limit?: number;
+  seeAllHref?: string;
+}) {
   const expenses = useCollection<Expense>('/finance/expenses');
   return (
     <ExpenseSection
@@ -52,6 +60,8 @@ function Harness({ onChange = () => {} }: { onChange?: () => void }) {
       currencies={['USD', 'VND']}
       defaultCurrency="USD"
       onChange={onChange}
+      limit={limit}
+      seeAllHref={seeAllHref}
     />
   );
 }
@@ -162,5 +172,26 @@ describe('ExpenseSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
     await waitFor(() => expect(del).toHaveBeenCalledWith('/finance/expenses/e1'));
+  });
+  it('shows only the newest few when the panel caps the list', async () => {
+    const older = { ...LUNCH, id: 'e9', description: 'Older' };
+    get.mockResolvedValue([LUNCH, older]);
+    render(<Harness limit={1} />);
+
+    expect(await screen.findByText('Lunch')).toBeInTheDocument();
+    // The API already returns newest first, so the cap is a slice, not a sort.
+    expect(screen.queryByText('Older')).not.toBeInTheDocument();
+  });
+
+  it('offers See all only where there is somewhere else to see them', async () => {
+    get.mockResolvedValue([LUNCH]);
+    const { unmount } = render(<Harness limit={10} seeAllHref="/finance/expenses" />);
+
+    const link = await screen.findByRole('link', { name: 'See all' });
+    expect(link).toHaveAttribute('href', '/finance/expenses');
+
+    unmount();
+    render(<Harness />);
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'See all' })).toBeNull());
   });
 });

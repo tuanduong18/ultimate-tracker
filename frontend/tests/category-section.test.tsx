@@ -82,7 +82,7 @@ describe('CategorySection', () => {
     );
   });
 
-  it('renames through PATCH', async () => {
+  it('renames through PATCH, carrying the colour it did not touch', async () => {
     get.mockResolvedValue([FOOD]);
     patch.mockResolvedValue({ ...FOOD, name: 'Groceries' });
     render(<Harness />);
@@ -91,8 +91,34 @@ describe('CategorySection', () => {
     fireEvent.change(screen.getByLabelText('Rename Food'), { target: { value: 'Groceries' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
+    // The form is seeded from the row, so a rename sends the existing colour
+    // back unchanged rather than dropping it to a default.
     await waitFor(() =>
-      expect(patch).toHaveBeenCalledWith('/finance/categories/c1', { name: 'Groceries' })
+      expect(patch).toHaveBeenCalledWith('/finance/categories/c1', {
+        name: 'Groceries',
+        colour: '#22c55e',
+      })
+    );
+  });
+
+  it('recolours an existing category, not just a new one', async () => {
+    get.mockResolvedValue([FOOD]);
+    patch.mockResolvedValue({ ...FOOD, colour: '#000000' });
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename' }));
+    // Seeded from the row, so opening the editor shows the colour it has.
+    const picker = screen.getByLabelText('Colour for Food');
+    expect(picker).toHaveValue('#22c55e');
+
+    fireEvent.change(picker, { target: { value: '#000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/finance/categories/c1', {
+        name: 'Food',
+        colour: '#000000',
+      })
     );
   });
 

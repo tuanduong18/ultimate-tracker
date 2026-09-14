@@ -77,3 +77,56 @@ export function amountProblem(raw: string): string | null {
   if (Number(value) <= 0) return 'The amount must be more than zero.';
   return null;
 }
+
+/** One slice of the category pie: what a category cost over the range. */
+export interface CategorySpend {
+  /** Null for spend whose category was deleted — one bucket, still charted. */
+  category_id: string | null;
+  name: string;
+  colour: string;
+  spent: string;
+}
+
+export interface CategoryBreakdown {
+  /** Every `spent` below is converted into this, server-side. */
+  currency: string;
+  starts_on: string;
+  ends_on: string;
+  /** Largest first; categories with no spend are left out entirely. */
+  categories: CategorySpend[];
+}
+
+/** One bar of the weekly chart. The span can be under seven days at either end. */
+export interface WeekSpend {
+  starts_on: string;
+  ends_on: string;
+  spent: string;
+}
+
+export interface WeeklyBreakdown {
+  currency: string;
+  starts_on: string;
+  ends_on: string;
+  /** Date order, including weeks where nothing was spent. */
+  weeks: WeekSpend[];
+}
+
+/**
+ * A budget with spend measured against it.
+ *
+ * `currency` is the budget's own, not the display currency: spending is
+ * converted into the cap so the percentage cannot drift with exchange rates.
+ * Two rows in one list may therefore be quoted in different currencies.
+ */
+export interface BudgetProgress {
+  id: string;
+  name: string;
+  currency: string;
+  amount: string;
+  spent: string;
+  /** Negative when overspent — show it, do not clamp it. */
+  remaining: string;
+  starts_on: string;
+  ends_on: string;
+  categories: Category[];
+}
