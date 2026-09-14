@@ -485,6 +485,23 @@ async def summarize_by_category(
     }
 
 
+class UnknownGranularityError(FinanceError):
+    status_code = 422
+    code = "UNKNOWN_GRANULARITY"
+
+    def __init__(self, granularity: str) -> None:
+        super().__init__(f"granularity must be 'day' or 'week', got {granularity!r}.")
+
+
+def day_buckets(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    """One bucket per day, each starting and ending on itself."""
+    span = (end_date - start_date).days
+    return [
+        (start_date + timedelta(days=offset), start_date + timedelta(days=offset))
+        for offset in range(span + 1)
+    ]
+
+
 def week_buckets(start_date: date, end_date: date) -> list[tuple[date, date]]:
     """Monday-anchored calendar weeks covering a range, clipped to its ends.
 
@@ -503,22 +520,33 @@ def week_buckets(start_date: date, end_date: date) -> list[tuple[date, date]]:
     return buckets
 
 
-async def summarize_by_week(
+BUCKETERS = {"day": day_buckets, "week": week_buckets}
+
+
+async def summarize_by_period(
     db: AsyncSession,
     user_id: uuid.UUID,
     *,
     start_date: date,
     end_date: date,
+    granularity: str,
     display_currency: str,
 ) -> dict[str, Any]:
-    """Spend per calendar week over a range, converted into one currency.
+    """Spend per day or per week over a range, converted into one currency.
 
-    Empty weeks come back as zero, unlike the category breakdown: a missing bar
-    in a time series reads as "no data", and a flat one as "spent nothing". Only
-    the second is true.
+    Two granularities rather than one because the caller picks the range now: a
+    week of daily bars and a quarter of weekly ones are both readable, and a
+    quarter of daily ones is 90 bars nobody can read.
+
+    Empty buckets come back as zero, unlike the category breakdown. A missing
+    bar in a time series reads as "no data" and a flat one as "spent nothing",
+    and only the second is true.
     """
     if end_date < start_date:
         raise InvalidDateRangeError()
+    bucketer = BUCKETERS.get(granularity)
+    if bucketer is None:
+        raise UnknownGranularityError(granularity)
 
     rows = (
         await db.execute(
@@ -530,18 +558,18 @@ async def summarize_by_week(
         )
     ).all()
 
-    weeks: list[dict[str, Any]] = []
+    buckets: list[dict[str, Any]] = []
     try:
-        for week_start, week_end in week_buckets(start_date, end_date):
+        for bucket_start, bucket_end in bucketer(start_date, end_date):
             spends = [
                 (amount, currency)
                 for amount, currency, spent_on in rows
-                if week_start <= spent_on <= week_end
+                if bucket_start <= spent_on <= bucket_end
             ]
-            weeks.append(
+            buckets.append(
                 {
-                    "starts_on": week_start,
-                    "ends_on": week_end,
+                    "starts_on": bucket_start,
+                    "ends_on": bucket_end,
                     "spent": await _total_in(spends, display_currency),
                 }
             )
@@ -552,7 +580,8 @@ async def summarize_by_week(
         "currency": display_currency,
         "starts_on": start_date,
         "ends_on": end_date,
-        "weeks": weeks,
+        "granularity": granularity,
+        "buckets": buckets,
     }
 
 

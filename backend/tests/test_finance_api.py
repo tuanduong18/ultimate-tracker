@@ -544,12 +544,13 @@ async def test_weekly_breakdown_clips_weeks_to_the_month(
     """August 2026 starts on a Saturday, so the first bar is two days long."""
     body = (
         await finance_client.get(
-            "/api/v1/finance/summary/by-week",
+            "/api/v1/finance/summary/by-period",
             params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
         )
     ).json()
 
-    spans = [(w["starts_on"], w["ends_on"]) for w in body["weeks"]]
+    assert body["granularity"] == "week"
+    spans = [(w["starts_on"], w["ends_on"]) for w in body["buckets"]]
     assert spans == [
         ("2026-08-01", "2026-08-02"),
         ("2026-08-03", "2026-08-09"),
@@ -569,12 +570,12 @@ async def test_weekly_breakdown_buckets_and_keeps_quiet_weeks(
 
     body = (
         await finance_client.get(
-            "/api/v1/finance/summary/by-week",
+            "/api/v1/finance/summary/by-period",
             params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
         )
     ).json()
 
-    spent = [Decimal(w["spent"]) for w in body["weeks"]]
+    spent = [Decimal(w["spent"]) for w in body["buckets"]]
     # Aug 1-2 holds both of the first two expenses, converted: 10 + 10 = 20.
     assert spent[0] == Decimal("20.00")
     # A week with nothing in it is a zero bar, not a missing one.
@@ -583,15 +584,72 @@ async def test_weekly_breakdown_buckets_and_keeps_quiet_weeks(
     assert sum(spent) == Decimal("25.00")
 
 
-async def test_weekly_breakdown_rejects_an_inverted_range(
+async def test_period_breakdown_rejects_an_inverted_range(
     finance_client: AsyncClient, stub_rates: None
 ) -> None:
     resp = await finance_client.get(
-        "/api/v1/finance/summary/by-week",
+        "/api/v1/finance/summary/by-period",
         params={"start_date": "2026-08-31", "end_date": "2026-08-01"},
     )
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "INVALID_DATE_RANGE"
+
+
+async def test_daily_breakdown_returns_one_bucket_per_day(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    await make_expense(finance_client, amount="10.00", currency="USD", spent_on="2026-08-04")
+
+    body = (
+        await finance_client.get(
+            "/api/v1/finance/summary/by-period",
+            params={
+                "start_date": "2026-08-03",
+                "end_date": "2026-08-09",
+                "granularity": "day",
+            },
+        )
+    ).json()
+
+    assert body["granularity"] == "day"
+    assert len(body["buckets"]) == 7
+    # Each day is its own start and end, so a bar labels one date.
+    assert all(b["starts_on"] == b["ends_on"] for b in body["buckets"])
+    assert Decimal(body["buckets"][1]["spent"]) == Decimal("10.00")
+    assert Decimal(body["buckets"][0]["spent"]) == Decimal("0")
+
+
+async def test_both_granularities_total_the_same_money(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    """Changing the bar width must not change how much was spent."""
+    await make_expense(finance_client, amount="10.00", currency="USD", spent_on="2026-08-04")
+    await make_expense(finance_client, amount="12.80", currency="SGD", spent_on="2026-08-20")
+    params = {"start_date": "2026-08-01", "end_date": "2026-08-31"}
+
+    totals = []
+    for granularity in ("day", "week"):
+        body = (
+            await finance_client.get(
+                "/api/v1/finance/summary/by-period",
+                params={**params, "granularity": granularity},
+            )
+        ).json()
+        totals.append(sum(Decimal(b["spent"]) for b in body["buckets"]))
+
+    summary = (await finance_client.get("/api/v1/finance/summary", params=params)).json()
+    assert totals[0] == totals[1] == Decimal(summary["spent"]) == Decimal("20.00")
+
+
+async def test_period_breakdown_rejects_an_unknown_granularity(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    resp = await finance_client.get(
+        "/api/v1/finance/summary/by-period",
+        params={"start_date": "2026-08-01", "end_date": "2026-08-31", "granularity": "fortnight"},
+    )
+    # FastAPI rejects it against the Literal before the service ever sees it.
+    assert resp.status_code == 422
 
 
 async def test_budget_progress_counts_only_covered_categories(

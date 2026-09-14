@@ -21,8 +21,9 @@ from app.schemas.finance import (
     ExpenseCreate,
     ExpenseRead,
     ExpenseUpdate,
+    Granularity,
+    PeriodBreakdownRead,
     SummaryRead,
-    WeeklyBreakdownRead,
 )
 from app.services import finance as finance_service
 from app.services import profile as profile_service
@@ -275,23 +276,29 @@ async def read_category_breakdown(
     return CategoryBreakdownRead.model_validate(breakdown)
 
 
-@router.get("/summary/by-week", response_model=WeeklyBreakdownRead)
-async def read_weekly_breakdown(
+@router.get("/summary/by-period", response_model=PeriodBreakdownRead)
+async def read_period_breakdown(
     start_date: date,
     end_date: date,
+    granularity: Granularity = "week",
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
-) -> WeeklyBreakdownRead:
-    """Spend per calendar week over a date range, in the display currency."""
+) -> PeriodBreakdownRead:
+    """Spend per day or per calendar week over a range, in the display currency.
+
+    The bar chart picks the granularity from how long the range is, so that a
+    week shows seven bars and a quarter shows thirteen rather than ninety.
+    """
     profile = await profile_service.get_or_create_profile(db, user_id)
     try:
-        breakdown = await finance_service.summarize_by_week(
+        breakdown = await finance_service.summarize_by_period(
             db,
             user_id,
             start_date=start_date,
             end_date=end_date,
+            granularity=granularity,
             display_currency=profile.display_currency,
         )
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
-    return WeeklyBreakdownRead.model_validate(breakdown)
+    return PeriodBreakdownRead.model_validate(breakdown)

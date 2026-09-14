@@ -16,7 +16,7 @@ distinction is the difference between leaving a category alone and clearing it.
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import (
     AfterValidator,
@@ -34,6 +34,10 @@ from app.core.currencies import minor_units, normalize_currency
 # narrowing happens in check_amount_scale, so USD still stops at 2 and VND at 0.
 _COLUMN_SCALE = 3
 _MAX_DIGITS = 20
+
+# Bar width for the spending chart. A quarter of daily bars is 90 of them;
+# a week of weekly bars is one. The caller picks the range, so it picks this.
+Granularity = Literal["day", "week"]
 
 CurrencyCode = Annotated[str, AfterValidator(normalize_currency)]
 CategoryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
@@ -247,12 +251,12 @@ class CategoryBreakdownRead(BaseModel):
     categories: list[CategorySpendRead]
 
 
-class WeekSpendRead(BaseModel):
-    """One bar: what a single week cost.
+class BucketSpendRead(BaseModel):
+    """One bar: what a single day or week cost.
 
-    The range is inclusive and can be shorter than seven days where the week is
-    clipped by the ends of the window — label the bar with it rather than
-    assuming every bar covers the same span.
+    The range is inclusive and, for weeks, can be shorter than seven days where
+    the bucket is clipped by the ends of the window — label the bar with it
+    rather than assuming every bar covers the same span.
     """
 
     starts_on: date
@@ -260,12 +264,14 @@ class WeekSpendRead(BaseModel):
     spent: Decimal
 
 
-class WeeklyBreakdownRead(BaseModel):
+class PeriodBreakdownRead(BaseModel):
     currency: str
     starts_on: date
     ends_on: date
-    # In date order, including weeks where nothing was spent.
-    weeks: list[WeekSpendRead]
+    # Echoed back so a caller cannot mistake day bars for week bars.
+    granularity: Granularity
+    # In date order, including buckets where nothing was spent.
+    buckets: list[BucketSpendRead]
 
 
 class BudgetProgressRead(BaseModel):
