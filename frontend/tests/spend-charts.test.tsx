@@ -19,7 +19,7 @@ import {
   selectionQuery,
   type CategorySelection,
 } from '@/components/finance/category-filter';
-import { granularityFor, RangeControl } from '@/components/finance/range-control';
+import { granularityFor, RangeControls, RangeNav } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
 import type { DateRange } from '@/lib/dates';
@@ -63,6 +63,21 @@ const PREVIOUS: CategoryBreakdown = {
   categories: [
     { category_id: 'c1', name: 'Food', colour: '#22c55e', spent: '40.000' },
     { category_id: 'c2', name: 'Rent', colour: '#ef4444', spent: '60.000' },
+  ],
+};
+
+/** Six categories, which is one more than the legend lists by name. */
+const MANY: CategoryBreakdown = {
+  currency: 'USD',
+  starts_on: '2026-08-01',
+  ends_on: '2026-08-31',
+  categories: [
+    { category_id: 'c1', name: 'Rent', colour: '#ef4444', spent: '50.00' },
+    { category_id: 'c2', name: 'Food', colour: '#22c55e', spent: '20.00' },
+    { category_id: 'c3', name: 'Travel', colour: '#3b82f6', spent: '10.00' },
+    { category_id: 'c4', name: 'Bills', colour: '#a855f7', spent: '10.00' },
+    { category_id: 'c5', name: 'Gym', colour: '#f59e0b', spent: '6.00' },
+    { category_id: 'c6', name: 'Books', colour: '#14b8a6', spent: '4.00' },
   ],
 };
 
@@ -161,6 +176,39 @@ describe('SpendByCategoryChart', () => {
     expect(screen.getAllByText(august)).toHaveLength(2);
   });
 
+  it('totals each pie underneath it', () => {
+    renderPie(resource(CURRENT));
+
+    // 75 + 25 this period, 40 + 60 last — one total under each pie, and both
+    // happen to come to the same figure.
+    expect(screen.getAllByText('$100.00')).toHaveLength(2);
+  });
+
+  it('names the biggest few and gathers the tail into one row', () => {
+    renderPie(resource(MANY), resource(MANY));
+
+    expect(screen.getByText('Rent')).toBeInTheDocument();
+    expect(screen.getByText('Bills')).toBeInTheDocument();
+    // Gym and Books are the tail, and the row says how many it stands for.
+    expect(screen.queryByText('Gym')).toBeNull();
+    expect(screen.getByText('Others (2)')).toBeInTheDocument();
+  });
+
+  it('keeps the gathered row’s own money exact', () => {
+    renderPie(resource(MANY), resource(MANY));
+
+    // 6.00 + 4.00, added in minor units rather than as floats.
+    const others = screen.getByText('Others (2)').closest('li');
+    expect(others).toHaveTextContent('$10.00 → $10.00');
+  });
+
+  it('leaves a short list alone rather than gathering a single row', () => {
+    // Collapsing one category into "Others" hides its name and saves no space.
+    renderPie(resource(CURRENT), resource(PREVIOUS));
+
+    expect(screen.queryByText(/^Others/)).toBeNull();
+  });
+
   it('says so when both periods are empty', () => {
     renderPie(resource({ ...CURRENT, categories: [] }), resource({ ...PREVIOUS, categories: [] }));
 
@@ -231,15 +279,15 @@ describe('SpendByPeriodChart', () => {
   });
 });
 
-describe('RangeControl', () => {
-  function renderControl(range: DateRange = RANGE) {
+describe('RangeNav', () => {
+  function renderNav(range: DateRange = RANGE) {
     const onChange = vi.fn();
-    render(<RangeControl range={range} onChange={onChange} idPrefix="test" />);
+    render(<RangeNav range={range} onChange={onChange} />);
     return onChange;
   }
 
   it('steps back by the range’s own length', () => {
-    const onChange = renderControl();
+    const onChange = renderNav();
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous period' }));
 
@@ -249,15 +297,23 @@ describe('RangeControl', () => {
   });
 
   it('steps forward by the same length, including for a hand-picked range', () => {
-    const onChange = renderControl({ start: '2026-08-10', end: '2026-08-12' });
+    const onChange = renderNav({ start: '2026-08-10', end: '2026-08-12' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Next period' }));
 
     expect(onChange).toHaveBeenCalledWith({ start: '2026-08-13', end: '2026-08-15' });
   });
+});
+
+describe('RangeControls', () => {
+  function renderControls(range: DateRange = RANGE) {
+    const onChange = vi.fn();
+    render(<RangeControls range={range} onChange={onChange} idPrefix="test" />);
+    return onChange;
+  }
 
   it('lets either end of the range be typed directly', () => {
-    const onChange = renderControl();
+    const onChange = renderControls();
 
     fireEvent.change(screen.getByLabelText('Range start'), { target: { value: '2026-08-15' } });
 
@@ -267,7 +323,7 @@ describe('RangeControl', () => {
   it('marks the preset that matches the current range', () => {
     // The range here is a whole month, but not necessarily *this* month, so
     // neither preset should claim it.
-    renderControl({ start: '2020-01-01', end: '2020-01-31' });
+    renderControls({ start: '2020-01-01', end: '2020-01-31' });
 
     expect(screen.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'false');

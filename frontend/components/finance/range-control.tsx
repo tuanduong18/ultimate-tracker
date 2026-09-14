@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import {
   formatRange,
   monthRange,
@@ -12,100 +14,114 @@ import {
 /**
  * Pick the window a chart covers.
  *
- * Three ways in, because they answer different questions: the presets for
- * "this week / this month", the arrows for "and the one before that", and the
- * two date fields for anything else. The arrows step by the current range's own
- * length, so they keep working after a hand-picked range — see shiftRange.
+ * Split in two so a panel can put the half people read — which window am I
+ * looking at — on the same line as its title, and the half people only
+ * occasionally touch on a line of its own. Three stacked rows of chrome above a
+ * chart left less room for the chart than for the controls.
  */
-interface RangeControlProps {
+interface RangeProps {
   range: DateRange;
   onChange: (range: DateRange) => void;
-  /** Distinguishes the two controls' input ids when both are on one page. */
-  idPrefix: string;
+}
+
+/** The current window and the arrows either side, for a panel's title row. */
+export function RangeNav({ range, onChange }: RangeProps) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        aria-label="Previous period"
+        className="rounded px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        onClick={() => onChange(shiftRange(range, -1))}
+      >
+        ‹
+      </button>
+
+      <p className="text-sm font-semibold whitespace-nowrap">{formatRange(range)}</p>
+
+      <button
+        type="button"
+        aria-label="Next period"
+        className="rounded px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        onClick={() => onChange(shiftRange(range, 1))}
+      >
+        ›
+      </button>
+    </div>
+  );
 }
 
 function isPreset(range: DateRange, preset: DateRange): boolean {
   return range.start === preset.start && range.end === preset.end;
 }
 
-export function RangeControl({ range, onChange, idPrefix }: RangeControlProps) {
-  const thisWeek = weekRange();
-  const thisMonth = monthRange();
-
+/**
+ * Presets and the two date fields, plus whatever else the panel filters by.
+ *
+ * The presets answer "this week / this month" and the fields anything else;
+ * the arrows in RangeNav step by the current range's own length, so they keep
+ * working after a hand-picked range — see shiftRange.
+ */
+export function RangeControls({
+  range,
+  onChange,
+  idPrefix,
+  children,
+}: RangeProps & { idPrefix: string; children?: ReactNode }) {
   const presets = [
-    { label: 'Week', value: thisWeek },
-    { label: 'Month', value: thisMonth },
+    { label: 'Week', value: weekRange() },
+    { label: 'Month', value: monthRange() },
   ];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      {presets.map((preset) => (
         <button
+          key={preset.label}
           type="button"
-          aria-label="Previous period"
-          className="rounded px-2 py-0.5 text-lg leading-none text-primary hover:bg-primary-soft"
-          onClick={() => onChange(shiftRange(range, -1))}
+          aria-pressed={isPreset(range, preset.value)}
+          className={`rounded-full px-2.5 py-1 ${
+            isPreset(range, preset.value)
+              ? 'bg-primary text-primary-fg'
+              : 'bg-primary-soft text-fg hover:opacity-80'
+          }`}
+          onClick={() => onChange(preset.value)}
         >
-          ‹
+          {preset.label}
         </button>
+      ))}
 
-        <p className="min-w-0 text-center text-sm font-semibold">{formatRange(range)}</p>
+      <label className="sr-only" htmlFor={`${idPrefix}-start`}>
+        Range start
+      </label>
+      <input
+        id={`${idPrefix}-start`}
+        type="date"
+        className="rounded border bg-surface px-1.5 py-0.5"
+        value={range.start}
+        max={range.end}
+        onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
+      />
 
-        <button
-          type="button"
-          aria-label="Next period"
-          className="rounded px-2 py-0.5 text-lg leading-none text-primary hover:bg-primary-soft"
-          onClick={() => onChange(shiftRange(range, 1))}
-        >
-          ›
-        </button>
-      </div>
+      <span aria-hidden className="text-fg-muted">
+        –
+      </span>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs">
-        {presets.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            aria-pressed={isPreset(range, preset.value)}
-            className={`rounded-full px-2.5 py-1 ${
-              isPreset(range, preset.value)
-                ? 'bg-primary text-primary-fg'
-                : 'bg-primary-soft text-fg hover:opacity-80'
-            }`}
-            onClick={() => onChange(preset.value)}
-          >
-            {preset.label}
-          </button>
-        ))}
+      <label className="sr-only" htmlFor={`${idPrefix}-end`}>
+        Range end
+      </label>
+      <input
+        id={`${idPrefix}-end`}
+        type="date"
+        className="rounded border bg-surface px-1.5 py-0.5"
+        value={range.end}
+        min={range.start}
+        onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}
+      />
 
-        <label className="sr-only" htmlFor={`${idPrefix}-start`}>
-          Range start
-        </label>
-        <input
-          id={`${idPrefix}-start`}
-          type="date"
-          className="rounded border bg-surface px-1.5 py-0.5"
-          value={range.start}
-          max={range.end}
-          onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
-        />
-
-        <span aria-hidden className="text-fg-muted">
-          –
-        </span>
-
-        <label className="sr-only" htmlFor={`${idPrefix}-end`}>
-          Range end
-        </label>
-        <input
-          id={`${idPrefix}-end`}
-          type="date"
-          className="rounded border bg-surface px-1.5 py-0.5"
-          value={range.end}
-          min={range.start}
-          onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}
-        />
-      </div>
+      {/* The category filter sits here rather than up by the title: it narrows
+          the same thing the dates do, and belongs with them. */}
+      {children && <div className="ml-auto">{children}</div>}
     </div>
   );
 }

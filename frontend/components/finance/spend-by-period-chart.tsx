@@ -8,7 +8,7 @@ import {
   type CategorySelection,
 } from '@/components/finance/category-filter';
 import { Panel, PanelNote } from '@/components/finance/panel';
-import { RangeControl } from '@/components/finance/range-control';
+import { RangeControls, RangeNav } from '@/components/finance/range-control';
 import { formatSpan, type DateRange } from '@/lib/dates';
 import { useThemeColours } from '@/lib/hooks/use-theme-colours';
 import type { Resource } from '@/lib/hooks/use-collection';
@@ -134,16 +134,18 @@ export function SpendByPeriodChart({
     <Panel
       title="Spending amount"
       error={error}
-      className="h-[30rem]"
-      action={
-        <CategoryFilter
-          categories={categories}
-          selection={selection}
-          onChange={onSelectionChange}
-          idPrefix="period-filter"
-        />
+      className="h-[26rem]"
+      action={<RangeNav range={range} onChange={onRangeChange} />}
+      header={
+        <RangeControls range={range} onChange={onRangeChange} idPrefix="period">
+          <CategoryFilter
+            categories={categories}
+            selection={selection}
+            onChange={onSelectionChange}
+            idPrefix="period-filter"
+          />
+        </RangeControls>
       }
-      header={<RangeControl range={range} onChange={onRangeChange} idPrefix="period" />}
     >
       {loading ? (
         <PanelNote>Loading…</PanelNote>
