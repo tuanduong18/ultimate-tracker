@@ -677,6 +677,7 @@ async def budget_progress(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str
                 "starts_on": budget.starts_on,
                 "ends_on": budget.ends_on,
                 "categories": budget.categories,
+                "created_at": budget.created_at,
             }
         )
     return progress

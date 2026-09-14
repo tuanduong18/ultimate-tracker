@@ -34,12 +34,37 @@ export function cardTint(colour: string | null | undefined): string {
 }
 
 /**
- * Pick the colour for a card covering several categories.
+ * The pastels budget cards are drawn from, in the order they are handed out.
  *
- * Sorted by name rather than trusting the order a join table hands back, so a
- * budget does not change colour between two loads of the same page.
+ * Budgets have no colour of their own and nothing about them implies one — a
+ * budget over Food and Rent is not either of those things. So the colour is
+ * only ever a way to tell two cards apart, which makes a fixed rota the honest
+ * mechanism: the nth budget takes the nth pastel and no two repeat until the
+ * list wraps.
+ *
+ * Light enough to put `fg` text on directly, so unlike category tints these
+ * need no alpha. They are also fixed across themes: their whole job is to
+ * differ from each other, which a palette derived from one theme's hue could
+ * not do.
  */
-export function tintOfMany(categories: { name: string; colour: string }[]): string {
-  const [first] = [...categories].sort((a, b) => a.name.localeCompare(b.name));
-  return cardTint(first?.colour);
+export const BUDGET_TINTS = [
+  '#e3effd', // blue
+  '#fde8e8', // rose
+  '#e6f4ea', // green
+  '#f3e9fc', // lilac
+  '#fdf0e0', // peach
+  '#e0f4f4', // teal
+  '#fdf6da', // butter
+  '#fce9f3', // pink
+] as const;
+
+/**
+ * The colour for the nth budget ever made.
+ *
+ * Wraps once there are more budgets than pastels; at that point two cards share
+ * a colour, which is worse than it sounds only if they are adjacent, and better
+ * than inventing shades nobody can tell apart.
+ */
+export function budgetTint(index: number): string {
+  return BUDGET_TINTS[((index % BUDGET_TINTS.length) + BUDGET_TINTS.length) % BUDGET_TINTS.length];
 }

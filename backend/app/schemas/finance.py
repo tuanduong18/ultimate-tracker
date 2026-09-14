@@ -294,3 +294,7 @@ class BudgetProgressRead(BaseModel):
     starts_on: date
     ends_on: date
     categories: list[CategoryRead]
+    # Carried so the UI can colour budgets in the order they were made. Without
+    # it the only stable order is the display order, and that puts a new budget
+    # at the top — recolouring every card below it.
+    created_at: datetime

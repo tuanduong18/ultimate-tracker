@@ -8,7 +8,7 @@ import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, monthRange } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { tintOfMany } from '@/lib/tint';
+import { budgetTint } from '@/lib/tint';
 import { formatMoney, type BudgetProgress, type Category } from '@/lib/types/finance';
 
 /**
@@ -104,6 +104,21 @@ export function BudgetSection({
   onChange,
 }: BudgetSectionProps) {
   const { items, loading, error, reload, setError } = budgets;
+
+  /**
+   * Which pastel each budget wears, keyed by id.
+   *
+   * Assigned in the order the budgets were created, not the order they are
+   * listed in. The list is newest-first, so indexing it directly would hand the
+   * first colour to whichever budget was made last — and recolour every card
+   * below it the moment another is added. By creation order a new budget simply
+   * takes the next unused pastel and nothing else moves.
+   */
+  const tints = new Map(
+    [...items]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((budget, index) => [budget.id, budgetTint(index)])
+  );
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -230,7 +245,7 @@ export function BudgetSection({
               <li
                 key={budget.id}
                 className="rounded-lg p-4"
-                style={{ backgroundColor: tintOfMany(budget.categories) }}
+                style={{ backgroundColor: tints.get(budget.id) }}
               >
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">{budget.name}</p>

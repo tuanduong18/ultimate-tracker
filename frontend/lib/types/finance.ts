@@ -134,4 +134,6 @@ export interface BudgetProgress {
   starts_on: string;
   ends_on: string;
   categories: Category[];
+  /** Orders the card colours, so adding a budget does not recolour the rest. */
+  created_at: string;
 }
