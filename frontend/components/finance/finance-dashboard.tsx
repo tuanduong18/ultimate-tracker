@@ -1,20 +1,21 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 
 import { BudgetSection } from '@/components/finance/budget-section';
 import { CategorySection } from '@/components/finance/category-section';
 import { ExpenseSection } from '@/components/finance/expense-section';
+import { granularityFor } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
-import { SpendByWeekChart } from '@/components/finance/spend-by-week-chart';
-import { monthLabel, monthRange } from '@/lib/dates';
+import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
+import { monthRange } from '@/lib/dates';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type {
   BudgetProgress,
   Category,
   CategoryBreakdown,
   Expense,
-  WeeklyBreakdown,
+  PeriodBreakdown,
 } from '@/lib/types/finance';
 import type { Profile } from '@/lib/types/profile';
 
@@ -35,12 +36,12 @@ const LATEST_EXPENSES = 10;
  * categories, expenses, budgets.
  */
 export function FinanceDashboard() {
-  // Fixed to the current month for now. Pinned on mount so a session left open
-  // across midnight on the last of the month keeps showing one coherent window.
-  const period = useMemo(() => {
-    const now = new Date();
-    return { ...monthRange(now), label: monthLabel(now) };
-  }, []);
+  // A range each, rather than one shared by both charts. They answer different
+  // questions — "when did it go" and "what did it go on" — and those are worth
+  // asking over different windows: this week's days against the month's
+  // categories, say. Both start on the current month.
+  const [periodRange, setPeriodRange] = useState(monthRange);
+  const [categoryRange, setCategoryRange] = useState(monthRange);
 
   const categories = useCollection<Category>('/finance/categories');
   const expenses = useCollection<Expense>('/finance/expenses');
@@ -51,14 +52,20 @@ export function FinanceDashboard() {
   // the bars and the edit forms cannot disagree after a write.
   const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
 
-  const range = `start_date=${period.start}&end_date=${period.end}`;
-  const byCategory = useResource<CategoryBreakdown>(`/finance/summary/by-category?${range}`);
-  const byWeek = useResource<WeeklyBreakdown>(`/finance/summary/by-week?${range}`);
+  // Each chart refetches when its own range moves: the path is the hook's
+  // dependency, so a new range is a new resource rather than a manual reload.
+  const byCategory = useResource<CategoryBreakdown>(
+    `/finance/summary/by-category?start_date=${categoryRange.start}&end_date=${categoryRange.end}`
+  );
+  const byPeriod = useResource<PeriodBreakdown>(
+    `/finance/summary/by-period?start_date=${periodRange.start}&end_date=${periodRange.end}` +
+      `&granularity=${granularityFor(periodRange)}`
+  );
 
   const reloadExpenses = expenses.reload;
   const reloadBudgets = budgets.reload;
   const reloadByCategory = byCategory.reload;
-  const reloadByWeek = byWeek.reload;
+  const reloadByPeriod = byPeriod.reload;
 
   /**
    * Both charts, which move whenever any money does.
@@ -70,8 +77,8 @@ export function FinanceDashboard() {
    */
   const reloadAggregates = useCallback(() => {
     void reloadByCategory();
-    void reloadByWeek();
-  }, [reloadByCategory, reloadByWeek]);
+    void reloadByPeriod();
+  }, [reloadByCategory, reloadByPeriod]);
 
   /** An expense moved, so the budget bars it counts against moved with it. */
   const onExpensesChanged = useCallback(() => {
@@ -102,8 +109,16 @@ export function FinanceDashboard() {
   return (
     <div className="mt-6 space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
-        <SpendByCategoryChart breakdown={byCategory} period={period.label} />
-        <SpendByWeekChart breakdown={byWeek} period={period.label} />
+        <SpendByPeriodChart
+          breakdown={byPeriod}
+          range={periodRange}
+          onRangeChange={setPeriodRange}
+        />
+        <SpendByCategoryChart
+          breakdown={byCategory}
+          range={categoryRange}
+          onRangeChange={setCategoryRange}
+        />
       </div>
 
       {/* 2-4-4 across ten columns; stacked below lg, where side by side would

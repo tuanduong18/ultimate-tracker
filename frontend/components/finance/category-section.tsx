@@ -6,6 +6,7 @@ import { DeleteButton } from '@/components/finance/delete-button';
 import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
+import { cardTint } from '@/lib/tint';
 import type { Category } from '@/lib/types/finance';
 
 const DEFAULT_COLOUR = '#94a3b8';
@@ -146,13 +147,16 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
       ) : items.length === 0 ? (
         !adding && <PanelNote>No categories yet. Create one before setting a budget.</PanelNote>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="space-y-2 p-3">
           {items.map((category) =>
             editing === category.id ? (
               // The swatch becomes the colour input, so the thing being edited
               // sits where the thing it changes was. Stacked rather than one
               // row: this panel is the narrowest on the page.
-              <li key={category.id} className="space-y-2 bg-surface-muted px-3 py-2.5">
+              <li
+                key={category.id}
+                className="space-y-2 rounded-lg border border-border bg-surface-muted px-3 py-2.5"
+              >
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -188,13 +192,13 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                 </div>
               </li>
             ) : (
-              <li key={category.id} className="flex items-center gap-2 px-3 py-2.5">
-                <span
-                  aria-hidden
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: category.colour }}
-                />
-                <span className="min-w-0 flex-1 truncate text-sm">{category.name}</span>
+              <li
+                key={category.id}
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5"
+                style={{ backgroundColor: cardTint(category.colour) }}
+              >
+                {/* No swatch: the card is already wearing this colour. */}
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
 
                 <button
                   type="button"

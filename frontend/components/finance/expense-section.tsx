@@ -9,6 +9,7 @@ import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, todayIso } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
+import { cardTint } from '@/lib/tint';
 import { formatMoney, type Category, type Expense } from '@/lib/types/finance';
 
 interface ExpenseSectionProps {
@@ -147,10 +148,10 @@ export function ExpenseSection({
       ) : shown.length === 0 ? (
         !adding && <PanelNote>Nothing logged yet.</PanelNote>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="space-y-2 p-3">
           {shown.map((expense) =>
             editingId === expense.id ? (
-              <li key={expense.id}>
+              <li key={expense.id} className="overflow-hidden rounded-lg border border-border">
                 <ExpenseForm
                   idPrefix={`expense-${expense.id}`}
                   initial={{
@@ -168,19 +169,17 @@ export function ExpenseSection({
                 />
               </li>
             ) : (
-              <li key={expense.id} className="flex items-center gap-3 px-4 py-2.5">
+              <li
+                key={expense.id}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                style={{ backgroundColor: cardTint(byId.get(expense.category_id ?? '')?.colour) }}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">
                     {expense.description || <span className="text-fg-subtle">No description</span>}
                   </p>
                   <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-                    <span
-                      aria-hidden
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor: byId.get(expense.category_id ?? '')?.colour ?? '#e5e7eb',
-                      }}
-                    />
+                    {/* No swatch: the card is already wearing this colour. */}
                     <span className="truncate">
                       {byId.get(expense.category_id ?? '')?.name ?? 'Uncategorised'}
                     </span>

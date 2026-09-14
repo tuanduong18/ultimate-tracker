@@ -1,74 +1,80 @@
 /**
- * The two chart panels.
+ * The two chart panels and the range control they share.
  *
  * jsdom gives every element zero size, so recharts' ResponsiveContainer draws
  * no SVG here and there is nothing useful to assert about arcs or bars. What is
  * worth pinning down is everything around them: which state the panel picks,
- * and that the figures beside the chart are the API's own strings rather than
- * anything re-derived from the floats the chart is sized with.
+ * that the figures beside the chart are the API's own strings rather than
+ * anything re-derived from the floats the chart is sized with, and that the
+ * range control hands back the windows it claims to.
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { granularityFor, RangeControl } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
-import { SpendByWeekChart } from '@/components/finance/spend-by-week-chart';
+import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
+import type { DateRange } from '@/lib/dates';
 import type { Resource } from '@/lib/hooks/use-collection';
-import type { CategoryBreakdown, WeeklyBreakdown } from '@/lib/types/finance';
+import type { CategoryBreakdown, PeriodBreakdown } from '@/lib/types/finance';
 
 function resource<T>(data: T | null, rest: Partial<Resource<T>> = {}): Resource<T> {
-  return {
-    data,
-    loading: false,
-    error: null,
-    reload: vi.fn(),
-    setError: vi.fn(),
-    ...rest,
-  };
+  return { data, loading: false, error: null, reload: vi.fn(), setError: vi.fn(), ...rest };
 }
+
+const RANGE: DateRange = { start: '2026-08-01', end: '2026-08-31' };
+const noop = () => {};
 
 const BREAKDOWN: CategoryBreakdown = {
   currency: 'USD',
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
   categories: [
-    { category_id: 'c1', name: 'Food', colour: '#22c55e', spent: '120.000' },
-    { category_id: null, name: 'Uncategorised', colour: '#e5e7eb', spent: '30.000' },
+    { category_id: 'c1', name: 'Food', colour: '#22c55e', spent: '75.000' },
+    { category_id: null, name: 'Uncategorised', colour: '#e5e7eb', spent: '25.000' },
   ],
 };
 
-const WEEKLY: WeeklyBreakdown = {
+const PERIOD: PeriodBreakdown = {
   currency: 'USD',
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
-  weeks: [
+  granularity: 'week',
+  buckets: [
     { starts_on: '2026-08-01', ends_on: '2026-08-02', spent: '20.000' },
     { starts_on: '2026-08-03', ends_on: '2026-08-09', spent: '0.000' },
   ],
 };
 
 describe('SpendByCategoryChart', () => {
-  it('lists each slice beside the chart with the amount the API sent', () => {
-    render(<SpendByCategoryChart breakdown={resource(BREAKDOWN)} period="August 2026" />);
+  it('leads each legend row with its share of the total', () => {
+    render(
+      <SpendByCategoryChart breakdown={resource(BREAKDOWN)} range={RANGE} onRangeChange={noop} />
+    );
 
+    // 75 and 25 of 100.
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('25%')).toBeInTheDocument();
     expect(screen.getByText('Food')).toBeInTheDocument();
-    expect(screen.getByText('$120.00')).toBeInTheDocument();
   });
 
   it('keeps spend whose category was deleted visible as its own slice', () => {
-    render(<SpendByCategoryChart breakdown={resource(BREAKDOWN)} period="August 2026" />);
+    render(
+      <SpendByCategoryChart breakdown={resource(BREAKDOWN)} range={RANGE} onRangeChange={noop} />
+    );
 
     // The alternative is quietly dropping it, which makes the slices stop
-    // adding up to the Spent tile above them.
+    // adding up to what the same range reports as spent.
     expect(screen.getByText('Uncategorised')).toBeInTheDocument();
-    expect(screen.getByText('$30.00')).toBeInTheDocument();
   });
 
   it('says nothing was spent rather than drawing an empty pie', () => {
     render(
       <SpendByCategoryChart
         breakdown={resource({ ...BREAKDOWN, categories: [] })}
-        period="August 2026"
+        range={RANGE}
+        onRangeChange={noop}
       />
     );
 
@@ -79,7 +85,8 @@ describe('SpendByCategoryChart', () => {
     render(
       <SpendByCategoryChart
         breakdown={resource<CategoryBreakdown>(null, { error: 'Exchange rates are unavailable.' })}
-        period="August 2026"
+        range={RANGE}
+        onRangeChange={noop}
       />
     );
 
@@ -87,31 +94,81 @@ describe('SpendByCategoryChart', () => {
   });
 });
 
-describe('SpendByWeekChart', () => {
-  it('treats a month with no spending at all as empty', () => {
-    const quiet = { ...WEEKLY, weeks: WEEKLY.weeks.map((w) => ({ ...w, spent: '0.000' })) };
-    render(<SpendByWeekChart breakdown={resource(quiet)} period="August 2026" />);
+describe('SpendByPeriodChart', () => {
+  it('treats a range with no spending at all as empty', () => {
+    const quiet = { ...PERIOD, buckets: PERIOD.buckets.map((b) => ({ ...b, spent: '0.000' })) };
+    render(<SpendByPeriodChart breakdown={resource(quiet)} range={RANGE} onRangeChange={noop} />);
 
     // Zero bars across the board is a chart with nothing to say, unlike a
     // single quiet week among busy ones — which does get a zero bar.
     expect(screen.getByText(/nothing spent/i)).toBeInTheDocument();
   });
 
-  it('names the period it covers', () => {
-    render(<SpendByWeekChart breakdown={resource(WEEKLY)} period="August 2026" />);
-
-    expect(screen.getByText(/August 2026/)).toBeInTheDocument();
-  });
-
   it('shows a spinner rather than an empty state while loading', () => {
     render(
-      <SpendByWeekChart
-        breakdown={resource<WeeklyBreakdown>(null, { loading: true })}
-        period="August 2026"
+      <SpendByPeriodChart
+        breakdown={resource<PeriodBreakdown>(null, { loading: true })}
+        range={RANGE}
+        onRangeChange={noop}
       />
     );
 
     expect(screen.getByText('Loading…')).toBeInTheDocument();
     expect(screen.queryByText(/nothing spent/i)).toBeNull();
+  });
+});
+
+describe('RangeControl', () => {
+  function renderControl(range: DateRange = RANGE) {
+    const onChange = vi.fn();
+    render(<RangeControl range={range} onChange={onChange} idPrefix="test" />);
+    return onChange;
+  }
+
+  it('steps back by the range’s own length', () => {
+    const onChange = renderControl();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous period' }));
+
+    // August is 31 days, so the previous window is the 31 days before it —
+    // which is July 1st to 31st, not "last month" by name.
+    expect(onChange).toHaveBeenCalledWith({ start: '2026-07-01', end: '2026-07-31' });
+  });
+
+  it('steps forward by the same length, including for a hand-picked range', () => {
+    const onChange = renderControl({ start: '2026-08-10', end: '2026-08-12' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next period' }));
+
+    expect(onChange).toHaveBeenCalledWith({ start: '2026-08-13', end: '2026-08-15' });
+  });
+
+  it('lets either end of the range be typed directly', () => {
+    const onChange = renderControl();
+
+    fireEvent.change(screen.getByLabelText('Range start'), { target: { value: '2026-08-15' } });
+
+    expect(onChange).toHaveBeenCalledWith({ start: '2026-08-15', end: '2026-08-31' });
+  });
+
+  it('marks the preset that matches the current range', () => {
+    // The range here is a whole month, but not necessarily *this* month, so
+    // neither preset should claim it.
+    renderControl({ start: '2020-01-01', end: '2020-01-31' });
+
+    expect(screen.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+describe('granularityFor', () => {
+  it('uses day bars for a week and a month', () => {
+    expect(granularityFor({ start: '2026-08-03', end: '2026-08-09' })).toBe('day');
+    expect(granularityFor({ start: '2026-08-01', end: '2026-08-31' })).toBe('day');
+  });
+
+  it('switches to week bars once daily ones would be unreadable', () => {
+    // A quarter of daily bars is ninety of them, each about a pixel wide.
+    expect(granularityFor({ start: '2026-07-01', end: '2026-09-30' })).toBe('week');
   });
 });

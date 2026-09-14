@@ -13,15 +13,21 @@ import type { ReactNode } from 'react';
  */
 interface PanelProps {
   title: string;
-  /** Rendered at the right of the header — the add / see-all buttons. */
+  /** Rendered at the right of the title row — the add / see-all buttons. */
   action?: ReactNode;
+  /**
+   * A second row under the title, for controls that belong to the panel rather
+   * than to one item in it — the charts' range picker. Outside the scroll area,
+   * so it cannot be scrolled away from the thing it controls.
+   */
+  header?: ReactNode;
   /** Whatever the collection this panel owns last failed at. */
   error?: string | null;
   children: ReactNode;
   className?: string;
 }
 
-export function Panel({ title, action, error, children, className }: PanelProps) {
+export function Panel({ title, action, header, error, children, className }: PanelProps) {
   return (
     <section
       className={clsx(
@@ -29,10 +35,13 @@ export function Panel({ title, action, error, children, className }: PanelProps)
         className
       )}
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <h2 className="truncate text-sm font-medium">{title}</h2>
-        {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
-      </header>
+      <div className="shrink-0 border-b border-border">
+        <header className="flex items-center justify-between gap-2 px-4 py-3">
+          <h2 className="truncate text-sm font-medium">{title}</h2>
+          {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
+        </header>
+        {header && <div className="px-4 pb-3">{header}</div>}
+      </div>
 
       {error && (
         <p

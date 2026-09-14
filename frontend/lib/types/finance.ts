@@ -96,19 +96,24 @@ export interface CategoryBreakdown {
   categories: CategorySpend[];
 }
 
-/** One bar of the weekly chart. The span can be under seven days at either end. */
-export interface WeekSpend {
+/** How wide one bar of the spending chart is. */
+export type Granularity = 'day' | 'week';
+
+/** One bar. A week bucket can be under seven days where the range clips it. */
+export interface BucketSpend {
   starts_on: string;
   ends_on: string;
   spent: string;
 }
 
-export interface WeeklyBreakdown {
+export interface PeriodBreakdown {
   currency: string;
   starts_on: string;
   ends_on: string;
-  /** Date order, including weeks where nothing was spent. */
-  weeks: WeekSpend[];
+  /** Echoed by the API, so day bars cannot be mistaken for week bars. */
+  granularity: Granularity;
+  /** Date order, including buckets where nothing was spent. */
+  buckets: BucketSpend[];
 }
 
 /**

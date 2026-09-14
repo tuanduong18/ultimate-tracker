@@ -82,3 +82,72 @@ export function formatSpan(startIso: string, endIso: string): string {
   }
   return `${dayMonth.format(start)} – ${dayMonth.format(end)}`;
 }
+
+/** An inclusive date range, both ends as the YYYY-MM-DD the API expects. */
+export interface DateRange {
+  start: string;
+  end: string;
+}
+
+/** Monday to Sunday around `on` — the week as most calendars draw it. */
+export function weekRange(on: Date = new Date()): DateRange {
+  const monday = new Date(on.getFullYear(), on.getMonth(), on.getDate() - ((on.getDay() + 6) % 7));
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  return { start: toIsoDate(monday), end: toIsoDate(sunday) };
+}
+
+/** Days a range covers, counting both ends — so a single day is 1, not 0. */
+export function rangeLength(range: DateRange): number {
+  const start = fromIso(range.start);
+  const end = fromIso(range.end);
+  if (!start || !end) return 1;
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+}
+
+/**
+ * Step a range forward or back by its own length.
+ *
+ * Deliberately not "the next calendar month": a range picked by hand has no
+ * calendar unit to advance by, and one rule that works for every range beats a
+ * rule that only works for the two presets. The cost is that stepping on from
+ * a 30-day September lands on 1–30 October rather than 1–31 — pick the preset
+ * again to resynchronise with the calendar.
+ */
+export function shiftRange(range: DateRange, direction: 1 | -1): DateRange {
+  const start = fromIso(range.start);
+  const end = fromIso(range.end);
+  if (!start || !end) return range;
+
+  const days = rangeLength(range) * direction;
+  const moved = (value: Date) =>
+    toIsoDate(new Date(value.getFullYear(), value.getMonth(), value.getDate() + days));
+  return { start: moved(start), end: moved(end) };
+}
+
+/**
+ * "1 – 30 Sep 2026" — the window a chart is showing.
+ *
+ * Unlike formatSpan, which labels one bar inside a known window, this is the
+ * only place the window itself is named, so it always carries the year.
+ */
+export function formatRange(range: DateRange): string {
+  const start = fromIso(range.start);
+  const end = fromIso(range.end);
+  if (!start || !end) return `${range.start} – ${range.end}`;
+
+  const full = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  if (range.start === range.end) return full.format(start);
+
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const sameMonth = sameYear && start.getMonth() === end.getMonth();
+  if (sameMonth) {
+    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
+    return `${day.format(start)} – ${full.format(end)}`;
+  }
+  const dayMonth = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+  return `${sameYear ? dayMonth.format(start) : full.format(start)} – ${full.format(end)}`;
+}

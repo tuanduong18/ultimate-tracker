@@ -8,6 +8,7 @@ import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, monthRange } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
+import { tintOfMany } from '@/lib/tint';
 import { formatMoney, type BudgetProgress, type Category } from '@/lib/types/finance';
 
 /**
@@ -32,28 +33,6 @@ function barPercent(spent: string, amount: string): number {
  */
 function withoutSign(amount: string): string {
   return amount.startsWith('-') ? amount.slice(1) : amount;
-}
-
-/**
- * The card's wash of colour, taken from the categories the budget covers.
- *
- * Budgets carry no colour of their own, and adding one would be a field to fill
- * in for something the data already implies: a budget over Food should look
- * like Food, and it is the same swatch the pie chart uses for that category.
- * Sorted by name rather than trusting the order the join table hands back, so
- * a budget does not change colour between two loads of the same page.
- */
-function tintOf(budget: BudgetProgress): string {
-  const [first] = [...budget.categories].sort((a, b) => a.name.localeCompare(b.name));
-  return withAlpha(first?.colour ?? '#94a3b8', 0.14);
-}
-
-/** #rrggbb at some opacity. Colours are `^#[0-9a-fA-F]{6}$`, enforced by the API. */
-function withAlpha(hex: string, alpha: number): string {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!match) return 'transparent';
-  const value = parseInt(match[1], 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }
 
 /**
@@ -251,7 +230,7 @@ export function BudgetSection({
               <li
                 key={budget.id}
                 className="rounded-lg p-4"
-                style={{ backgroundColor: tintOf(budget) }}
+                style={{ backgroundColor: tintOfMany(budget.categories) }}
               >
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">{budget.name}</p>
