@@ -35,9 +35,9 @@ function SliceTooltip({
   const slice = payload[0].payload;
   const share = total > 0 ? Math.round((slice.value / total) * 100) : 0;
   return (
-    <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm">
+    <div className="rounded border border-border bg-surface px-3 py-2 text-xs shadow-sm">
       <p className="font-medium">{slice.name}</p>
-      <p className="text-gray-600">
+      <p className="text-fg-muted">
         {formatMoney(slice.spent, currency)} · {share}%
       </p>
     </div>
@@ -107,7 +107,7 @@ export function SpendByCategoryChart({ breakdown, period }: SpendByCategoryChart
                   style={{ backgroundColor: slice.colour }}
                 />
                 <span className="min-w-0 flex-1 truncate">{slice.name}</span>
-                <span className="shrink-0 text-gray-600">
+                <span className="shrink-0 text-fg-muted">
                   {formatMoney(slice.spent, data?.currency ?? 'USD')}
                 </span>
               </li>

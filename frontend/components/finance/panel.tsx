@@ -25,11 +25,11 @@ export function Panel({ title, action, error, children, className }: PanelProps)
   return (
     <section
       className={clsx(
-        'flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white',
+        'flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-surface',
         className
       )}
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="truncate text-sm font-medium">{title}</h2>
         {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       </header>
@@ -37,7 +37,7 @@ export function Panel({ title, action, error, children, className }: PanelProps)
       {error && (
         <p
           role="alert"
-          className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700"
+          className="shrink-0 border-b border-negative/30 bg-negative-soft px-4 py-2 text-sm text-negative"
         >
           {error}
         </p>
@@ -75,7 +75,7 @@ export function PanelButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-gray-50 disabled:opacity-50"
+      className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft disabled:opacity-50"
     >
       {children}
     </button>
@@ -84,5 +84,5 @@ export function PanelButton({
 
 /** Centred grey text for the loading and empty states, which every panel has. */
 export function PanelNote({ children }: { children: ReactNode }) {
-  return <p className="p-6 text-center text-sm text-gray-500">{children}</p>;
+  return <p className="p-6 text-center text-sm text-fg-muted">{children}</p>;
 }

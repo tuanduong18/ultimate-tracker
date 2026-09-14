@@ -49,7 +49,7 @@ export function ExpenseForm({
 
   return (
     <form
-      className="space-y-3 border-b border-gray-200 bg-gray-50 p-4"
+      className="space-y-3 border-b border-border bg-surface-muted p-4"
       onSubmit={(event) => {
         event.preventDefault();
         const problem = amountProblem(values.amount);
@@ -59,7 +59,7 @@ export function ExpenseForm({
     >
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-amount`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-amount`}>
             Amount
           </label>
           <input
@@ -75,7 +75,7 @@ export function ExpenseForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-currency`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-currency`}>
             Currency
           </label>
           <CurrencySelect
@@ -87,7 +87,7 @@ export function ExpenseForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-date`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-date`}>
             Date
           </label>
           <input
@@ -101,7 +101,7 @@ export function ExpenseForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-category`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-category`}>
             Category
           </label>
           <select
@@ -121,7 +121,7 @@ export function ExpenseForm({
       </div>
 
       <div>
-        <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-description`}>
+        <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-description`}>
           Description
         </label>
         <input
@@ -137,7 +137,7 @@ export function ExpenseForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>
@@ -147,7 +147,7 @@ export function ExpenseForm({
       </div>
 
       {localError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-negative">
           {localError}
         </p>
       )}

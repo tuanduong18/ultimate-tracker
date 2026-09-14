@@ -116,7 +116,7 @@ export function ExpenseSection({
           {seeAllHref && (
             <Link
               href={seeAllHref}
-              className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-gray-50"
+              className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft"
             >
               See all
             </Link>
@@ -147,7 +147,7 @@ export function ExpenseSection({
       ) : shown.length === 0 ? (
         !adding && <PanelNote>Nothing logged yet.</PanelNote>
       ) : (
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-border">
           {shown.map((expense) =>
             editingId === expense.id ? (
               <li key={expense.id}>
@@ -171,9 +171,9 @@ export function ExpenseSection({
               <li key={expense.id} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">
-                    {expense.description || <span className="text-gray-400">No description</span>}
+                    {expense.description || <span className="text-fg-subtle">No description</span>}
                   </p>
-                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <p className="flex items-center gap-1.5 text-xs text-fg-muted">
                     <span
                       aria-hidden
                       className="h-2 w-2 shrink-0 rounded-full"

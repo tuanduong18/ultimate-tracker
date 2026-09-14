@@ -40,7 +40,7 @@ export default function SignupPage() {
     return (
       <main className="mx-auto max-w-sm p-8">
         <h1 className="text-2xl font-semibold">Check your email</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-fg-muted">
           We sent a confirmation link to <span className="font-mono">{email}</span>. Open it, then
           log in.
         </p>
@@ -92,19 +92,19 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="w-full rounded bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
         >
           {submitting ? 'Creating account…' : 'Sign up'}
         </button>
       </form>
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-red-600">
+        <p role="alert" className="mt-4 text-sm text-negative">
           {error}
         </p>
       )}
 
-      <p className="mt-6 text-sm text-gray-500">
+      <p className="mt-6 text-sm text-fg-muted">
         Already have an account?{' '}
         <Link className="underline" href="/login">
           Log in

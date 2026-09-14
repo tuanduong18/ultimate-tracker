@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 import { Panel, PanelNote } from '@/components/finance/panel';
 import { formatSpan } from '@/lib/dates';
+import { useThemeColours } from '@/lib/hooks/use-theme-colours';
 import type { Resource } from '@/lib/hooks/use-collection';
 import { formatMoney, type WeeklyBreakdown } from '@/lib/types/finance';
 
@@ -26,9 +27,9 @@ function WeekTooltip({
   if (!active || !payload?.length) return null;
   const week = payload[0].payload;
   return (
-    <div className="rounded border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm">
+    <div className="rounded border border-border bg-surface px-3 py-2 text-xs shadow-sm">
       <p className="font-medium">{week.label}</p>
-      <p className="text-gray-600">{formatMoney(week.spent, currency)}</p>
+      <p className="text-fg-muted">{formatMoney(week.spent, currency)}</p>
     </div>
   );
 }
@@ -48,6 +49,8 @@ interface SpendByWeekChartProps {
  */
 export function SpendByWeekChart({ breakdown, period }: SpendByWeekChartProps) {
   const { data, loading, error } = breakdown;
+  // recharts styles its SVG from props, so these cannot be Tailwind classes.
+  const colour = useThemeColours();
 
   const weeks: Week[] = (data?.weeks ?? []).map((week) => ({
     label: formatSpan(week.starts_on, week.ends_on),
@@ -66,27 +69,27 @@ export function SpendByWeekChart({ breakdown, period }: SpendByWeekChartProps) {
         <div className="h-full p-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weeks} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={colour.border} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: '#6b7280' }}
+                tick={{ fontSize: 11, fill: colour['fg-muted'] }}
                 tickLine={false}
-                axisLine={{ stroke: '#e5e7eb' }}
+                axisLine={{ stroke: colour.border }}
                 interval={0}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#6b7280' }}
+                tick={{ fontSize: 11, fill: colour['fg-muted'] }}
                 tickLine={false}
                 axisLine={false}
                 width={48}
               />
               <Tooltip
-                cursor={{ fill: '#f9fafb' }}
+                cursor={{ fill: colour['surface-muted'] }}
                 content={<WeekTooltip currency={data?.currency ?? 'USD'} />}
               />
               <Bar
                 dataKey="value"
-                fill="#111827"
+                fill={colour.primary}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={56}
                 isAnimationActive={false}

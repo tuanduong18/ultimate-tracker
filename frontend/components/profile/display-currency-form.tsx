@@ -46,19 +46,19 @@ export function DisplayCurrencyForm() {
   }
 
   if (profile.loading) {
-    return <p className="mt-6 text-sm text-gray-500">Loading…</p>;
+    return <p className="mt-6 text-sm text-fg-muted">Loading…</p>;
   }
 
   return (
     <section className="mt-8 max-w-md">
       <h2 className="text-lg font-medium">Display currency</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-fg-muted">
         Finance totals are reported in this currency. Individual expenses and budgets keep the
         currency you entered them in.
       </p>
 
       {profile.error && (
-        <p role="alert" className="mt-3 text-sm text-red-600">
+        <p role="alert" className="mt-3 text-sm text-negative">
           {profile.error}
         </p>
       )}
@@ -82,11 +82,11 @@ export function DisplayCurrencyForm() {
         <button
           type="submit"
           disabled={busy || currency === stored}
-          className="rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="rounded bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>
-        {saved && <p className="py-2 text-sm text-green-700">Saved.</p>}
+        {saved && <p className="py-2 text-sm text-positive">Saved.</p>}
       </form>
     </section>
   );

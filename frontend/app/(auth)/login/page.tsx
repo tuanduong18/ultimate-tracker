@@ -81,19 +81,19 @@ function LoginForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-black px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="w-full rounded bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
         >
           {submitting ? 'Signing in…' : 'Log in'}
         </button>
       </form>
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-red-600">
+        <p role="alert" className="mt-4 text-sm text-negative">
           {error}
         </p>
       )}
 
-      <p className="mt-6 text-sm text-gray-500">
+      <p className="mt-6 text-sm text-fg-muted">
         No account yet?{' '}
         <Link className="underline" href="/signup">
           Sign up
@@ -106,7 +106,7 @@ function LoginForm() {
 export default function LoginPage() {
   // useSearchParams needs a Suspense boundary to keep this page prerenderable.
   return (
-    <Suspense fallback={<main className="p-8 text-sm text-gray-500">Loading…</main>}>
+    <Suspense fallback={<main className="p-8 text-sm text-fg-muted">Loading…</main>}>
       <LoginForm />
     </Suspense>
   );

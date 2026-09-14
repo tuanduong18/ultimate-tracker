@@ -16,6 +16,12 @@ export const MODULES = [
   { href: '/insights', label: 'Insights', blurb: 'How the domains connect' },
 ] as const;
 
+/** Below the divider: preferences rather than places to log something. */
+export const ACCOUNT_LINKS = [
+  { href: '/profile', label: 'Profile' },
+  { href: '/settings', label: 'Settings' },
+] as const;
+
 function isActive(pathname: string, href: string): boolean {
   // Prefix match so /finance/budgets keeps the Finance item highlighted.
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -25,7 +31,7 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50 p-4">
+    <nav className="flex w-56 shrink-0 flex-col border-r border-border bg-surface-muted p-4">
       <Link href="/dashboard" className="px-3 text-lg font-semibold">
         Ultimate Tracker
       </Link>
@@ -38,8 +44,8 @@ export function AppNav() {
               aria-current={isActive(pathname, module.href) ? 'page' : undefined}
               className={`block rounded px-3 py-2 text-sm ${
                 isActive(pathname, module.href)
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-fg'
+                  : 'text-fg hover:bg-primary-soft'
               }`}
             >
               {module.label}
@@ -48,22 +54,25 @@ export function AppNav() {
         ))}
       </ul>
 
-      <div className="space-y-1 border-t border-gray-200 pt-4">
-        <Link
-          href="/profile"
-          aria-current={isActive(pathname, '/profile') ? 'page' : undefined}
-          className={`block rounded px-3 py-2 text-sm ${
-            isActive(pathname, '/profile')
-              ? 'bg-gray-900 text-white'
-              : 'text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Profile
-        </Link>
+      <div className="space-y-1 border-t border-border pt-4">
+        {ACCOUNT_LINKS.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            aria-current={isActive(pathname, link.href) ? 'page' : undefined}
+            className={`block rounded px-3 py-2 text-sm ${
+              isActive(pathname, link.href)
+                ? 'bg-primary text-primary-fg'
+                : 'text-fg hover:bg-primary-soft'
+            }`}
+          >
+            {link.label}
+          </Link>
+        ))}
         <button
           type="button"
           onClick={() => void supabase.auth.signOut()}
-          className="block w-full rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-200"
+          className="block w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-primary-soft"
         >
           Log out
         </button>

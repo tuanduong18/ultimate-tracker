@@ -74,21 +74,21 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
     <>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-gray-500">Total Paid</p>
+          <p className="text-xs text-fg-muted">Total Paid</p>
           <p className="text-base font-bold">{formatMoney(budget.spent, budget.currency)}</p>
         </div>
         <div className="text-right">
-          <p className={`text-xs ${over ? 'text-red-600' : 'text-gray-500'}`}>
+          <p className={`text-xs ${over ? 'text-negative' : 'text-fg-muted'}`}>
             {over ? 'Overshooting' : 'Total Remaining'}
           </p>
-          <p className={`text-base font-bold ${over ? 'text-red-600' : ''}`}>
+          <p className={`text-base font-bold ${over ? 'text-negative' : ''}`}>
             {formatMoney(withoutSign(budget.remaining), budget.currency)}
           </p>
         </div>
       </div>
 
       <div
-        className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-black/10"
+        className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-fg/10"
         role="progressbar"
         aria-label={`${budget.name} spent`}
         aria-valuenow={Math.round(percent)}
@@ -96,7 +96,7 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
         aria-valuemax={100}
       >
         <div
-          className={`h-full rounded-full ${over ? 'bg-red-600' : 'bg-green-600'}`}
+          className={`h-full rounded-full ${over ? 'bg-negative' : 'bg-positive'}`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -229,7 +229,7 @@ export function BudgetSection({
         <ul className="space-y-3 p-3">
           {items.map((budget) =>
             editingId === budget.id ? (
-              <li key={budget.id} className="overflow-hidden rounded-lg border border-gray-200">
+              <li key={budget.id} className="overflow-hidden rounded-lg border border-border">
                 <BudgetForm
                   idPrefix={`budget-${budget.id}`}
                   initial={{
@@ -280,7 +280,7 @@ export function BudgetSection({
 
                 {/* Kept, unlike the mock: budgets here span any range the user
                     picks, so which days a card covers is not a given. */}
-                <p className="truncate text-xs text-gray-500">
+                <p className="truncate text-xs text-fg-muted">
                   {formatDate(budget.starts_on)} – {formatDate(budget.ends_on)}
                   {budget.categories.length > 0 && (
                     <>

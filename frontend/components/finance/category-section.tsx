@@ -100,9 +100,12 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
       }
     >
       {adding && (
-        <form className="space-y-2 border-b border-gray-200 bg-gray-50 p-3" onSubmit={handleCreate}>
+        <form
+          className="space-y-2 border-b border-border bg-surface-muted p-3"
+          onSubmit={handleCreate}
+        >
           <div>
-            <label className="block text-xs text-gray-600" htmlFor="category-name">
+            <label className="block text-xs text-fg-muted" htmlFor="category-name">
               Name
             </label>
             <input
@@ -116,7 +119,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
           </div>
           <div className="flex items-end gap-2">
             <div>
-              <label className="block text-xs text-gray-600" htmlFor="category-colour">
+              <label className="block text-xs text-fg-muted" htmlFor="category-colour">
                 Colour
               </label>
               <input
@@ -130,7 +133,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             <button
               type="submit"
               disabled={busy}
-              className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+              className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
             >
               Add
             </button>
@@ -143,13 +146,13 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
       ) : items.length === 0 ? (
         !adding && <PanelNote>No categories yet. Create one before setting a budget.</PanelNote>
       ) : (
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-border">
           {items.map((category) =>
             editing === category.id ? (
               // The swatch becomes the colour input, so the thing being edited
               // sits where the thing it changes was. Stacked rather than one
               // row: this panel is the narrowest on the page.
-              <li key={category.id} className="space-y-2 bg-gray-50 px-3 py-2.5">
+              <li key={category.id} className="space-y-2 bg-surface-muted px-3 py-2.5">
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
@@ -177,7 +180,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                   </button>
                   <button
                     type="button"
-                    className="text-xs text-gray-500 underline"
+                    className="text-xs text-fg-muted underline"
                     onClick={() => setEditing(null)}
                   >
                     Cancel

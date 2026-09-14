@@ -62,7 +62,7 @@ export function BudgetForm({
 
   return (
     <form
-      className="space-y-3 border-b border-gray-200 bg-gray-50 p-4"
+      className="space-y-3 border-b border-border bg-surface-muted p-4"
       onSubmit={(event) => {
         event.preventDefault();
         const found = problem();
@@ -71,7 +71,7 @@ export function BudgetForm({
       }}
     >
       <div>
-        <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-name`}>
+        <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-name`}>
           Name
         </label>
         <input
@@ -86,7 +86,7 @@ export function BudgetForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-amount`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-amount`}>
             Amount
           </label>
           <input
@@ -100,7 +100,7 @@ export function BudgetForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-currency`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-currency`}>
             Currency
           </label>
           <CurrencySelect
@@ -112,7 +112,7 @@ export function BudgetForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-starts`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-starts`}>
             Starts
           </label>
           <input
@@ -126,7 +126,7 @@ export function BudgetForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600" htmlFor={`${idPrefix}-ends`}>
+          <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-ends`}>
             Ends
           </label>
           <input
@@ -141,7 +141,7 @@ export function BudgetForm({
       </div>
 
       <fieldset>
-        <legend className="text-xs text-gray-600">Categories it covers</legend>
+        <legend className="text-xs text-fg-muted">Categories it covers</legend>
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
           {categories.map((category) => (
             <label key={category.id} className="flex items-center gap-1.5 text-sm">
@@ -160,7 +160,7 @@ export function BudgetForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>
@@ -170,7 +170,7 @@ export function BudgetForm({
       </div>
 
       {localError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-negative">
           {localError}
         </p>
       )}
