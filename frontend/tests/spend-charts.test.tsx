@@ -104,6 +104,34 @@ describe('SpendByPeriodChart', () => {
     expect(screen.getByText(/nothing spent/i)).toBeInTheDocument();
   });
 
+  it('widens the plot past the panel so a long range scrolls instead of cramming', () => {
+    const year = {
+      ...PERIOD,
+      buckets: Array.from({ length: 53 }, (_, week) => ({
+        starts_on: '2026-01-01',
+        ends_on: '2026-01-07',
+        spent: String(week + 1),
+      })),
+    };
+    const { rerender } = render(
+      <SpendByPeriodChart breakdown={resource(year)} range={RANGE} onRangeChange={noop} />
+    );
+
+    // jsdom lays nothing out, so the floor itself is what is assertable: it has
+    // to grow with the bars, which is what pushes the panel into scrolling.
+    const wide = screen.getByTestId('period-chart-plot').style.minWidth;
+
+    rerender(
+      <SpendByPeriodChart breakdown={resource(PERIOD)} range={RANGE} onRangeChange={noop} />
+    );
+    const narrow = screen.getByTestId('period-chart-plot').style.minWidth;
+
+    expect(parseInt(wide, 10)).toBeGreaterThan(parseInt(narrow, 10));
+    // Two buckets must not reserve more room than the panel already has, or a
+    // short range would scroll for no reason.
+    expect(parseInt(narrow, 10)).toBeLessThan(200);
+  });
+
   it('shows a spinner rather than an empty state while loading', () => {
     render(
       <SpendByPeriodChart

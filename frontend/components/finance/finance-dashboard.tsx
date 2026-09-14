@@ -109,15 +109,15 @@ export function FinanceDashboard() {
   return (
     <div className="mt-6 space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
-        <SpendByPeriodChart
-          breakdown={byPeriod}
-          range={periodRange}
-          onRangeChange={setPeriodRange}
-        />
         <SpendByCategoryChart
           breakdown={byCategory}
           range={categoryRange}
           onRangeChange={setCategoryRange}
+        />
+        <SpendByPeriodChart
+          breakdown={byPeriod}
+          range={periodRange}
+          onRangeChange={setPeriodRange}
         />
       </div>
 
