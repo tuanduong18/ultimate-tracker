@@ -218,3 +218,73 @@ class SummaryRead(BaseModel):
     budgeted: Decimal
     # Can be negative: that is the overspend, and the UI should say so.
     remaining: Decimal
+
+
+# --- Breakdowns ---------------------------------------------------------------
+#
+# Each of these wraps its rows in an envelope carrying the currency they were
+# converted into. The rows are money in one currency and the caller has to know
+# which before it can format anything, and repeating the code on every row would
+# invite a chart that renders a mix without noticing.
+
+
+class CategorySpendRead(BaseModel):
+    """One slice: what a single category cost over the range."""
+
+    # Null for spend whose category has been deleted, which is the one bucket
+    # with no row behind it. Name and colour still arrive so a chart can draw it.
+    category_id: uuid.UUID | None
+    name: str
+    colour: str
+    spent: Decimal
+
+
+class CategoryBreakdownRead(BaseModel):
+    currency: str
+    starts_on: date
+    ends_on: date
+    # Largest first, and only categories with spend against them.
+    categories: list[CategorySpendRead]
+
+
+class WeekSpendRead(BaseModel):
+    """One bar: what a single week cost.
+
+    The range is inclusive and can be shorter than seven days where the week is
+    clipped by the ends of the window — label the bar with it rather than
+    assuming every bar covers the same span.
+    """
+
+    starts_on: date
+    ends_on: date
+    spent: Decimal
+
+
+class WeeklyBreakdownRead(BaseModel):
+    currency: str
+    starts_on: date
+    ends_on: date
+    # In date order, including weeks where nothing was spent.
+    weeks: list[WeekSpendRead]
+
+
+class BudgetProgressRead(BaseModel):
+    """A budget with what has been spent against it.
+
+    ``currency`` is the budget own currency rather than the display currency:
+    spending is converted *into* the cap so the percentage means something
+    fixed. Two budgets in a list may therefore be quoted in different currencies.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    currency: str
+    amount: Decimal
+    spent: Decimal
+    # Negative when overspent, like SummaryRead.remaining — show it, do not clamp.
+    remaining: Decimal
+    starts_on: date
+    ends_on: date
+    categories: list[CategoryRead]

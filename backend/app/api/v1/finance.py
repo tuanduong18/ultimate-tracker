@@ -11,8 +11,10 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.finance import (
     BudgetCreate,
+    BudgetProgressRead,
     BudgetRead,
     BudgetUpdate,
+    CategoryBreakdownRead,
     CategoryCreate,
     CategoryRead,
     CategoryUpdate,
@@ -20,6 +22,7 @@ from app.schemas.finance import (
     ExpenseRead,
     ExpenseUpdate,
     SummaryRead,
+    WeeklyBreakdownRead,
 )
 from app.services import finance as finance_service
 from app.services import profile as profile_service
@@ -154,6 +157,24 @@ async def list_budgets(
     return [BudgetRead.model_validate(b) for b in budgets]
 
 
+@router.get("/budgets/progress", response_model=list[BudgetProgressRead])
+async def read_budget_progress(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[BudgetProgressRead]:
+    """Every budget with spend measured against its own cap and currency.
+
+    Separate from GET /budgets rather than folded into it: this one converts
+    currencies, and the forms that only need the list of budgets should not pay
+    for an exchange-rate lookup to render a dropdown.
+    """
+    try:
+        progress = await finance_service.budget_progress(db, user_id)
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return [BudgetProgressRead.model_validate(p) for p in progress]
+
+
 @router.post("/budgets", response_model=BudgetRead, status_code=status.HTTP_201_CREATED)
 async def create_budget(
     payload: BudgetCreate,
@@ -230,3 +251,47 @@ async def read_summary(
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
     return SummaryRead.model_validate(totals)
+
+
+@router.get("/summary/by-category", response_model=CategoryBreakdownRead)
+async def read_category_breakdown(
+    start_date: date,
+    end_date: date,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> CategoryBreakdownRead:
+    """Spend per category over a date range, in the display currency."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        breakdown = await finance_service.summarize_by_category(
+            db,
+            user_id,
+            start_date=start_date,
+            end_date=end_date,
+            display_currency=profile.display_currency,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return CategoryBreakdownRead.model_validate(breakdown)
+
+
+@router.get("/summary/by-week", response_model=WeeklyBreakdownRead)
+async def read_weekly_breakdown(
+    start_date: date,
+    end_date: date,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> WeeklyBreakdownRead:
+    """Spend per calendar week over a date range, in the display currency."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        breakdown = await finance_service.summarize_by_week(
+            db,
+            user_id,
+            start_date=start_date,
+            end_date=end_date,
+            display_currency=profile.display_currency,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return WeeklyBreakdownRead.model_validate(breakdown)
