@@ -15,14 +15,16 @@
 
 <!--
 Which release does this belong to? See DeveloperGuide.md section 14.
-Scope creep across releases is the biggest risk to this project shipping —
-if this is scoped for a later release, say why it's landing now.
+The plan has no dates — only an order. Scope creep across releases is the
+biggest risk to this project shipping, so if this is scoped for a later
+release, say why it's landing now.
 -->
 
-- [ ] v0.1 — Auth, Finance, Steps, dashboard skeleton, CI/CD
-- [ ] v0.2 — Focus timer, entertainment budgets, fitness, dashboard charts
-- [ ] v0.3 — Sleep/mood, habits, correlation engine, weekly digest
+- [ ] v0.1 — Auth, Finance core, app shell, theming, CI/CD
+- [ ] v0.2 — Subscriptions + reminders, notifications/scheduler, budget alerts, Health & Fitness, focus timer
+- [ ] v0.3 — Google Calendar sync + events, sleep/mood/habits, correlation engine, weekly digest, onboarding
 - [ ] v0.4 — Polish, performance, observability, launch
+- [ ] Last — Gaming Performance
 - [ ] Out of band (infra/docs/deps — no release scope)
 
 ## Testing

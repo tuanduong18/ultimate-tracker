@@ -55,9 +55,13 @@ Both follow [Conventional Commits](https://www.conventionalcommits.org/).
 **Types:** `feat` · `fix` · `refactor` · `test` · `docs` · `chore` · `ci` · `perf` · `style`
 
 **Scopes** (optional, but use one when it fits) are the domain names from
-[`DeveloperGuide.md` § 6](./DeveloperGuide.md#6-features--functional-requirements):
-`finance` · `steps` · `fitness` · `time` · `wellness` · `insights` · `gaming` · `auth` ·
+[`docs/features/`](./docs/features/), enforced by
+[`pr-title.yml`](./.github/workflows/pr-title.yml):
+`finance` · `health` · `time` · `insights` · `gaming` · `auth` ·
 `dashboard` · `api` · `db` · `ci` · `deps`
+
+> `steps`, `fitness` and `wellness` were retired when those three domains merged into
+> **Health & Fitness**. Use `health`. CI rejects the old names.
 
 The subject starts lowercase and has no trailing period.
 
@@ -84,7 +88,7 @@ domains together; if the PR description needs the word "also", it's probably two
 
 **Scope:** every PR names its target release. If something scoped for v0.3 is landing during
 v0.1, say why in the description. Scope creep across releases is the single biggest risk to
-this project shipping.
+this project shipping — which is also why the release plan carries an order but no dates.
 
 ### Why CI looks the way it does
 
@@ -174,7 +178,7 @@ Three families, combined freely:
 | Family | Labels |
 |---|---|
 | **Type** | `bug` · `feature` · `chore` · `docs` |
-| **Domain** | `finance` · `steps` · `fitness` · `time` · `wellness` · `insights` · `gaming` · `platform` |
+| **Domain** | `finance` · `health` · `time` · `insights` · `gaming` · `platform` |
 | **Release** | `v0.1` · `v0.2` · `v0.3` · `v0.4` |
 
 Milestones mirror the release plan in
