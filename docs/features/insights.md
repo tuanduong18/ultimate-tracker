@@ -35,19 +35,19 @@ finds patterns in noise.
 
 ## The correlations worth finding
 
-The domain split determines what can be correlated. With Finance, Health & Fitness, and Time &
+The domain split determines what can be correlated. With Finance, Fitness, and Time &
 Calendar, the pairs that carry real signal are:
 
 | Between | Example question |
 |---|---|
-| Health × Time | Are focus hours higher on days with more movement? |
-| Health × Health | Does sleep quality track training volume, or lag it by a day? |
-| Finance × Health | Does spending rise in weeks when training drops? |
+| Fitness × Time | Are focus hours higher on days with more movement? |
+| Fitness, internally | Does sleep quality track training volume, or lag it by a day? |
+| Finance × Fitness | Does spending rise in weeks when training drops? |
 | Finance × Time | Does entertainment time predict entertainment spend? |
-| Calendar × Health | Do heavily committed weeks cost sleep? |
+| Calendar × Fitness | Do heavily committed weeks cost sleep? |
 | Calendar × Finance | Do subscription renewals cluster where the money is already tight? |
 
-Merging Steps and Wellness into Health & Fitness helped here. Under the old split, "sleep versus
+Folding Steps and Wellness into Fitness helped here. Under the old split, "sleep versus
 training" was a cross-domain correlation between two separate trackers; now it is one domain
 asking about itself, which is cheaper to compute and easier to explain.
 

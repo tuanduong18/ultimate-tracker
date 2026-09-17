@@ -55,9 +55,9 @@ makes it the most valuable input the insights engine could have:
 
 | Between | Example question |
 |---|---|
-| Gaming × Health | Does win rate drop after a bad night of sleep? |
+| Gaming × Fitness | Does win rate drop after a bad night of sleep? |
 | Gaming × Time | Does a long gaming session cost the next day's focus hours? |
-| Gaming × Health | Does a losing streak show up in the next morning's mood check-in? |
+| Gaming × Fitness | Does a losing streak show up in the next morning's mood check-in? |
 | Gaming × Finance | Does entertainment spend rise during a losing week? |
 
 None of this works without the other domains already holding weeks of data — another reason this

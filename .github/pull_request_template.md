@@ -21,7 +21,7 @@ release, say why it's landing now.
 -->
 
 - [ ] v0.1 — Auth, Finance core, app shell, theming, CI/CD
-- [ ] v0.2 — Subscriptions + reminders, notifications/scheduler, budget alerts, Health & Fitness, focus timer
+- [ ] v0.2 — Subscriptions + reminders, notifications/scheduler, budget alerts, Fitness, focus timer
 - [ ] v0.3 — Google Calendar sync + events, sleep/mood/habits, correlation engine, weekly digest, onboarding
 - [ ] v0.4 — Polish, performance, observability, launch
 - [ ] Last — Gaming Performance

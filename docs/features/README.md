@@ -13,7 +13,7 @@ release plan.** It is deliberate, not alphabetical.
 | # | Domain | Spec | Status |
 |---|---|---|---|
 | 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Partly built |
-| 2 | 🏋️ Health & Fitness | [`health-and-fitness.md`](./health-and-fitness.md) | Not started |
+| 2 | 🏋️ Fitness | [`fitness.md`](./fitness.md) | Not started |
 | 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started |
 | 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started |
 | 5 | 🎮 Gaming Performance | [`gaming.md`](./gaming.md) | Not started — ships last, by design |
@@ -40,8 +40,8 @@ These words mean specific things in these documents:
 ## Related
 
 Decisions about *why* the domains are shaped this way live in [`../adr/`](../adr/) —
-notably [ADR-0002](../adr/0002-consolidate-health-domains.md) (why Steps, Fitness and Wellness
-are one domain) and [ADR-0003](../adr/0003-two-way-google-calendar-sync.md) (why the calendar
+notably [ADR-0002](../adr/0002-consolidate-fitness-domains.md) (why Steps and Wellness folded
+into Fitness) and [ADR-0003](../adr/0003-two-way-google-calendar-sync.md) (why the calendar
 syncs both ways).
 
 ## How to change a spec

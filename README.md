@@ -25,7 +25,7 @@ Five domains, listed in the order they appear in the app.
 | # | Domain | Status | What it covers |
 |---|---|---|---|
 | 1 | 💰 Finance & Budgeting | Partly built | Expenses, categories, multi-currency budgets, spending breakdowns — plus subscriptions with renewal reminders and one-click renew |
-| 2 | 🏋️ Health & Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
+| 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
 | 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
 | 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
 | 5 | 🎮 Gaming Performance | Last | Riot / Steam sync, tilt detection, performance trends |
@@ -148,7 +148,7 @@ when it is done and the one before it is stable.
 | Release | What ships |
 |---|---|
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD. |
-| **v0.2** | Subscriptions end to end, reminders included — so the notification and scheduler service lands here. Budget breach alerts. Health & Fitness training and steps. Focus timer and entertainment budgets. |
+| **v0.2** | Subscriptions end to end, reminders included — so the notification and scheduler service lands here. Budget breach alerts. Fitness training and steps. Focus timer and entertainment budgets. |
 | **v0.3** | Two-way Google Calendar sync and events. Sleep, mood and habits. Correlation engine and weekly digest. Onboarding. |
 | **v0.4** | Polish, performance pass, full observability, public launch. |
 | **Last** | Gaming Performance — Riot and Steam integration, tilt detection. Deliberately after everything else. |

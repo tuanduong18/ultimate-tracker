@@ -1,11 +1,11 @@
-# Health & Fitness
+# Fitness
 
 Everything about the state of your body in one domain: what you trained, how far you walked,
 how you slept, how you felt, and the habits meant to hold it together.
 
 - **Release:** v0.2 (training and movement), v0.3 (recovery and habits)
-- **Scope name:** `health`
-- **API prefix:** `/api/v1/health`
+- **Scope name:** `fitness`
+- **API prefix:** `/api/v1/fitness`
 - **Code:** [`backend/app/api/v1/fitness.py`](../../backend/app/api/v1/fitness.py) — currently an
   empty router stub
 
@@ -18,12 +18,13 @@ how you slept, how you felt, and the habits meant to hold it together.
 
 ---
 
-## Why these are one domain, not three
+## Why this is one domain, not three
 
-Earlier drafts split this into **Steps & Walking**, **Fitness**, and **Wellness** — three
-sidebar entries, three sets of endpoints, three dashboard pages. That split has been removed.
+Earlier drafts split this into **Steps & Walking**, **Fitness**, and **Wellness** — three sidebar
+entries, three sets of endpoints, three dashboard pages. Steps and Wellness have been folded into
+Fitness. Recorded as [ADR-0002](../adr/0002-consolidate-fitness-domains.md).
 
-It was wrong for three reasons:
+The split was wrong for three reasons:
 
 **The data is one story.** A hard training week, a low step count, five hours of sleep, and a
 mood of 2 are not four unrelated facts — they are one week, and the interesting question is how
@@ -39,9 +40,13 @@ most of them are health habits.
 competing with everything else, which made the app look like it tracked one number well. It is
 one signal among several about how much you moved, and it sits better beside the sessions.
 
-Recorded as [ADR-0002](../adr/0002-consolidate-health-domains.md).
+> **On the name.** "Fitness" is narrower than what this domain holds — sleep, mood and habits are
+> not training. It wins anyway because `/api/v1/health` is already the operational liveness check
+> that Render and UptimeRobot poll, and one word meaning two things in one API is worse than a
+> label that reads slightly broad. Treat Fitness here as the umbrella over the four areas below,
+> not as training alone.
 
-The merge is a documentation and product decision. **The code has not moved yet** — see
+The merge is a documentation and product decision, implemented in code in the same branch — see
 [Migration notes](#migration-notes).
 
 ---
@@ -83,9 +88,9 @@ What training costs and what rest returns. Absorbs the sleep and mood half of We
 
 ## Data model
 
-Five tables, one domain. Kept separate rather than collapsed into a generic "health event" row
+Six tables, one domain. Kept separate rather than collapsed into a generic "fitness event" row
 because their columns have almost nothing in common, and a table of mostly-null columns is
-harder to query than five honest ones.
+harder to query than six honest ones.
 
 | Table | Holds | Key columns |
 |---|---|---|
@@ -104,40 +109,42 @@ row for the same day means an edit was mishandled somewhere.
 
 ## Endpoints
 
-All under `/api/v1/health`, grouped by what they record:
+All under `/api/v1/fitness`, grouped by what they record:
 
 ```
-/health/sessions          training sessions, full CRUD
-/health/sessions/{id}/sets    set entries within a session
-/health/exercises         the exercise library
-/health/records           detected personal records, read-only
-/health/steps             daily step logs, full CRUD
-/health/sleep             sleep logs, full CRUD
-/health/mood              mood and energy check-ins
-/health/habits            habit definitions
-/health/habits/{id}/logs  daily completion ticks
-/health/summary           the domain rollup that feeds the dashboard
+/fitness/sessions           training sessions, full CRUD
+/fitness/sessions/{id}/sets set entries within a session
+/fitness/exercises          the exercise library
+/fitness/records            detected personal records, read-only
+/fitness/steps              daily step logs, full CRUD
+/fitness/sleep              sleep logs, full CRUD
+/fitness/mood               mood and energy check-ins
+/fitness/habits             habit definitions
+/fitness/habits/{id}/logs   daily completion ticks
+/fitness/summary            the domain rollup that feeds the dashboard
 ```
 
-A single `health` prefix rather than three is what makes the cross-cutting query cheap: the
+A single `fitness` prefix rather than three is what makes the cross-cutting query cheap: the
 summary endpoint reads training, movement, and recovery from one service without three round
 trips.
+
+**`/api/v1/health` is not part of this domain.** It is the operational liveness check, polled by
+Render and an uptime monitor. Do not mount domain routes under it.
 
 ---
 
 ## Migration notes
 
-The merge is specified here but **not yet reflected in the code**. When Health & Fitness is
-built, these need to move together in one PR, because a half-merged domain is worse than either
-arrangement:
+The merge is implemented as of this branch:
 
-- `frontend/components/shared/app-nav.tsx` — `MODULES` still lists `/steps`, `/fitness`, and
-  `/wellness` as three entries. They become one `/health`.
-- `frontend/app/(app)/steps/`, `/fitness/`, `/wellness/` — three placeholder pages become one.
-- `backend/app/api/v1/steps.py`, `fitness.py`, `wellness.py` — three stub routers become
-  `health.py`. All three are empty, so nothing is lost.
-- Commit scope — `steps`, `fitness`, and `wellness` are retired in favour of `health`. Already
-  updated in [`.github/workflows/pr-title.yml`](../../.github/workflows/pr-title.yml), so use
-  `health` from now on.
+- `frontend/components/shared/app-nav.tsx` — `MODULES` listed `/steps`, `/fitness` and
+  `/wellness` as three entries; now one `/fitness`.
+- `frontend/app/(app)/steps/` and `/wellness/` — deleted. `/fitness/` absorbs them.
+- `backend/app/api/v1/steps.py` and `wellness.py` — deleted, and unmounted from the aggregate
+  router. `fitness.py` is the merged router. All three were empty stubs, so nothing was lost.
+- Commit scope — `steps` and `wellness` are retired; `fitness` is the merged scope. Enforced by
+  [`.github/workflows/pr-title.yml`](../../.github/workflows/pr-title.yml), which rejects the old
+  names.
 
-Nothing here has users or rows behind it, so the merge costs one PR and no migration.
+Nothing here had users or rows behind it, so the merge cost one PR and no migration. Doing it
+before the tables existed is the whole reason it was cheap.

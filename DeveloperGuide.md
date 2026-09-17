@@ -81,7 +81,7 @@ ultimate-tracker/
 │   │   ├── (app)/           # signed-in routes; layout.tsx wraps them in AuthGuard
 │   │   │   ├── dashboard/
 │   │   │   ├── finance/
-│   │   │   ├── health/
+│   │   │   ├── fitness/
 │   │   │   ├── time/
 │   │   │   ├── insights/
 │   │   │   ├── gaming/
@@ -105,7 +105,7 @@ ultimate-tracker/
 │   │   │   └── v1/
 │   │   │       ├── auth.py
 │   │   │       ├── finance.py
-│   │   │       ├── health.py
+│   │   │       ├── fitness.py
 │   │   │       ├── time_tracking.py
 │   │   │       ├── insights.py
 │   │   │       └── gaming.py
@@ -226,7 +226,7 @@ defines its columns and behaviour.
 | Domain | Tables | Spec |
 |---|---|---|
 | Finance | `subscriptions` | [finance.md](./docs/features/finance.md#subscriptions) |
-| Health & Fitness | `training_sessions`, `training_set_entries`, `step_logs`, `sleep_logs`, `mood_checkins`, `habits`, `habit_logs` | [health-and-fitness.md](./docs/features/health-and-fitness.md#data-model) |
+| Fitness | `training_sessions`, `training_set_entries`, `step_logs`, `sleep_logs`, `mood_checkins`, `habits`, `habit_logs` | [fitness.md](./docs/features/fitness.md#data-model) |
 | Time & Calendar | `time_sessions`, `entertainment_allowances`, `events`, `calendar_connections` | [time-and-calendar.md](./docs/features/time-and-calendar.md#data-model) |
 | Insights | `weekly_digests`, `correlations` | [insights.md](./docs/features/insights.md#data-model) |
 | Platform | `notifications`, `notification_preferences` | [platform.md](./docs/features/platform.md#notifications) |
@@ -275,7 +275,7 @@ matched the code.
 | # | Domain | Scope | Release | Spec |
 |---|---|---|---|---|
 | 1 | Finance & Budgeting | `finance` | v0.1, subscriptions v0.2 | [finance.md](./docs/features/finance.md) |
-| 2 | Health & Fitness | `health` | v0.2–v0.3 | [health-and-fitness.md](./docs/features/health-and-fitness.md) |
+| 2 | Fitness | `fitness` | v0.2–v0.3 | [fitness.md](./docs/features/fitness.md) |
 | 3 | Time Tracking & Calendar | `time` | v0.2–v0.3 | [time-and-calendar.md](./docs/features/time-and-calendar.md) |
 | 4 | Cross-Domain Insights | `insights` | v0.3 | [insights.md](./docs/features/insights.md) |
 | 5 | Gaming Performance | `gaming` | last | [gaming.md](./docs/features/gaming.md) |
@@ -289,8 +289,9 @@ matched the code.
 are one story about one body, and splitting them across three pages meant the app could not ask
 the only interesting question — how they move together — without a fourth page to join them back
 up. "Wellness" in particular was not a category but a leftover drawer for everything that fitted
-nowhere else. Reasoning in
-[health-and-fitness.md](./docs/features/health-and-fitness.md#why-these-are-one-domain-not-three).
+nowhere else. The merged domain is called **Fitness**, which reads slightly narrow, because
+`/api/v1/health` is the liveness check and cannot mean two things. Reasoning in
+[fitness.md](./docs/features/fitness.md#why-this-is-one-domain-not-three).
 
 **Time Tracking also owns the calendar.** Tracking hours already spent answers half the question;
 the other half is what you have committed to. Both are the same resource, and only a domain
@@ -455,7 +456,7 @@ before it is stable.
 | Release | Scope | Definition of Done |
 |---|---|---|
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD | Deployed to Vercel and Render; an expense can be logged and shows up converted in the dashboard; CI green on every PR |
-| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Health & Fitness training and steps, focus timer and entertainment budgets | A subscription reminds one day out and its renew button writes a real expense; a budget breach notifies; a workout and a step count can be logged |
+| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Fitness training and steps, focus timer and entertainment budgets | A subscription reminds one day out and its renew button writes a real expense; a budget breach notifies; a workout and a step count can be logged |
 | **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest sends |
 | **v0.4** | Polish, performance pass, full observability, public launch | Sentry clean across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |

@@ -57,11 +57,11 @@ Both follow [Conventional Commits](https://www.conventionalcommits.org/).
 **Scopes** (optional, but use one when it fits) are the domain names from
 [`docs/features/`](./docs/features/), enforced by
 [`pr-title.yml`](./.github/workflows/pr-title.yml):
-`finance` · `health` · `time` · `insights` · `gaming` · `auth` ·
+`finance` · `fitness` · `time` · `insights` · `gaming` · `auth` ·
 `dashboard` · `api` · `db` · `ci` · `deps`
 
-> `steps`, `fitness` and `wellness` were retired when those three domains merged into
-> **Health & Fitness**. Use `health`. CI rejects the old names.
+> `steps` and `wellness` were retired when those domains merged into **Fitness**.
+> Use `fitness`. CI rejects the old names.
 
 The subject starts lowercase and has no trailing period.
 
@@ -178,7 +178,7 @@ Three families, combined freely:
 | Family | Labels |
 |---|---|
 | **Type** | `bug` · `feature` · `chore` · `docs` |
-| **Domain** | `finance` · `health` · `time` · `insights` · `gaming` · `platform` |
+| **Domain** | `finance` · `fitness` · `time` · `insights` · `gaming` · `platform` |
 | **Release** | `v0.1` · `v0.2` · `v0.3` · `v0.4` |
 
 Milestones mirror the release plan in
