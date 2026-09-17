@@ -57,11 +57,11 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 
 | Choice | Rationale |
 |---|---|
-| **Next.js 14 (App Router)** | Server components reduce client JS, good defaults for SEO and load speed |
+| **Next.js 16 (App Router)** | Server components reduce client JS, good defaults for SEO and load speed |
 | **TypeScript** everywhere on frontend | Catches schema mismatches with the API at compile time |
 | **Tailwind + shadcn/ui** | No time wasted on a design system; shadcn components are copy-in, not a dependency lock-in |
-| **FastAPI** | Async-first, Pydantic validation built in, auto-generated OpenAPI docs at `/docs` |
-| **SQLAlchemy 2.0 (async) + Alembic** | Explicit migrations, no magic — important when the schema spans 7 domains |
+| **FastAPI** (Python 3.14) | Async-first, Pydantic validation built in, auto-generated OpenAPI docs at `/docs` |
+| **SQLAlchemy 2.0 (async) + Alembic** | Explicit migrations, no magic — important when the schema spans five domains |
 | **Supabase (Postgres + Auth)** | Free tier is generous (500MB DB, 50k monthly active users), removes the need to build auth from scratch |
 | **Render (backend)** | Free tier supports Docker deploys; spins down after inactivity but wakes on request — acceptable for a personal project |
 | **Vercel (frontend)** | Zero-config Next.js deploys, generous free tier, preview deployments per PR |
@@ -81,11 +81,10 @@ ultimate-tracker/
 │   │   ├── (app)/           # signed-in routes; layout.tsx wraps them in AuthGuard
 │   │   │   ├── dashboard/
 │   │   │   ├── finance/
-│   │   │   ├── steps/
-│   │   │   ├── fitness/
+│   │   │   ├── health/
 │   │   │   ├── time/
-│   │   │   ├── wellness/
 │   │   │   ├── insights/
+│   │   │   ├── gaming/
 │   │   │   ├── settings/
 │   │   │   └── onboarding/
 │   ├── components/
@@ -106,11 +105,10 @@ ultimate-tracker/
 │   │   │   └── v1/
 │   │   │       ├── auth.py
 │   │   │       ├── finance.py
-│   │   │       ├── steps.py
-│   │   │       ├── fitness.py
+│   │   │       ├── health.py
 │   │   │       ├── time_tracking.py
-│   │   │       ├── wellness.py
-│   │   │       └── insights.py
+│   │   │       ├── insights.py
+│   │   │       └── gaming.py
 │   │   ├── core/             # config, security, JWT verification
 │   │   ├── db/                # session, base model
 │   │   ├── models/             # SQLAlchemy ORM models
@@ -126,6 +124,7 @@ ultimate-tracker/
 │   └── pyproject.toml          # ruff + mypy config
 │
 ├── docs/
+│   ├── features/               # per-domain feature specifications — the spec source of truth
 │   └── adr/                    # architecture decision records
 ├── .github/
 │   ├── workflows/
@@ -152,128 +151,90 @@ ultimate-tracker/
 
 ## 4. Domain Model & Database Schema
 
+
+Two things to know before reading any of this:
+
+1. **The tables that exist today are Finance and Profiles, and nothing else.** Everything
+   under [Planned tables](#planned-tables) is specified but unbuilt.
+2. **`profiles` mirrors Supabase `auth.users` by UUID.** Auth data is never duplicated — the
+   local table holds only app-specific fields.
+
+### What exists today
+
 ```mermaid
 erDiagram
-    USERS ||--o{ FINANCE_TRANSACTIONS : logs
-    USERS ||--o{ FINANCE_CATEGORIES : owns
-    USERS ||--o{ FINANCE_BUDGETS : sets
-    USERS ||--o{ STEP_LOGS : logs
-    USERS ||--o{ FITNESS_SESSIONS : logs
-    USERS ||--o{ TIME_SESSIONS : logs
-    USERS ||--o{ ENTERTAINMENT_ALLOWANCES : sets
-    USERS ||--o{ WELLNESS_CHECKINS : logs
-    USERS ||--o{ SLEEP_LOGS : logs
-    USERS ||--o{ HABITS : creates
-    USERS ||--o{ WEEKLY_DIGESTS : receives
+    PROFILES ||--o{ CATEGORIES : owns
+    PROFILES ||--o{ EXPENSES : logs
+    PROFILES ||--o{ BUDGETS : sets
+    CATEGORIES ||--o{ EXPENSES : categorises
+    BUDGETS ||--o{ BUDGET_CATEGORIES : covers
+    CATEGORIES ||--o{ BUDGET_CATEGORIES : covered_by
 
-    FINANCE_CATEGORIES ||--o{ FINANCE_TRANSACTIONS : categorises
-    FINANCE_CATEGORIES ||--o{ FINANCE_BUDGETS : applies_to
-    HABITS ||--o{ HABIT_LOGS : tracked_by
-    FITNESS_SESSIONS ||--o{ FITNESS_SET_ENTRIES : contains
-
-    USERS {
-        uuid id PK
-        string email
+    PROFILES {
+        uuid id PK "= auth.users.id"
         string timezone
+        string display_currency
         timestamp created_at
     }
-    FINANCE_TRANSACTIONS {
+    CATEGORIES {
         uuid id PK
         uuid user_id FK
-        uuid category_id FK
+        string name
+        string colour "hex, 7 chars"
+        timestamp created_at
+    }
+    EXPENSES {
+        uuid id PK
+        uuid user_id FK
+        uuid category_id FK "nullable"
         decimal amount
-        string type "income|expense"
-        string payment_method
-        date occurred_on
-        string note
+        string currency "ISO 4217"
+        string description "nullable"
+        date spent_on
+        timestamp created_at
     }
-    FINANCE_CATEGORIES {
+    BUDGETS {
         uuid id PK
         uuid user_id FK
         string name
-        string color
+        decimal amount
+        string currency
+        date starts_on
+        date ends_on
+        timestamp created_at
     }
-    FINANCE_BUDGETS {
-        uuid id PK
-        uuid user_id FK
+    BUDGET_CATEGORIES {
+        uuid budget_id FK
         uuid category_id FK
-        decimal cap_amount
-        string period "weekly|monthly"
-        boolean rollover
-    }
-    STEP_LOGS {
-        uuid id PK
-        uuid user_id FK
-        date logged_on
-        int step_count
-    }
-    FITNESS_SESSIONS {
-        uuid id PK
-        uuid user_id FK
-        string session_type
-        int duration_minutes
-        int intensity
-        timestamp occurred_at
-        string notes
-    }
-    FITNESS_SET_ENTRIES {
-        uuid id PK
-        uuid session_id FK
-        string exercise_name
-        int sets
-        int reps
-        decimal weight_kg
-    }
-    TIME_SESSIONS {
-        uuid id PK
-        uuid user_id FK
-        string category
-        string kind "focus|entertainment"
-        timestamp started_at
-        int duration_minutes
-    }
-    ENTERTAINMENT_ALLOWANCES {
-        uuid id PK
-        uuid user_id FK
-        string category
-        int weekly_minutes_cap
-    }
-    WELLNESS_CHECKINS {
-        uuid id PK
-        uuid user_id FK
-        date logged_on
-        int mood
-        int energy
-    }
-    SLEEP_LOGS {
-        uuid id PK
-        uuid user_id FK
-        date logged_on
-        timestamp bedtime
-        timestamp wake_time
-        int quality
-    }
-    HABITS {
-        uuid id PK
-        uuid user_id FK
-        string name
-        boolean active
-    }
-    HABIT_LOGS {
-        uuid id PK
-        uuid habit_id FK
-        date logged_on
-        boolean completed
-    }
-    WEEKLY_DIGESTS {
-        uuid id PK
-        uuid user_id FK
-        date week_start
-        jsonb summary
     }
 ```
 
-> Note: `USERS` mirrors Supabase's `auth.users` table via the user's UUID — we do not duplicate auth data, only reference the ID as a foreign key in a local `profiles` table for app-specific fields like `timezone`.
+Three properties of this schema are easy to get wrong:
+
+- **Expenses, not transactions.** The domain is expense-only. There is no `type` column with
+  `income|expense`, and no `payment_method`.
+- **Budgets span an explicit date range**, not a `weekly|monthly` period enum, and they apply to
+  **many categories** through `budget_categories`. Code that assumes one category per budget is wrong.
+- **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
+  Conversion into the user's `display_currency` happens server-side in `services/finance.py`.
+
+### Planned tables
+
+Specified in [`docs/features/`](./docs/features/), not yet built. Each links to the document that
+defines its columns and behaviour.
+
+| Domain | Tables | Spec |
+|---|---|---|
+| Finance | `subscriptions` | [finance.md](./docs/features/finance.md#subscriptions) |
+| Health & Fitness | `training_sessions`, `training_set_entries`, `step_logs`, `sleep_logs`, `mood_checkins`, `habits`, `habit_logs` | [health-and-fitness.md](./docs/features/health-and-fitness.md#data-model) |
+| Time & Calendar | `time_sessions`, `entertainment_allowances`, `events`, `calendar_connections` | [time-and-calendar.md](./docs/features/time-and-calendar.md#data-model) |
+| Insights | `weekly_digests`, `correlations` | [insights.md](./docs/features/insights.md#data-model) |
+| Platform | `notifications`, `notification_preferences` | [platform.md](./docs/features/platform.md#notifications) |
+
+Add a table to this list in the same PR that creates its migration. A schema section that lags
+the database is how the previous version of this document ended up describing tables that were
+never built.
+
 
 ---
 
@@ -301,62 +262,47 @@ erDiagram
 
 ## 6. Features & Functional Requirements
 
-Condensed from the full planning session. Each item tagged **[Core]** (ship by v0.3) or **[Future]** (v0.4+).
 
-### Finance & Budgeting
-- **[Core]** Transaction logging — amount, category, date, note, payment method, recurring support
-- **[Core]** Custom categories — CRUD, colour-coded, default presets on signup
-- **[Core]** Budget rules engine — weekly/monthly cap per category, rollover option
-- **[Core]** Budget breach alerts — web push at configurable thresholds (default 80%/100%)
-- **[Core]** Spending dashboard — bar/pie charts, date range, month-over-month comparison
-- **[Future]** CSV import with column mapping and duplicate detection
-- **[Future]** Savings goals with progress tracking
+**The per-domain specifications live in [`docs/features/`](./docs/features/).** They are the
+source of truth for what each domain must do; this section is only the map.
 
-### Steps & Walking
-- **[Core]** Manual daily step logging with edit history
-- **[Core]** Step goal with calendar heatmap (GitHub-style)
-- **[Future]** Google Fit / Health Connect auto-sync via OAuth
+Keeping the detail in one place is deliberate. The previous version of this guide carried a full
+feature list here *and* implied one in the README, and the two drifted apart until neither
+matched the code.
 
-### Fitness (Gym, Swimming, Sport)
-- **[Core]** Session logger — type, duration, intensity, notes
-- **[Core]** Exercise library + reusable templates, custom exercises
-- **[Core]** Personal record (PR) auto-detection and history
-- **[Core]** Progressive overload tracker with stagnation warnings
-- **[Core]** Fitness dashboard — consistency heatmap, muscle group frequency
+### The five domains, in order
 
-### Time Tracking
-- **[Core]** Focus timer — start/pause/stop, category-tagged, no rigid Pomodoro constraint
-- **[Core]** Entertainment budget — weekly allowance per category, remaining-time display, 80% warning
-- **[Core]** Pre-defined + custom time categories (productive and leisure)
-- **[Core]** Daily/weekly stacked time breakdown chart
-- **[Future]** Android companion app for automatic screen time sync (out of scope for this project — web only)
+| # | Domain | Scope | Release | Spec |
+|---|---|---|---|---|
+| 1 | Finance & Budgeting | `finance` | v0.1, subscriptions v0.2 | [finance.md](./docs/features/finance.md) |
+| 2 | Health & Fitness | `health` | v0.2–v0.3 | [health-and-fitness.md](./docs/features/health-and-fitness.md) |
+| 3 | Time Tracking & Calendar | `time` | v0.2–v0.3 | [time-and-calendar.md](./docs/features/time-and-calendar.md) |
+| 4 | Cross-Domain Insights | `insights` | v0.3 | [insights.md](./docs/features/insights.md) |
+| 5 | Gaming Performance | `gaming` | last | [gaming.md](./docs/features/gaming.md) |
+| — | Platform & Core | `auth`, `dashboard`, `api`, `db`, `ci` | v0.1, ongoing | [platform.md](./docs/features/platform.md) |
 
-### Wellness
-- **[Core]** Daily mood + energy check-in (5-point scale, <5 seconds to complete)
-- **[Core]** Sleep log — bedtime, wake time, quality rating, auto-calculated duration
-- **[Core]** Custom habit tracker with streaks and completion rate
-- **[Future]** Per-habit reminder notifications
+**This order is load-bearing.** It is the sidebar order, the README order, and the build order.
 
-### Cross-Domain Insights
-- **[Core]** Weekly AI-generated digest — plain language summary, one actionable suggestion, email + in-app delivery
-- **[Core]** Correlation engine — surfaces patterns only after minimum data threshold (3+ weeks), plain language explanations
-- **[Core]** Insights dashboard — digest archive, saved/dismissed correlations
-- **[Future]** Monthly deep-dive review, exportable as PDF
+### Three structural decisions
 
-### Gaming Performance (Future — not in scope until v0.4+)
-- Manual session logging (game, duration, result, self-rated performance)
-- Riot API integration for LoL/Valorant match history
-- Tilt detection heuristics (loss streaks, time-of-day performance decay)
+**Steps, Fitness and Wellness are one domain.** They used to be three. Sleep, mood and training
+are one story about one body, and splitting them across three pages meant the app could not ask
+the only interesting question — how they move together — without a fourth page to join them back
+up. "Wellness" in particular was not a category but a leftover drawer for everything that fitted
+nowhere else. Reasoning in
+[health-and-fitness.md](./docs/features/health-and-fitness.md#why-these-are-one-domain-not-three).
 
-### Platform & Core
-- **[Core]** Auth — Supabase email/password + Google OAuth
-- **[Core]** Dashboard home — per-domain summary widgets, customisable layout
-- **[Core]** Onboarding flow — domain selection, goal setup, < 3 minutes
-- **[Core]** Settings — timezone, notification preferences, connected accounts, data export, account deletion
-- **[Core]** CI/CD — lint, test, build, auto-deploy on every PR and merge
-- **[Core]** Observability — structured logging, Sentry, health check endpoint, uptime monitoring
-- **[Core]** Dark mode with system preference detection
-- **[Future]** Full data export (CSV/JSON) — backend support, may ship with v0.3 settings page
+**Time Tracking also owns the calendar.** Tracking hours already spent answers half the question;
+the other half is what you have committed to. Both are the same resource, and only a domain
+holding both can tell you a week was over-committed before it started. This brings a two-way
+Google Calendar sync into scope — the only feature in the app that writes to a system outside it,
+and correspondingly the one with the strictest rules. See
+[time-and-calendar.md](./docs/features/time-and-calendar.md#two-way-sync-is-the-hard-part).
+
+**Gaming Performance is last, deliberately.** It is the most interesting domain to build, which
+is exactly why it is scheduled after everything else — left available, it is what gets built
+instead of the budget CRUD. See [gaming.md](./docs/features/gaming.md#why-this-one-is-last).
+
 
 ---
 
@@ -497,12 +443,27 @@ it catches these before CI does.
 
 ## 14. Release Plan
 
-| Release | Weeks | Scope | Definition of Done |
-|---|---|---|---|
-| **v0.1** | 1–4 | Auth, Finance (transactions, categories, budgets, alerts), Steps (manual log + goal), dashboard skeleton, CI/CD live | Deployed to Vercel + Render, can log a transaction and a step count, budget alert fires correctly, CI passes on every PR |
-| **v0.2** | 5–8 | Focus timer, entertainment budgets, fitness session logging, PRs, dashboard charts filled in | All v0.1 features stable, new domains fully functional, dashboard shows real charts not placeholders |
-| **v0.3** | 9–12 | Sleep + mood check-in, habit tracker, correlation engine v1, weekly digest | Correlation engine surfaces at least one real pattern from your own data, weekly digest emails successfully |
-| **v0.4** | 13–18 | Polish, performance pass, full observability, public launch, gaming API foundation (stretch) | Sentry shows zero unhandled errors over a full week of personal use, onboarding takes under 3 minutes for a new user |
+
+**There are no dates on this plan, by design.** An earlier version committed to 18 weeks with a
+release every 4. That estimate was wrong by a wide margin, and a schedule that is known to be
+wrong is worse than no schedule: it turns every honest week into a missed deadline and pushes
+toward shipping something half-built to hit a number nobody outside this repo cares about.
+
+What matters is the order and the definition of done. A release ships when it is done and the one
+before it is stable.
+
+| Release | Scope | Definition of Done |
+|---|---|---|
+| **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD | Deployed to Vercel and Render; an expense can be logged and shows up converted in the dashboard; CI green on every PR |
+| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Health & Fitness training and steps, focus timer and entertainment budgets | A subscription reminds one day out and its renew button writes a real expense; a budget breach notifies; a workout and a step count can be logged |
+| **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest sends |
+| **v0.4** | Polish, performance pass, full observability, public launch | Sentry clean across a full week of real use; onboarding under three minutes for someone new |
+| **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |
+
+**The scheduler moved from v0.3 to v0.2.** Subscription reminders are the first feature that
+cannot work without it, and budget alerts and the weekly digest then reuse the same service
+rather than each growing their own.
+
 
 ---
 
