@@ -43,7 +43,7 @@ describe('AppNav', () => {
     render(<AppNav />);
 
     expect(screen.getByRole('link', { name: 'Finance' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Steps' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Fitness' })).not.toHaveAttribute('aria-current');
   });
 
   it('keeps the parent module active on a nested route', () => {
@@ -54,11 +54,11 @@ describe('AppNav', () => {
   });
 
   it('does not treat a name-prefixed sibling as the active module', () => {
-    // /steps must not light up for a hypothetical /steps-goal route.
-    pathname.current = '/steps-goal';
+    // /fitness must not light up for a hypothetical /fitness-goal route.
+    pathname.current = '/fitness-goal';
     render(<AppNav />);
 
-    expect(screen.getByRole('link', { name: 'Steps' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Fitness' })).not.toHaveAttribute('aria-current');
   });
 
   it('signs the user out from the nav', () => {
