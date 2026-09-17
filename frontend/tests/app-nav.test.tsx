@@ -14,7 +14,7 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signOut } },
 }));
 
-import { AppNav, MODULES } from '@/components/shared/app-nav';
+import { ACCOUNT_LINKS, AppNav, MODULES } from '@/components/shared/app-nav';
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -22,13 +22,20 @@ afterEach(() => {
 });
 
 describe('AppNav', () => {
-  it('links to every module plus the profile page', () => {
+  it('links to every module and every account page', () => {
     render(<AppNav />);
 
-    for (const entry of MODULES) {
+    for (const entry of [...MODULES, ...ACCOUNT_LINKS]) {
       expect(screen.getByRole('link', { name: entry.label })).toHaveAttribute('href', entry.href);
     }
-    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/profile');
+  });
+
+  it('marks an account page active the same way a module is', () => {
+    pathname.current = '/settings';
+    render(<AppNav />);
+
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Profile' })).not.toHaveAttribute('aria-current');
   });
 
   it('marks the current module as the active page', () => {

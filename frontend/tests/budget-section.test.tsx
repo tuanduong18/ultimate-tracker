@@ -14,8 +14,9 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 import { useCollection } from '@/lib/hooks/use-collection';
-import type { Budget, Category } from '@/lib/types/finance';
+import type { BudgetProgress, Category } from '@/lib/types/finance';
 import { BudgetSection } from '@/components/finance/budget-section';
+import { BUDGET_TINTS } from '@/lib/tint';
 
 const FOOD: Category = {
   id: 'c1',
@@ -24,19 +25,28 @@ const FOOD: Category = {
   created_at: '2026-08-01T00:00:00Z',
 };
 
-const GROCERIES: Budget = {
+const GROCERIES: BudgetProgress = {
   id: 'b1',
   name: 'Groceries',
   amount: '400.000',
   currency: 'USD',
+  spent: '100.000',
+  remaining: '300.000',
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
   categories: [FOOD],
   created_at: '2026-08-01T00:00:00Z',
 };
 
+/** Spent past the cap, so `remaining` is the overspend rather than what is left. */
+const OVERSPENT: BudgetProgress = {
+  ...GROCERIES,
+  spent: '450.000',
+  remaining: '-50.000',
+};
+
 function Harness({ categories = [FOOD] }: { categories?: Category[] }) {
-  const budgets = useCollection<Budget>('/finance/budgets');
+  const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
   return (
     <BudgetSection
       budgets={budgets}
@@ -152,5 +162,58 @@ describe('BudgetSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
     await waitFor(() => expect(del).toHaveBeenCalledWith('/finance/budgets/b1'));
+  });
+  it('shows the bar filled to the share of the cap that is spent', async () => {
+    get.mockResolvedValue([GROCERIES]);
+    render(<Harness />);
+
+    // 100 of 400 is a quarter, and the figures either side stay the API's.
+    const bar = await screen.findByRole('progressbar', { name: /Groceries spent/i });
+    expect(bar).toHaveAttribute('aria-valuenow', '25');
+    expect(screen.getByText('Total Paid')).toBeInTheDocument();
+    expect(screen.getByText('$100.00')).toBeInTheDocument();
+    expect(screen.getByText('Total Remaining')).toBeInTheDocument();
+    expect(screen.getByText('$300.00')).toBeInTheDocument();
+  });
+
+  it('calls an overspend overshooting rather than showing negative money left', async () => {
+    get.mockResolvedValue([OVERSPENT]);
+    render(<Harness />);
+
+    expect(await screen.findByText('Overshooting')).toBeInTheDocument();
+    expect(screen.getByText('$50.00')).toBeInTheDocument();
+    expect(screen.queryByText('Total Remaining')).not.toBeInTheDocument();
+    expect(screen.queryByText(/-\$50\.00/)).not.toBeInTheDocument();
+  });
+
+  it('clamps the bar at full rather than overflowing its track', async () => {
+    get.mockResolvedValue([OVERSPENT]);
+    render(<Harness />);
+
+    // 450 of 400 is 112%, which has nowhere to go in a fixed-width track.
+    const bar = await screen.findByRole('progressbar', { name: /Groceries spent/i });
+    expect(bar).toHaveAttribute('aria-valuenow', '100');
+  });
+  it('gives each budget a different pastel from the rota', async () => {
+    const second = { ...GROCERIES, id: 'b2', name: 'Travel', created_at: '2026-09-01T00:00:00Z' };
+    get.mockResolvedValue([second, GROCERIES]);
+    render(<Harness />);
+
+    // Listed newest-first, but coloured by when they were made — so the older
+    // budget wears the first pastel even though it is drawn second.
+    const older = (await screen.findByText('Groceries')).closest('li');
+    const newer = screen.getByText('Travel').closest('li');
+
+    expect(older).toHaveStyle({ backgroundColor: BUDGET_TINTS[0] });
+    expect(newer).toHaveStyle({ backgroundColor: BUDGET_TINTS[1] });
+  });
+
+  it('does not take its colour from the categories it covers', async () => {
+    get.mockResolvedValue([GROCERIES]);
+    render(<Harness />);
+
+    // Food is #22c55e; a budget over it is still the first pastel in the rota.
+    const card = (await screen.findByText('Groceries')).closest('li');
+    expect(card).toHaveStyle({ backgroundColor: BUDGET_TINTS[0] });
   });
 });

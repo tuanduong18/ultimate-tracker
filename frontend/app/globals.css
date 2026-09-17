@@ -1,3 +1,111 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Theme tokens.
+ *
+ * Every colour in the app resolves to one of these, so a theme is a block of
+ * variable values and nothing else — no component knows which theme is on.
+ *
+ * Values are space-separated RGB channels rather than hex so Tailwind's
+ * `<alpha-value>` placeholder works: `bg-primary/10` needs to build
+ * `rgb(45 108 185 / 0.1)`, which it cannot do from `#2d6cb9`.
+ *
+ * `primary` is a deeper shade than the pastels around it on purpose. A button
+ * is pastel-coloured only until someone has to read the label on it; white on
+ * a true pastel lands near 2:1 contrast, which fails WCAG AA at any size.
+ * The pastel of each theme lives in `primary-soft`, which only ever sits
+ * behind text in `fg`.
+ */
+
+:root,
+[data-theme='pastel-blue'] {
+  --color-bg: 244 249 255;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 237 244 253;
+  --color-border: 213 229 246;
+  --color-fg: 27 49 74;
+  --color-fg-muted: 88 114 145;
+  --color-fg-subtle: 141 165 191;
+  --color-primary: 45 108 185;
+  --color-primary-fg: 255 255 255;
+  --color-primary-soft: 219 233 250;
+  --color-positive: 26 128 88;
+  --color-negative: 194 53 45;
+  --color-negative-soft: 253 235 234;
+}
+
+[data-theme='pastel-mint'] {
+  --color-bg: 244 252 249;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 235 250 244;
+  --color-border: 206 236 225;
+  --color-fg: 24 58 47;
+  --color-fg-muted: 79 120 105;
+  --color-fg-subtle: 134 174 158;
+  --color-primary: 24 122 88;
+  --color-primary-fg: 255 255 255;
+  --color-primary-soft: 214 242 231;
+  --color-positive: 26 128 88;
+  --color-negative: 194 53 45;
+  --color-negative-soft: 253 235 234;
+}
+
+[data-theme='pastel-lilac'] {
+  --color-bg: 250 247 255;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 245 240 254;
+  --color-border: 228 219 247;
+  --color-fg: 48 35 73;
+  --color-fg-muted: 106 92 137;
+  --color-fg-subtle: 157 145 185;
+  --color-primary: 112 76 182;
+  --color-primary-fg: 255 255 255;
+  --color-primary-soft: 233 224 252;
+  --color-positive: 26 128 88;
+  --color-negative: 194 53 45;
+  --color-negative-soft: 253 235 234;
+}
+
+[data-theme='pastel-peach'] {
+  --color-bg: 255 249 245;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 254 242 235;
+  --color-border: 248 223 206;
+  --color-fg: 74 44 28;
+  --color-fg-muted: 137 99 77;
+  --color-fg-subtle: 189 155 133;
+  --color-primary: 186 87 40;
+  --color-primary-fg: 255 255 255;
+  --color-primary-soft: 253 231 218;
+  --color-positive: 26 128 88;
+  --color-negative: 194 53 45;
+  --color-negative-soft: 253 235 234;
+}
+
+/* The original neutral scheme, kept so the change is reversible per person. */
+[data-theme='slate'] {
+  --color-bg: 249 250 251;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 249 250 251;
+  --color-border: 229 231 235;
+  --color-fg: 17 24 39;
+  --color-fg-muted: 107 114 128;
+  --color-fg-subtle: 156 163 175;
+  --color-primary: 17 24 39;
+  --color-primary-fg: 255 255 255;
+  --color-primary-soft: 243 244 246;
+  --color-positive: 22 163 74;
+  /* red-700, not the red-600 this scheme used before: red-600 on red-50 is
+     4.41:1, which reads fine until it is the only thing telling you a save
+     failed. */
+  --color-negative: 185 28 28;
+  --color-negative-soft: 254 242 242;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-fg;
+  }
+}

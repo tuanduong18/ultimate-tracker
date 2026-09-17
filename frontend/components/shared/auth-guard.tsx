@@ -28,7 +28,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (loading || !session) {
     return (
       <main className="p-8">
-        <p className="text-sm text-gray-500">{loading ? 'Loading…' : 'Redirecting to sign in…'}</p>
+        <p className="text-sm text-fg-muted">{loading ? 'Loading…' : 'Redirecting to sign in…'}</p>
       </main>
     );
   }

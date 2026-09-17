@@ -22,7 +22,7 @@ export function DeleteButton({ prompt, busy = false, onConfirm }: DeleteButtonPr
     return (
       <button
         type="button"
-        className="text-sm text-red-600 underline"
+        className="text-sm text-negative underline"
         onClick={() => setConfirming(true)}
       >
         Delete
@@ -32,11 +32,11 @@ export function DeleteButton({ prompt, busy = false, onConfirm }: DeleteButtonPr
 
   return (
     <>
-      <span className="text-sm text-gray-500">{prompt}</span>
+      <span className="text-sm text-fg-muted">{prompt}</span>
       <button
         type="button"
         disabled={busy}
-        className="text-sm text-red-600 underline disabled:opacity-50"
+        className="text-sm text-negative underline disabled:opacity-50"
         onClick={() => {
           setConfirming(false);
           onConfirm();
@@ -46,7 +46,7 @@ export function DeleteButton({ prompt, busy = false, onConfirm }: DeleteButtonPr
       </button>
       <button
         type="button"
-        className="text-sm text-gray-500 underline"
+        className="text-sm text-fg-muted underline"
         onClick={() => setConfirming(false)}
       >
         Keep

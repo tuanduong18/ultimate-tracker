@@ -6,12 +6,13 @@ is a single line and every handler agrees on the mapping.
 """
 
 import uuid
+from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, false, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -411,3 +412,272 @@ async def summarize(
         "budgeted": budgeted,
         "remaining": budgeted - spent,
     }
+
+
+# --- Breakdowns ---------------------------------------------------------------
+
+
+def category_clause(
+    category_ids: Sequence[uuid.UUID] | None,
+    include_uncategorized: bool,
+) -> ColumnElement[bool] | None:
+    """Restrict expenses to a chosen set of categories, or None for no restriction.
+
+    Four cases, and the one worth spelling out is the third: a caller that sends
+    no list is asking for every category, including ones created after it last
+    looked. Only the uncategorized bucket can be switched off on its own, which
+    is what makes it possible to hide the spend left behind by a deleted
+    category without naming every category that still exists.
+
+    An empty list with the bucket off selects nothing, and says so, rather than
+    quietly falling back to everything — a chart of all spending is a bad answer
+    to "show me none of it".
+    """
+    if category_ids is None:
+        return None if include_uncategorized else Expense.category_id.is_not(None)
+
+    clauses: list[ColumnElement[bool]] = []
+    if category_ids:
+        clauses.append(Expense.category_id.in_(category_ids))
+    if include_uncategorized:
+        clauses.append(Expense.category_id.is_(None))
+    if not clauses:
+        return false()
+    return or_(*clauses)
+
+
+# The bucket expenses land in once their category is deleted. The colour is the
+# one the expense list already falls back to for a null category, so a slice and
+# a row for the same spend do not disagree about what colour "no category" is.
+UNCATEGORIZED_NAME = "Uncategorised"
+UNCATEGORIZED_COLOUR = "#e5e7eb"
+
+
+async def summarize_by_category(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    start_date: date,
+    end_date: date,
+    display_currency: str,
+    category_ids: Sequence[uuid.UUID] | None = None,
+    include_uncategorized: bool = True,
+) -> dict[str, Any]:
+    """Spend per category over a range, converted into one currency.
+
+    Categories with nothing spent against them are omitted rather than returned
+    as zeros: a pie of mostly-empty slices says less than one showing only the
+    few that moved. Expenses whose category was deleted are gathered into a
+    single uncategorized bucket rather than dropped, so these slices still add
+    up to the ``spent`` figure /finance/summary reports for the same range.
+    """
+    if end_date < start_date:
+        raise InvalidDateRangeError()
+
+    chosen = category_clause(category_ids, include_uncategorized)
+    stmt = select(Expense.amount, Expense.currency, Expense.category_id).where(
+        Expense.user_id == user_id,
+        Expense.spent_on >= start_date,
+        Expense.spent_on <= end_date,
+    )
+    if chosen is not None:
+        stmt = stmt.where(chosen)
+    rows = (await db.execute(stmt)).all()
+
+    grouped: dict[uuid.UUID | None, list[tuple[Decimal, str]]] = defaultdict(list)
+    for amount, currency, category_id in rows:
+        grouped[category_id].append((amount, currency))
+
+    known = {category.id: category for category in await list_categories(db, user_id)}
+
+    buckets: list[dict[str, Any]] = []
+    try:
+        for category_id, spends in grouped.items():
+            category = known.get(category_id) if category_id is not None else None
+            buckets.append(
+                {
+                    "category_id": category.id if category is not None else None,
+                    "name": category.name if category is not None else UNCATEGORIZED_NAME,
+                    "colour": category.colour if category is not None else UNCATEGORIZED_COLOUR,
+                    "spent": await _total_in(spends, display_currency),
+                }
+            )
+    except ValueError as exc:
+        raise RateUnavailableError(str(exc)) from exc
+
+    # Biggest slice first; name breaks ties so equal totals do not reshuffle
+    # between requests and make the chart colours look unstable.
+    buckets.sort(key=lambda bucket: (-bucket["spent"], bucket["name"]))
+
+    return {
+        "currency": display_currency,
+        "starts_on": start_date,
+        "ends_on": end_date,
+        "categories": buckets,
+    }
+
+
+class UnknownGranularityError(FinanceError):
+    status_code = 422
+    code = "UNKNOWN_GRANULARITY"
+
+    def __init__(self, granularity: str) -> None:
+        super().__init__(f"granularity must be 'day' or 'week', got {granularity!r}.")
+
+
+def day_buckets(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    """One bucket per day, each starting and ending on itself."""
+    span = (end_date - start_date).days
+    return [
+        (start_date + timedelta(days=offset), start_date + timedelta(days=offset))
+        for offset in range(span + 1)
+    ]
+
+
+def week_buckets(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    """Monday-anchored calendar weeks covering a range, clipped to its ends.
+
+    Clipped rather than whole so the bars over one month cover only days in that
+    month and still total what the month summary says. That leaves the first and
+    last bar short, which is why both ends of each bucket are returned: a two-day
+    bar labelled with its two days reads as a short week rather than a quiet one.
+    """
+    buckets: list[tuple[date, date]] = []
+    cursor = start_date
+    while cursor <= end_date:
+        monday = cursor - timedelta(days=cursor.weekday())
+        sunday = monday + timedelta(days=6)
+        buckets.append((max(monday, start_date), min(sunday, end_date)))
+        cursor = sunday + timedelta(days=1)
+    return buckets
+
+
+BUCKETERS = {"day": day_buckets, "week": week_buckets}
+
+
+async def summarize_by_period(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    start_date: date,
+    end_date: date,
+    granularity: str,
+    display_currency: str,
+    category_ids: Sequence[uuid.UUID] | None = None,
+    include_uncategorized: bool = True,
+) -> dict[str, Any]:
+    """Spend per day or per week over a range, converted into one currency.
+
+    Two granularities rather than one because the caller picks the range now: a
+    week of daily bars and a quarter of weekly ones are both readable, and a
+    quarter of daily ones is 90 bars nobody can read.
+
+    Empty buckets come back as zero, unlike the category breakdown. A missing
+    bar in a time series reads as "no data" and a flat one as "spent nothing",
+    and only the second is true.
+    """
+    if end_date < start_date:
+        raise InvalidDateRangeError()
+    bucketer = BUCKETERS.get(granularity)
+    if bucketer is None:
+        raise UnknownGranularityError(granularity)
+
+    chosen = category_clause(category_ids, include_uncategorized)
+    stmt = select(Expense.amount, Expense.currency, Expense.spent_on).where(
+        Expense.user_id == user_id,
+        Expense.spent_on >= start_date,
+        Expense.spent_on <= end_date,
+    )
+    if chosen is not None:
+        stmt = stmt.where(chosen)
+    rows = (await db.execute(stmt)).all()
+
+    buckets: list[dict[str, Any]] = []
+    try:
+        for bucket_start, bucket_end in bucketer(start_date, end_date):
+            spends = [
+                (amount, currency)
+                for amount, currency, spent_on in rows
+                if bucket_start <= spent_on <= bucket_end
+            ]
+            buckets.append(
+                {
+                    "starts_on": bucket_start,
+                    "ends_on": bucket_end,
+                    "spent": await _total_in(spends, display_currency),
+                }
+            )
+    except ValueError as exc:
+        raise RateUnavailableError(str(exc)) from exc
+
+    return {
+        "currency": display_currency,
+        "starts_on": start_date,
+        "ends_on": end_date,
+        "granularity": granularity,
+        "buckets": buckets,
+    }
+
+
+async def budget_progress(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Every budget with what has been spent against it, in its own currency.
+
+    Each budget is measured in the currency it was written in, not the profile
+    display currency. The bar compares spend against *this* budget cap, and
+    converting both into some third currency would let the percentage drift as
+    rates move without anyone having spent anything.
+
+    Only expenses in the covered categories and inside the budget date range
+    count. Uncategorized spend counts towards no budget at all — which is what
+    deleting a category silently does to these figures, and worth knowing when a
+    bar drops for no apparent reason.
+    """
+    budgets = await list_budgets(db, user_id)
+    if not budgets:
+        return []
+
+    # One query across the union of every budget range rather than one per
+    # budget; filtering the rows afterwards is cheap next to a round trip each,
+    # and the budgets on one page are few.
+    earliest = min(budget.starts_on for budget in budgets)
+    latest = max(budget.ends_on for budget in budgets)
+    rows = (
+        await db.execute(
+            select(Expense.amount, Expense.currency, Expense.category_id, Expense.spent_on).where(
+                Expense.user_id == user_id,
+                Expense.category_id.is_not(None),
+                Expense.spent_on >= earliest,
+                Expense.spent_on <= latest,
+            )
+        )
+    ).all()
+
+    progress: list[dict[str, Any]] = []
+    for budget in budgets:
+        covered = {category.id for category in budget.categories}
+        spends = [
+            (amount, currency)
+            for amount, currency, category_id, spent_on in rows
+            if category_id in covered and budget.starts_on <= spent_on <= budget.ends_on
+        ]
+        try:
+            spent = await _total_in(spends, budget.currency)
+        except ValueError as exc:
+            raise RateUnavailableError(str(exc)) from exc
+        progress.append(
+            {
+                "id": budget.id,
+                "name": budget.name,
+                "currency": budget.currency,
+                "amount": budget.amount,
+                "spent": spent,
+                # Negative is the overspend, and the bar should say so rather
+                # than clamp — the same rule as SummaryRead.remaining.
+                "remaining": budget.amount - spent,
+                "starts_on": budget.starts_on,
+                "ends_on": budget.ends_on,
+                "categories": budget.categories,
+                "created_at": budget.created_at,
+            }
+        )
+    return progress

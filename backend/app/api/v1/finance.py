@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,14 +12,18 @@ from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.finance import (
     BudgetCreate,
+    BudgetProgressRead,
     BudgetRead,
     BudgetUpdate,
+    CategoryBreakdownRead,
     CategoryCreate,
     CategoryRead,
     CategoryUpdate,
     ExpenseCreate,
     ExpenseRead,
     ExpenseUpdate,
+    Granularity,
+    PeriodBreakdownRead,
     SummaryRead,
 )
 from app.services import finance as finance_service
@@ -154,6 +159,24 @@ async def list_budgets(
     return [BudgetRead.model_validate(b) for b in budgets]
 
 
+@router.get("/budgets/progress", response_model=list[BudgetProgressRead])
+async def read_budget_progress(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[BudgetProgressRead]:
+    """Every budget with spend measured against its own cap and currency.
+
+    Separate from GET /budgets rather than folded into it: this one converts
+    currencies, and the forms that only need the list of budgets should not pay
+    for an exchange-rate lookup to render a dropdown.
+    """
+    try:
+        progress = await finance_service.budget_progress(db, user_id)
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return [BudgetProgressRead.model_validate(p) for p in progress]
+
+
 @router.post("/budgets", response_model=BudgetRead, status_code=status.HTTP_201_CREATED)
 async def create_budget(
     payload: BudgetCreate,
@@ -230,3 +253,72 @@ async def read_summary(
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
     return SummaryRead.model_validate(totals)
+
+
+@router.get("/summary/by-category", response_model=CategoryBreakdownRead)
+async def read_category_breakdown(
+    start_date: date,
+    end_date: date,
+    category_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    include_uncategorized: bool = True,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> CategoryBreakdownRead:
+    """Spend per category over a date range, in the display currency.
+
+    Both filter parameters are optional and default to everything. `category_ids`
+    absent means every category, including any created since the caller last
+    looked; `include_uncategorized` switches off the bucket holding spend whose
+    category was deleted, which has no id to name it by.
+    """
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        breakdown = await finance_service.summarize_by_category(
+            db,
+            user_id,
+            start_date=start_date,
+            end_date=end_date,
+            display_currency=profile.display_currency,
+            category_ids=category_ids,
+            include_uncategorized=include_uncategorized,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return CategoryBreakdownRead.model_validate(breakdown)
+
+
+@router.get("/summary/by-period", response_model=PeriodBreakdownRead)
+async def read_period_breakdown(
+    start_date: date,
+    end_date: date,
+    granularity: Granularity = "week",
+    category_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    include_uncategorized: bool = True,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> PeriodBreakdownRead:
+    """Spend per day or per calendar week over a range, in the display currency.
+
+    The bar chart picks the granularity from how long the range is, so that a
+    week shows seven bars and a quarter shows thirteen rather than ninety.
+
+    Both filter parameters are optional and default to everything. `category_ids`
+    absent means every category, including any created since the caller last
+    looked; `include_uncategorized` switches off the bucket holding spend whose
+    category was deleted, which has no id to name it by.
+    """
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        breakdown = await finance_service.summarize_by_period(
+            db,
+            user_id,
+            start_date=start_date,
+            end_date=end_date,
+            granularity=granularity,
+            display_currency=profile.display_currency,
+            category_ids=category_ids,
+            include_uncategorized=include_uncategorized,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return PeriodBreakdownRead.model_validate(breakdown)
