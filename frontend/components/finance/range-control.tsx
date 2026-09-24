@@ -31,7 +31,7 @@ export function RangeNav({ range, onChange }: RangeProps) {
       <button
         type="button"
         aria-label="Previous period"
-        className="rounded px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
         onClick={() => onChange(shiftRange(range, -1))}
       >
         ‹
@@ -42,7 +42,7 @@ export function RangeNav({ range, onChange }: RangeProps) {
       <button
         type="button"
         aria-label="Next period"
-        className="rounded px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
         onClick={() => onChange(shiftRange(range, 1))}
       >
         ›
@@ -97,7 +97,7 @@ export function RangeControls({
       <input
         id={`${idPrefix}-start`}
         type="date"
-        className="rounded border bg-surface px-1.5 py-0.5"
+        className="rounded-sm border bg-surface px-1.5 py-0.5"
         value={range.start}
         max={range.end}
         onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
@@ -113,7 +113,7 @@ export function RangeControls({
       <input
         id={`${idPrefix}-end`}
         type="date"
-        className="rounded border bg-surface px-1.5 py-0.5"
+        className="rounded-sm border bg-surface px-1.5 py-0.5"
         value={range.end}
         min={range.start}
         onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}

@@ -111,7 +111,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             </label>
             <input
               id="category-name"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+              className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
               required
               maxLength={50}
               value={name}
@@ -125,7 +125,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
               </label>
               <input
                 id="category-colour"
-                className="mt-1 h-8 w-12 rounded border"
+                className="mt-1 h-8 w-12 rounded-sm border"
                 type="color"
                 value={colour}
                 onChange={(e) => setColour(e.target.value)}
@@ -134,7 +134,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             <button
               type="submit"
               disabled={busy}
-              className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+              className="rounded-sm bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
             >
               Add
             </button>
@@ -161,13 +161,13 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                   <input
                     type="color"
                     aria-label={`Colour for ${category.name}`}
-                    className="h-7 w-8 shrink-0 rounded border"
+                    className="h-7 w-8 shrink-0 rounded-sm border"
                     value={editColour}
                     onChange={(e) => setEditColour(e.target.value)}
                   />
                   <input
                     aria-label={`Rename ${category.name}`}
-                    className="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+                    className="min-w-0 flex-1 rounded-sm border px-2 py-1 text-sm"
                     value={editName}
                     maxLength={50}
                     onChange={(e) => setEditName(e.target.value)}

@@ -97,7 +97,7 @@ ultimate-tracker/
 │   │   └── hooks/
 │   ├── tests/
 │   ├── package.json
-│   └── tailwind.config.ts
+│   └── postcss.config.mjs    # Tailwind 4 is configured in app/globals.css, not a JS config
 │
 ├── backend/
 │   ├── app/

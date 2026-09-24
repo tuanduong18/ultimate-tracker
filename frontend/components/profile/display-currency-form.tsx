@@ -82,7 +82,7 @@ export function DisplayCurrencyForm() {
         <button
           type="submit"
           disabled={busy || currency === stored}
-          className="rounded bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
+          className="rounded-sm bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>

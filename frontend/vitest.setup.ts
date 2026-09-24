@@ -1,4 +1,7 @@
-import '@testing-library/jest-dom';
+// The /vitest entry point, not the bare package: from Vitest 5 the bare import
+// registers the matchers at runtime but no longer augments Vitest's Assertion
+// type, so tsc stops recognising toBeInTheDocument and friends.
+import '@testing-library/jest-dom/vitest';
 
 // lib/supabase.ts refuses to load without these, which is deliberate — a
 // misconfigured build should fail loudly. Tests never reach Supabase, so

@@ -154,7 +154,7 @@ export function FinanceDashboard() {
 
       {/* 2-4-4 across ten columns; stacked below lg, where side by side would
           leave every panel too narrow to read. */}
-      <div className="grid gap-4 lg:h-[30rem] lg:grid-cols-10">
+      <div className="grid gap-4 lg:h-120 lg:grid-cols-10">
         <div className="min-h-0 lg:col-span-2">
           <CategorySection categories={categories} onChange={onCategoriesChanged} />
         </div>

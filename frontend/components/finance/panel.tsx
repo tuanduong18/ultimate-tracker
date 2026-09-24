@@ -84,7 +84,7 @@ export function PanelButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft disabled:opacity-50"
+      className="rounded-sm border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft disabled:opacity-50"
     >
       {children}
     </button>

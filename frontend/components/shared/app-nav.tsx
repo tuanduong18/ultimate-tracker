@@ -77,7 +77,7 @@ export function AppNav() {
         <button
           type="button"
           onClick={() => void supabase.auth.signOut()}
-          className="block w-full rounded px-3 py-2 text-left text-sm text-fg hover:bg-primary-soft"
+          className="block w-full rounded-sm px-3 py-2 text-left text-sm text-fg hover:bg-primary-soft"
         >
           Log out
         </button>

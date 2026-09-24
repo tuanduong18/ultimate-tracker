@@ -86,7 +86,7 @@ function SliceTooltip({
   if (!active || !payload?.length) return null;
   const slice = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-sm">
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-xs">
       <p className="font-medium">{slice.name}</p>
       <p className="text-fg-muted">
         {formatMoney(slice.spent, currency)} · {slice.share}%
@@ -253,7 +253,7 @@ export function SpendByCategoryChart({
     <Panel
       title="Spending categories"
       error={error}
-      className="h-[26rem]"
+      className="h-104"
       action={<RangeNav range={range} onChange={onRangeChange} />}
       header={
         <RangeControls range={range} onChange={onRangeChange} idPrefix="category">

@@ -1,6 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/*
+ * Bind each theme token to a Tailwind colour.
+ *
+ * The raw values live in --channel-* as space-separated RGB channels; this
+ * block is what turns them into real colours Tailwind can generate utilities
+ * from. Opacity modifiers like `bg-primary/10` work without <alpha-value>
+ * because v4 composes them with color-mix() rather than substituting into
+ * rgb() the way v3 did.
+ */
+@theme {
+  --color-bg: rgb(var(--channel-bg));
+  --color-surface: rgb(var(--channel-surface));
+  --color-surface-muted: rgb(var(--channel-surface-muted));
+  --color-border: rgb(var(--channel-border));
+  --color-fg: rgb(var(--channel-fg));
+  --color-fg-muted: rgb(var(--channel-fg-muted));
+  --color-fg-subtle: rgb(var(--channel-fg-subtle));
+  --color-primary: rgb(var(--channel-primary));
+  --color-primary-fg: rgb(var(--channel-primary-fg));
+  --color-primary-soft: rgb(var(--channel-primary-soft));
+  --color-positive: rgb(var(--channel-positive));
+  --color-negative: rgb(var(--channel-negative));
+  --color-negative-soft: rgb(var(--channel-negative-soft));
+}
+
+/*
+ * Tailwind 4 defaults the border colour to currentColor, which would give every
+ * bare `border` the text colour instead of the theme's border token.
+ */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: rgb(var(--channel-border));
+  }
+}
 
 /*
  * Theme tokens.
@@ -8,9 +45,10 @@
  * Every colour in the app resolves to one of these, so a theme is a block of
  * variable values and nothing else — no component knows which theme is on.
  *
- * Values are space-separated RGB channels rather than hex so Tailwind's
- * `<alpha-value>` placeholder works: `bg-primary/10` needs to build
- * `rgb(45 108 185 / 0.1)`, which it cannot do from `#2d6cb9`.
+ * Values are space-separated RGB channels rather than hex so one variable can
+ * serve both `bg-primary` and `bg-primary/10`. They are named --channel-* and
+ * not --color-*, because @theme owns the --color-* namespace in Tailwind 4 and
+ * a token sharing that name resolves to itself.
  *
  * `primary` is a deeper shade than the pastels around it on purpose. A button
  * is pastel-coloured only until someone has to read the label on it; white on
@@ -21,87 +59,87 @@
 
 :root,
 [data-theme='pastel-blue'] {
-  --color-bg: 244 249 255;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 237 244 253;
-  --color-border: 213 229 246;
-  --color-fg: 27 49 74;
-  --color-fg-muted: 88 114 145;
-  --color-fg-subtle: 141 165 191;
-  --color-primary: 45 108 185;
-  --color-primary-fg: 255 255 255;
-  --color-primary-soft: 219 233 250;
-  --color-positive: 26 128 88;
-  --color-negative: 194 53 45;
-  --color-negative-soft: 253 235 234;
+  --channel-bg: 244 249 255;
+  --channel-surface: 255 255 255;
+  --channel-surface-muted: 237 244 253;
+  --channel-border: 213 229 246;
+  --channel-fg: 27 49 74;
+  --channel-fg-muted: 88 114 145;
+  --channel-fg-subtle: 141 165 191;
+  --channel-primary: 45 108 185;
+  --channel-primary-fg: 255 255 255;
+  --channel-primary-soft: 219 233 250;
+  --channel-positive: 26 128 88;
+  --channel-negative: 194 53 45;
+  --channel-negative-soft: 253 235 234;
 }
 
 [data-theme='pastel-mint'] {
-  --color-bg: 244 252 249;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 235 250 244;
-  --color-border: 206 236 225;
-  --color-fg: 24 58 47;
-  --color-fg-muted: 79 120 105;
-  --color-fg-subtle: 134 174 158;
-  --color-primary: 24 122 88;
-  --color-primary-fg: 255 255 255;
-  --color-primary-soft: 214 242 231;
-  --color-positive: 26 128 88;
-  --color-negative: 194 53 45;
-  --color-negative-soft: 253 235 234;
+  --channel-bg: 244 252 249;
+  --channel-surface: 255 255 255;
+  --channel-surface-muted: 235 250 244;
+  --channel-border: 206 236 225;
+  --channel-fg: 24 58 47;
+  --channel-fg-muted: 79 120 105;
+  --channel-fg-subtle: 134 174 158;
+  --channel-primary: 24 122 88;
+  --channel-primary-fg: 255 255 255;
+  --channel-primary-soft: 214 242 231;
+  --channel-positive: 26 128 88;
+  --channel-negative: 194 53 45;
+  --channel-negative-soft: 253 235 234;
 }
 
 [data-theme='pastel-lilac'] {
-  --color-bg: 250 247 255;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 245 240 254;
-  --color-border: 228 219 247;
-  --color-fg: 48 35 73;
-  --color-fg-muted: 106 92 137;
-  --color-fg-subtle: 157 145 185;
-  --color-primary: 112 76 182;
-  --color-primary-fg: 255 255 255;
-  --color-primary-soft: 233 224 252;
-  --color-positive: 26 128 88;
-  --color-negative: 194 53 45;
-  --color-negative-soft: 253 235 234;
+  --channel-bg: 250 247 255;
+  --channel-surface: 255 255 255;
+  --channel-surface-muted: 245 240 254;
+  --channel-border: 228 219 247;
+  --channel-fg: 48 35 73;
+  --channel-fg-muted: 106 92 137;
+  --channel-fg-subtle: 157 145 185;
+  --channel-primary: 112 76 182;
+  --channel-primary-fg: 255 255 255;
+  --channel-primary-soft: 233 224 252;
+  --channel-positive: 26 128 88;
+  --channel-negative: 194 53 45;
+  --channel-negative-soft: 253 235 234;
 }
 
 [data-theme='pastel-peach'] {
-  --color-bg: 255 249 245;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 254 242 235;
-  --color-border: 248 223 206;
-  --color-fg: 74 44 28;
-  --color-fg-muted: 137 99 77;
-  --color-fg-subtle: 189 155 133;
-  --color-primary: 186 87 40;
-  --color-primary-fg: 255 255 255;
-  --color-primary-soft: 253 231 218;
-  --color-positive: 26 128 88;
-  --color-negative: 194 53 45;
-  --color-negative-soft: 253 235 234;
+  --channel-bg: 255 249 245;
+  --channel-surface: 255 255 255;
+  --channel-surface-muted: 254 242 235;
+  --channel-border: 248 223 206;
+  --channel-fg: 74 44 28;
+  --channel-fg-muted: 137 99 77;
+  --channel-fg-subtle: 189 155 133;
+  --channel-primary: 186 87 40;
+  --channel-primary-fg: 255 255 255;
+  --channel-primary-soft: 253 231 218;
+  --channel-positive: 26 128 88;
+  --channel-negative: 194 53 45;
+  --channel-negative-soft: 253 235 234;
 }
 
 /* The original neutral scheme, kept so the change is reversible per person. */
 [data-theme='slate'] {
-  --color-bg: 249 250 251;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 249 250 251;
-  --color-border: 229 231 235;
-  --color-fg: 17 24 39;
-  --color-fg-muted: 107 114 128;
-  --color-fg-subtle: 156 163 175;
-  --color-primary: 17 24 39;
-  --color-primary-fg: 255 255 255;
-  --color-primary-soft: 243 244 246;
-  --color-positive: 22 163 74;
+  --channel-bg: 249 250 251;
+  --channel-surface: 255 255 255;
+  --channel-surface-muted: 249 250 251;
+  --channel-border: 229 231 235;
+  --channel-fg: 17 24 39;
+  --channel-fg-muted: 107 114 128;
+  --channel-fg-subtle: 156 163 175;
+  --channel-primary: 17 24 39;
+  --channel-primary-fg: 255 255 255;
+  --channel-primary-soft: 243 244 246;
+  --channel-positive: 22 163 74;
   /* red-700, not the red-600 this scheme used before: red-600 on red-50 is
-     4.41:1, which reads fine until it is the only thing telling you a save
-     failed. */
-  --color-negative: 185 28 28;
-  --color-negative-soft: 254 242 242;
+   4.41:1, which reads fine until it is the only thing telling you a save
+   failed. */
+  --channel-negative: 185 28 28;
+  --channel-negative-soft: 254 242 242;
 }
 
 @layer base {

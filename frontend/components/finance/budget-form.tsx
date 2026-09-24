@@ -76,7 +76,7 @@ export function BudgetForm({
         </label>
         <input
           id={`${idPrefix}-name`}
-          className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+          className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
           required
           maxLength={80}
           value={values.name}
@@ -91,7 +91,7 @@ export function BudgetForm({
           </label>
           <input
             id={`${idPrefix}-amount`}
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             inputMode="decimal"
             required
             value={values.amount}
@@ -118,7 +118,7 @@ export function BudgetForm({
           <input
             id={`${idPrefix}-starts`}
             type="date"
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             required
             value={values.starts_on}
             onChange={(e) => set('starts_on', e.target.value)}
@@ -132,7 +132,7 @@ export function BudgetForm({
           <input
             id={`${idPrefix}-ends`}
             type="date"
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             required
             value={values.ends_on}
             onChange={(e) => set('ends_on', e.target.value)}
@@ -160,7 +160,7 @@ export function BudgetForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+          className="rounded-sm bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>

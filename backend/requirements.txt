@@ -12,17 +12,17 @@
 # --- Runtime ---
 fastapi>=0.141.1,<0.142
 uvicorn[standard]>=0.30,<0.35
-sqlalchemy[asyncio]>=2.0.51,<2.1
+sqlalchemy[asyncio]>=2.0.52,<2.1
 asyncpg>=0.31,<0.32
-alembic>=1.13,<1.15
+alembic>=1.19.1,<1.20
 pydantic>=2.13.4,<3.0
-pydantic-settings>=2.3,<3.0
+pydantic-settings>=2.15.0,<3.0
 PyJWT[crypto]>=2.9,<3.0
 structlog>=26.1,<27
 sentry-sdk[fastapi]>=2.68.0,<3
 
 # --- Tooling / tests (kept here so CI installs them with one file) ---
-httpx>=0.28,<0.29
+httpx>=0.28.1,<0.29
 aiosqlite>=0.22.1,<0.23
 pytest>=9.1,<10
 pytest-asyncio>=1.4,<2
@@ -30,4 +30,4 @@ pytest-cov>=7.1,<8
 # Keep the ruff pin in sync with the rev in .pre-commit-config.yaml, so the hook
 # and CI cannot disagree about formatting.
 ruff>=0.15,<0.16
-mypy>=2.3,<3
+mypy>=2.3.1,<3

@@ -117,7 +117,7 @@ export function ExpenseSection({
           {seeAllHref && (
             <Link
               href={seeAllHref}
-              className="rounded border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft"
+              className="rounded-sm border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft"
             >
               See all
             </Link>
