@@ -35,12 +35,12 @@ jobs:
             style
           # Scopes are optional, but when present must name a domain from
           # DeveloperGuide.md section 6 (or a cross-cutting concern).
+          # `steps` and `wellness` were retired when those domains merged
+          # into Fitness — use `fitness`.
           scopes: |
             finance
-            steps
             fitness
             time
-            wellness
             insights
             gaming
             auth

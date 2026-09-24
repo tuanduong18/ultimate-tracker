@@ -1,6 +1,6 @@
 # Ultimate Tracker
 
-> A single web app that tracks your finances, fitness, steps, focused time, entertainment time, sleep, mood, habits, and gaming performance — then tells you how they connect.
+> A single web app that tracks your money and subscriptions, your training and recovery, your calendar and where your hours actually go, and your gaming performance — then tells you how they connect.
 
 Most tracking apps live in isolation. Your budget app doesn't know you slept badly. Your fitness app doesn't know you overspent. Ultimate Tracker puts every domain of your daily life in one place specifically so it can surface insights none of those apps can give you alone — *"your focus hours are 40% higher on days you hit your step goal"*, *"you overspend in weeks your gym sessions drop below 2."*
 
@@ -20,17 +20,22 @@ This is a personal project built to be genuinely used daily, while serving as a 
 
 ## Features
 
-| Domain | Status | Examples |
-|---|---|---|
-| 💰 Finance & Budgeting | Core | Transaction logging, custom categories, budget caps, breach alerts |
-| 👣 Steps & Walking | Core | Manual daily step log, goal tracking, calendar heatmap |
-| 🏋️ Fitness (Gym / Swim / Sport) | Core | Session logging, exercise library, personal records, progressive overload |
-| ⏱️ Time Tracking | Core | Focus timer, entertainment time budgets, daily breakdown |
-| ❤️ Wellness | Core | Mood + energy check-in, sleep log, custom habit tracker |
-| ✨ Cross-Domain Insights | Core | Weekly AI digest, correlation engine, insights dashboard |
-| 🎮 Gaming Performance | Future | Riot/Steam API sync, tilt detection, performance trends |
+Five domains, listed in the order they appear in the app.
 
-Full feature breakdown with functional requirements lives in [`DeveloperGuide.md`](./DeveloperGuide.md#6-features--functional-requirements).
+| # | Domain | Status | What it covers |
+|---|---|---|---|
+| 1 | 💰 Finance & Budgeting | Partly built | Expenses, categories, multi-currency budgets, spending breakdowns — plus subscriptions with renewal reminders and one-click renew |
+| 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
+| 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
+| 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
+| 5 | 🎮 Gaming Performance | Last | Riot / Steam sync, tilt detection, performance trends |
+
+**Gaming Performance ships last on purpose.** It is the most interesting domain to build, which
+makes it the easiest one to start early and the surest way to end up with a half-built
+integration and no working sleep log. Keeping it at the end means the unglamorous domains get
+finished — and leaves something genuinely fun for the end.
+
+Per-domain specifications live in [`docs/features/`](./docs/features/).
 
 ---
 
@@ -38,13 +43,15 @@ Full feature breakdown with functional requirements lives in [`DeveloperGuide.md
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | Next.js 14 (App Router) + TypeScript | SSR for fast dashboard loads, strong ecosystem |
+| Frontend | Next.js 16 (App Router) + TypeScript | SSR for fast dashboard loads, strong ecosystem |
 | Styling | Tailwind CSS + shadcn/ui | Fast to build, consistent, no design system from scratch |
 | Charts | Recharts | Lightweight, React-native, good defaults |
-| Backend | FastAPI (Python 3.11+) | Async-first, type-safe, fast to build REST APIs |
+| Backend | FastAPI (Python 3.14) | Async-first, type-safe, fast to build REST APIs |
 | Database | PostgreSQL via Supabase | Relational data suits cross-domain queries, generous free tier |
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |
-| Background jobs | APScheduler / Celery (TBD in v0.3) | Weekly digest + correlation engine need scheduled compute |
+| Background jobs | APScheduler / Celery (TBD, lands in v0.2) | Subscription reminders need it first; budget alerts and the weekly digest reuse it |
+| Calendar sync | Google Calendar API (v0.3) | Two-way sync of timetable and events; `calendar.events` scope only |
+| Exchange rates | open.er-api.com | No API key, quotes 160+ currencies including VND; ECB-backed alternatives quote ~30 and omit it |
 | CI/CD | GitHub Actions | Lint, test, build, deploy on every PR |
 | Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
 | Frontend hosting | Vercel (free tier) | Zero-config Next.js deploys |
@@ -60,7 +67,7 @@ Full feature breakdown with functional requirements lives in [`DeveloperGuide.md
 ### Prerequisites
 
 - Node.js 20+
-- Python 3.11+
+- Python 3.14+
 - Docker + Docker Compose
 - A free [Supabase](https://supabase.com) project (Postgres + Auth)
 - A free [Render](https://render.com) account (for backend deploys)
@@ -80,14 +87,19 @@ Fill in `.env` with your Supabase project URL, anon key, service role key, and d
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
-alembic upgrade head        # run database migrations
-uvicorn app.main:app --reload --port 8000
+python -m alembic upgrade head        # run database migrations
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 Backend runs at `http://localhost:8000`. API docs auto-generated at `http://localhost:8000/docs`.
+
+> **Why `python -m`?** The console-script shims pip writes into `.venv/Scripts/` (`uvicorn.exe`,
+> `alembic.exe`, `pytest.exe`) are unsigned, so Windows Smart App Control blocks them with
+> *"An Application Control policy has blocked this file"*. Going through the signed interpreter
+> sidesteps it and works identically everywhere else.
 
 ### 3. Frontend setup
 
@@ -113,7 +125,9 @@ docker compose up --build
 ultimate-tracker/
 ├── frontend/       # Next.js app
 ├── backend/        # FastAPI app
-├── docs/           # Architecture diagrams, ADRs
+├── docs/
+│   ├── features/   # Per-domain feature specifications
+│   └── adr/        # Architecture decision records
 ├── .github/        # CI/CD workflows
 ├── docker-compose.yml
 ├── README.md
@@ -127,14 +141,17 @@ Full structure and architecture details: [`DeveloperGuide.md`](./DeveloperGuide.
 
 ## Roadmap
 
-18 weeks, a usable release every 4 weeks.
+Four releases, in order. **No dates.** This is a personal project built around other
+commitments, and an invented deadline produces nothing except a missed one. Each release ships
+when it is done and the one before it is stable.
 
-| Release | Weeks | What ships |
-|---|---|---|
-| **v0.1** | 1–4 | Auth, Finance (transactions + budgets), Steps (manual log), unified dashboard skeleton. CI/CD live from day 1. |
-| **v0.2** | 5–8 | Focus timer + entertainment budgets, Fitness session logging + PRs, dashboard charts. |
-| **v0.3** | 9–12 | Sleep + mood check-in, habit tracker, correlation engine v1, weekly AI digest. |
-| **v0.4** | 13–18 | Polish, performance, observability, public launch. Gaming API foundation (future). |
+| Release | What ships |
+|---|---|
+| **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD. |
+| **v0.2** | Subscriptions end to end, reminders included — so the notification and scheduler service lands here. Budget breach alerts. Fitness training and steps. Focus timer and entertainment budgets. |
+| **v0.3** | Two-way Google Calendar sync and events. Sleep, mood and habits. Correlation engine and weekly digest. Onboarding. |
+| **v0.4** | Polish, performance pass, full observability, public launch. |
+| **Last** | Gaming Performance — Riot and Steam integration, tilt detection. Deliberately after everything else. |
 
 ---
 
@@ -142,7 +159,7 @@ Full structure and architecture details: [`DeveloperGuide.md`](./DeveloperGuide.
 
 ```bash
 # Backend
-cd backend && pytest
+cd backend && python -m pytest
 
 # Frontend
 cd frontend && npm run test

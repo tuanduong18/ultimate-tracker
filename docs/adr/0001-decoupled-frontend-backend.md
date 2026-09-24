@@ -3,6 +3,11 @@
 - Status: Accepted
 - Date: 2026-06-30
 
+> **Note (2026-09-17):** "seven data domains" below describes the split as it stood on this
+> ADR's date. Steps and Wellness were later folded into the Fitness domain, leaving five —
+> see [ADR-0002](./0002-consolidate-fitness-domains.md). The
+> decision recorded here is unaffected.
+
 ## Context
 
 Ultimate Tracker spans seven data domains and needs a place for non-request

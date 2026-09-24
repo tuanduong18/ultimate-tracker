@@ -5,15 +5,20 @@ import { usePathname } from 'next/navigation';
 
 import { supabase } from '@/lib/supabase';
 
-/** Every signed-in destination, in the order the sidebar lists them. */
+/**
+ * Every signed-in destination, in the order the sidebar lists them.
+ *
+ * Fitness absorbed the former Steps and Wellness entries — see
+ * docs/features/fitness.md. Gaming sits last on purpose: it is the most
+ * interesting domain to build, so it is scheduled after the rest are done.
+ */
 export const MODULES = [
   { href: '/dashboard', label: 'Dashboard', blurb: 'Everything at a glance' },
-  { href: '/finance', label: 'Finance', blurb: 'Expenses, categories and budgets' },
-  { href: '/steps', label: 'Steps', blurb: 'Daily step count and goal' },
-  { href: '/fitness', label: 'Fitness', blurb: 'Workouts and personal records' },
-  { href: '/time', label: 'Time', blurb: 'Where the hours go' },
-  { href: '/wellness', label: 'Wellness', blurb: 'Sleep, mood and habits' },
+  { href: '/finance', label: 'Finance', blurb: 'Expenses, budgets and subscriptions' },
+  { href: '/fitness', label: 'Fitness', blurb: 'Training, steps, sleep and habits' },
+  { href: '/time', label: 'Time', blurb: 'Where the hours go, and what is coming' },
   { href: '/insights', label: 'Insights', blurb: 'How the domains connect' },
+  { href: '/gaming', label: 'Gaming', blurb: 'Match history and performance' },
 ] as const;
 
 /** Below the divider: preferences rather than places to log something. */
