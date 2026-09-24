@@ -33,7 +33,7 @@ const FALLBACK: ThemeColours = {
 function readColours(root: HTMLElement): ThemeColours {
   const styles = getComputedStyle(root);
   const entries = TOKENS.map((name) => {
-    const channels = styles.getPropertyValue(`--color-${name}`).trim();
+    const channels = styles.getPropertyValue(`--channel-${name}`).trim();
     return [name, channels ? `rgb(${channels})` : FALLBACK[name]];
   });
   return Object.fromEntries(entries) as ThemeColours;

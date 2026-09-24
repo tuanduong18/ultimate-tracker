@@ -114,7 +114,7 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
           <ul className="mt-2 space-y-1">
             {categories.map((category) => (
               <li key={category.id}>
-                <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-surface-muted">
+                <label className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted">
                   <input
                     type="checkbox"
                     checked={chosen.includes(category.id)}
@@ -132,7 +132,7 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
 
             <li>
               <label
-                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-surface-muted"
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted"
                 htmlFor={`${idPrefix}-uncategorised`}
               >
                 <input

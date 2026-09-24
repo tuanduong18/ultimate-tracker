@@ -80,7 +80,7 @@ function BucketTooltip({
   if (!active || !payload?.length) return null;
   const bucket = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-sm">
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-xs">
       <p className="font-medium">{bucket.label}</p>
       <p className="text-fg-muted">{formatMoney(bucket.spent, currency)}</p>
     </div>
@@ -134,7 +134,7 @@ export function SpendByPeriodChart({
     <Panel
       title="Spending amount"
       error={error}
-      className="h-[26rem]"
+      className="h-104"
       action={<RangeNav range={range} onChange={onRangeChange} />}
       header={
         <RangeControls range={range} onChange={onRangeChange} idPrefix="period">

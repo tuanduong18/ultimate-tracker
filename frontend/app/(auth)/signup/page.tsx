@@ -64,7 +64,7 @@ export default function SignupPage() {
           </label>
           <input
             id="email"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-sm border px-3 py-2"
             type="email"
             autoComplete="email"
             required
@@ -79,7 +79,7 @@ export default function SignupPage() {
           </label>
           <input
             id="password"
-            className="mt-1 w-full rounded border px-3 py-2"
+            className="mt-1 w-full rounded-sm border px-3 py-2"
             type="password"
             autoComplete="new-password"
             required
@@ -92,7 +92,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
+          className="w-full rounded-sm bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
         >
           {submitting ? 'Creating account…' : 'Sign up'}
         </button>

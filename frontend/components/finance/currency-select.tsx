@@ -27,7 +27,7 @@ export function CurrencySelect({
     return (
       <input
         id={id}
-        className="mt-1 w-24 rounded border px-2 py-2 uppercase"
+        className="mt-1 w-24 rounded-sm border px-2 py-2 uppercase"
         value={value}
         disabled={disabled}
         maxLength={3}
@@ -39,7 +39,7 @@ export function CurrencySelect({
   return (
     <select
       id={id}
-      className="mt-1 w-24 rounded border px-2 py-2"
+      className="mt-1 w-24 rounded-sm border px-2 py-2"
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}

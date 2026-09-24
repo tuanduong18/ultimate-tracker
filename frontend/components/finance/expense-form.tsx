@@ -64,7 +64,7 @@ export function ExpenseForm({
           </label>
           <input
             id={`${idPrefix}-amount`}
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             // Text, not number: a number input hands back a float, and the trailing
             // zero a currency's scale may depend on does not survive the round trip.
             inputMode="decimal"
@@ -93,7 +93,7 @@ export function ExpenseForm({
           <input
             id={`${idPrefix}-date`}
             type="date"
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             required
             value={values.spent_on}
             onChange={(e) => set('spent_on', e.target.value)}
@@ -106,7 +106,7 @@ export function ExpenseForm({
           </label>
           <select
             id={`${idPrefix}-category`}
-            className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+            className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             value={values.category_id}
             onChange={(e) => set('category_id', e.target.value)}
           >
@@ -126,7 +126,7 @@ export function ExpenseForm({
         </label>
         <input
           id={`${idPrefix}-description`}
-          className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+          className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
           maxLength={500}
           value={values.description}
           onChange={(e) => set('description', e.target.value)}
@@ -137,7 +137,7 @@ export function ExpenseForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+          className="rounded-sm bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
         >
           Save
         </button>
