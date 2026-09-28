@@ -11,7 +11,7 @@
 
 # --- Runtime ---
 fastapi>=0.141.1,<0.142
-uvicorn[standard]>=0.30,<0.35
+uvicorn[standard]>=0.54.0,<0.55
 sqlalchemy[asyncio]>=2.0.52,<2.1
 asyncpg>=0.31,<0.32
 alembic>=1.19.1,<1.20
