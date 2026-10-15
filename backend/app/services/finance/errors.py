@@ -46,8 +46,8 @@ class InvalidDateRangeError(FinanceError):
     status_code = 422
     code = "INVALID_DATE_RANGE"
 
-    def __init__(self) -> None:
-        super().__init__("ends_on must be on or after starts_on.")
+    def __init__(self, message: str = "ends_on must be on or after starts_on.") -> None:
+        super().__init__(message)
 
 
 class RateUnavailableError(FinanceError):

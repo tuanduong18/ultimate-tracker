@@ -1,8 +1,9 @@
 """finance API routes (v1). Keep handlers thin — business logic lives in app/services/."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, tzinfo
 from typing import Annotated
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,9 @@ from app.schemas.finance import (
     ExpenseUpdate,
     Granularity,
     PeriodBreakdownRead,
+    SubscriptionCreate,
+    SubscriptionRead,
+    SubscriptionUpdate,
     SummaryRead,
 )
 from app.services import finance as finance_service
@@ -37,6 +41,19 @@ def _as_http(exc: finance_service.FinanceError) -> HTTPException:
     return HTTPException(
         status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
     )
+
+
+def _today_in(timezone: str) -> date:
+    """The current date where the user is, which is what billing dates mean.
+
+    Falls back to UTC for a timezone this machine cannot resolve — the profile
+    stores it unvalidated, and a wrong-by-hours "today" beats a 500.
+    """
+    try:
+        tz: tzinfo = ZoneInfo(timezone)
+    except ZoneInfoNotFoundError, ValueError:
+        tz = UTC
+    return datetime.now(tz).date()
 
 
 # --- Categories ---------------------------------------------------------------
@@ -212,6 +229,65 @@ async def delete_budget(
 ) -> None:
     try:
         await finance_service.delete_budget(db, user_id, budget_id)
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+
+
+# --- Subscriptions ------------------------------------------------------------
+
+
+@router.get("/subscriptions", response_model=list[SubscriptionRead])
+async def list_subscriptions(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[SubscriptionRead]:
+    """Live subscriptions first, soonest charge first; cancelled ones last."""
+    subscriptions = await finance_service.list_subscriptions(db, user_id)
+    return [SubscriptionRead.model_validate(s) for s in subscriptions]
+
+
+@router.post("/subscriptions", response_model=SubscriptionRead, status_code=status.HTTP_201_CREATED)
+async def create_subscription(
+    payload: SubscriptionCreate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> SubscriptionRead:
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        subscription = await finance_service.create_subscription(
+            db, user_id, payload, today=_today_in(profile.timezone)
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return SubscriptionRead.model_validate(subscription)
+
+
+@router.patch("/subscriptions/{subscription_id}", response_model=SubscriptionRead)
+async def update_subscription(
+    subscription_id: uuid.UUID,
+    payload: SubscriptionUpdate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> SubscriptionRead:
+    """Partial update. Send cancelled_on to cancel, or null to resume."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        subscription = await finance_service.update_subscription(
+            db, user_id, subscription_id, payload, today=_today_in(profile.timezone)
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return SubscriptionRead.model_validate(subscription)
+
+
+@router.delete("/subscriptions/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subscription(
+    subscription_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await finance_service.delete_subscription(db, user_id, subscription_id)
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
 

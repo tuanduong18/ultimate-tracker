@@ -28,6 +28,7 @@ from pydantic import (
 )
 
 from app.core.currencies import minor_units, normalize_currency
+from app.models.finance import BillingInterval
 
 # Mirrors Numeric(20, 3) on the expense and budget columns. The scale is the
 # widest any supported currency needs (KWD, BHD, JOD, OMR, LYD, TND); per-currency
@@ -42,6 +43,11 @@ Granularity = Literal["day", "week"]
 CurrencyCode = Annotated[str, AfterValidator(normalize_currency)]
 CategoryName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 BudgetName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+SubscriptionName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+]
+# Upper bound is a sanity cap well inside SmallInteger, not a business rule.
+IntervalCount = Annotated[int, Field(ge=1, le=999)]
 # Hex colour for charts, matching the String(7) column.
 Colour = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^#[0-9a-fA-F]{6}$")]
 # The column is unbounded Text; the cap is a schema-level guard on user input.
@@ -200,6 +206,84 @@ class BudgetRead(BaseModel):
     # Loaded via the model's selectin relationship; carries name and colour so a
     # chart does not need a second round trip.
     categories: list[CategoryRead]
+    created_at: datetime
+
+
+# --- Subscriptions ------------------------------------------------------------
+
+
+def _check_subscription_dates(
+    started_on: date | None, trial_ends_on: date | None, cancelled_on: date | None
+) -> None:
+    """Cross-field date rules, for whichever of the three are known together."""
+    if started_on is None:
+        return
+    if trial_ends_on is not None and trial_ends_on <= started_on:
+        raise ValueError("trial_ends_on must be after started_on")
+    if cancelled_on is not None and cancelled_on < started_on:
+        raise ValueError("cancelled_on must be on or after started_on")
+
+
+class SubscriptionCreate(BaseModel):
+    name: SubscriptionName
+    amount: Amount
+    currency: CurrencyCode
+    # "Every interval_count interval_units": quarterly is month × 3.
+    interval_unit: BillingInterval
+    interval_count: IntervalCount = 1
+    # Leave it out to get the seeded "Subscriptions" category; send null to
+    # leave the subscription (and the expenses it logs) uncategorized.
+    category_id: uuid.UUID | None = None
+    started_on: date
+    # When set, the first charge falls on this day rather than started_on.
+    trial_ends_on: date | None = None
+    note: Description | None = None
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        check_amount_scale(self.amount, self.currency)
+        _check_subscription_dates(self.started_on, self.trial_ends_on, None)
+        return self
+
+
+class SubscriptionUpdate(BaseModel):
+    name: SubscriptionName | None = None
+    amount: Amount | None = None
+    currency: CurrencyCode | None = None
+    interval_unit: BillingInterval | None = None
+    interval_count: IntervalCount | None = None
+    category_id: uuid.UUID | None = None
+    started_on: date | None = None
+    trial_ends_on: date | None = None
+    # Set to cancel, null to resume. May be in the future for a fixed-term plan.
+    cancelled_on: date | None = None
+    note: Description | None = None
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        if self.amount is not None and self.currency is not None:
+            check_amount_scale(self.amount, self.currency)
+        # Partial: the service re-checks against the stored values.
+        _check_subscription_dates(self.started_on, self.trial_ends_on, self.cancelled_on)
+        return self
+
+
+class SubscriptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    amount: Decimal
+    currency: str
+    interval_unit: BillingInterval
+    interval_count: int
+    category_id: uuid.UUID | None
+    started_on: date
+    trial_ends_on: date | None
+    # Computed by the server; read-only.
+    next_billing_on: date
+    cancelled_on: date | None
+    note: str | None
     created_at: datetime
 
 

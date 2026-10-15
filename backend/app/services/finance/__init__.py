@@ -1,4 +1,5 @@
-"""Finance domain business logic: categories, expenses, budgets, and summaries.
+"""Finance domain business logic: categories, expenses, budgets, subscriptions
+and summaries.
 
 Split by resource, one module each. Everything callers use is re-exported here,
 so ``from app.services import finance as finance_service`` stays the one import.
@@ -14,6 +15,7 @@ from app.services.finance.budgets import (
 )
 from app.services.finance.categories import (
     DEFAULT_CATEGORIES,
+    SUBSCRIPTIONS_CATEGORY_NAME,
     build_default_categories,
     create_category,
     delete_category,
@@ -36,6 +38,14 @@ from app.services.finance.expenses import (
     list_expenses,
     update_expense,
 )
+from app.services.finance.subscriptions import (
+    billing_date,
+    create_subscription,
+    delete_subscription,
+    list_subscriptions,
+    next_billing_date,
+    update_subscription,
+)
 from app.services.finance.summaries import (
     BUCKETERS,
     UNCATEGORIZED_COLOUR,
@@ -52,6 +62,7 @@ from app.services.finance.summaries import (
 __all__ = [
     "BUCKETERS",
     "DEFAULT_CATEGORIES",
+    "SUBSCRIPTIONS_CATEGORY_NAME",
     "UNCATEGORIZED_COLOUR",
     "UNCATEGORIZED_NAME",
     "CategoryNameTakenError",
@@ -62,24 +73,30 @@ __all__ = [
     "RateUnavailableError",
     "UnknownCategoryError",
     "UnknownGranularityError",
+    "billing_date",
     "budget_progress",
     "build_default_categories",
     "category_clause",
     "create_budget",
     "create_category",
     "create_expense",
+    "create_subscription",
     "day_buckets",
     "delete_budget",
     "delete_category",
     "delete_expense",
+    "delete_subscription",
     "list_budgets",
     "list_categories",
     "list_expenses",
+    "list_subscriptions",
+    "next_billing_date",
     "summarize",
     "summarize_by_category",
     "summarize_by_period",
     "update_budget",
     "update_category",
     "update_expense",
+    "update_subscription",
     "week_buckets",
 ]
