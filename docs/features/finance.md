@@ -7,7 +7,7 @@ This is the first domain built and the most complete.
 - **Scope name:** `finance`
 - **API prefix:** `/api/v1/finance`
 - **Code:** [`backend/app/api/v1/finance.py`](../../backend/app/api/v1/finance.py) ·
-  [`services/finance.py`](../../backend/app/services/finance.py) ·
+  [`services/finance/`](../../backend/app/services/finance/) ·
   [`models/finance.py`](../../backend/app/models/finance.py)
 
 ---
@@ -192,4 +192,4 @@ cancelled-but-forgotten subscription surfaces.
   category per budget is wrong.
 - **Never sum amounts without converting.** Expenses carry their own currency; adding raw amounts
   across currencies produces a number that means nothing. Conversion belongs in
-  `services/finance.py`, server-side — the browser does not have a rate table.
+  `services/finance/summaries.py`, server-side — the browser does not have a rate table.

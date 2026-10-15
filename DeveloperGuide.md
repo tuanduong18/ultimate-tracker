@@ -216,7 +216,7 @@ Three properties of this schema are easy to get wrong:
 - **Budgets span an explicit date range**, not a `weekly|monthly` period enum, and they apply to
   **many categories** through `budget_categories`. Code that assumes one category per budget is wrong.
 - **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
-  Conversion into the user's `display_currency` happens server-side in `services/finance.py`.
+  Conversion into the user's `display_currency` happens server-side in `services/finance/summaries.py`.
 
 ### Planned tables
 

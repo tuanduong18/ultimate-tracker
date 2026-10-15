@@ -56,7 +56,7 @@ class Category(Base):
     """A user-defined expense category.
 
     A starter set is seeded when the profile is first created — see
-    DEFAULT_CATEGORIES in app.services.finance. Users are free to rename,
+    DEFAULT_CATEGORIES in app.services.finance.categories. Users are free to rename,
     recolour or delete any of them.
     """
 
