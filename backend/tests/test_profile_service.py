@@ -129,6 +129,7 @@ async def test_a_new_profile_is_seeded_with_the_default_categories(
         "Food",
         "Other",
         "Rent",
+        "Subscriptions",
     ]
 
 

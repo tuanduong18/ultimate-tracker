@@ -105,6 +105,8 @@ DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
     ("Rent", "#ef4444"),
     ("Education", "#3b82f6"),
     ("Entertainment", "#a855f7"),
+    # Default category for expenses logged by subscription renewals.
+    ("Subscriptions", "#f59e0b"),
     ("Other", "#94a3b8"),
 )
 
