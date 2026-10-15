@@ -28,11 +28,15 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
 
     profile = Profile(id=user_id)
     db.add(profile)
-    # Same transaction as the profile itself: a user who ends up with a profile
-    # but no categories cannot create a budget, and nothing would ever retry the
-    # seeding for them.
-    db.add_all(finance_service.build_default_categories(user_id))
     try:
+        # Flushed on its own first: categories carry a foreign key to the
+        # profile, but with no relationship() between the models the ORM does
+        # not know to order the inserts, and writes the categories first.
+        await db.flush()
+        # Same transaction as the profile itself: a user who ends up with a
+        # profile but no categories cannot create a budget, and nothing would
+        # ever retry the seeding for them.
+        db.add_all(finance_service.build_default_categories(user_id))
         await db.commit()
     except IntegrityError:
         await db.rollback()

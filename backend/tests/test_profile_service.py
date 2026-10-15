@@ -164,6 +164,7 @@ async def test_losing_the_race_does_not_double_seed(
     """The loser rolls back its own seed rather than duplicating the winner's."""
     async with session_factory() as winner:
         winner.add(Profile(id=TEST_USER_ID))
+        await winner.flush()  # profile before categories, as the service does
         winner.add_all(finance_service.build_default_categories(TEST_USER_ID))
         await winner.commit()
 
