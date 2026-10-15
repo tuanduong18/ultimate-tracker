@@ -46,5 +46,12 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "-q"
+# importlib: pytest's recommended mode; lets test files share a basename across
+# folders. It no longer puts the rootdir on sys.path, hence pythonpath.
+addopts = "-q --import-mode=importlib --strict-markers"
+pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "unit: no database or app; applied by folder in tests/conftest.py",
+    "integration: touches a database or the ASGI app; applied by folder",
+]

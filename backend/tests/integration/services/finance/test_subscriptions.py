@@ -1,4 +1,4 @@
-"""Service-level tests for subscriptions: billing-date arithmetic and CRUD."""
+"""Service-level tests for subscription CRUD against SQLite."""
 
 import uuid
 from collections.abc import AsyncGenerator
@@ -8,10 +8,8 @@ from typing import Any
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.db.base import Base
 from app.models.finance import BillingInterval, Category
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services import finance as finance_service
@@ -25,21 +23,12 @@ MONTH = BillingInterval.MONTH
 
 
 @pytest.fixture
-async def db() -> AsyncGenerator[AsyncSession]:
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-    async with factory() as session:
+async def db(db_factory: async_sessionmaker[AsyncSession]) -> AsyncGenerator[AsyncSession]:
+    async with db_factory() as session:
         # Seeds the default categories, "Subscriptions" among them.
         await profile_service.get_or_create_profile(session, USER_ID)
         await profile_service.get_or_create_profile(session, OTHER_USER_ID)
         yield session
-    await engine.dispose()
 
 
 def _create(**overrides: Any) -> SubscriptionCreate:
@@ -59,51 +48,6 @@ async def _category_id(db: AsyncSession, user_id: uuid.UUID, name: str) -> uuid.
     )
     assert category_id is not None
     return category_id
-
-
-# --- Billing dates ------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("k", "expected"),
-    [
-        (0, date(2026, 1, 31)),
-        (1, date(2026, 2, 28)),
-        # Back to the 31st: measured from the anchor, not from 28 Feb.
-        (2, date(2026, 3, 31)),
-        (3, date(2026, 4, 30)),
-        (12, date(2027, 1, 31)),
-    ],
-)
-def test_monthly_charges_clamp_to_month_end_without_drifting(k: int, expected: date) -> None:
-    assert finance_service.billing_date(date(2026, 1, 31), MONTH, 1, k) == expected
-
-
-def test_yearly_leap_day_anchor_falls_back_to_28_feb() -> None:
-    anchor = date(2028, 2, 29)
-    assert finance_service.billing_date(anchor, BillingInterval.YEAR, 1, 1) == date(2029, 2, 28)
-    assert finance_service.billing_date(anchor, BillingInterval.YEAR, 1, 4) == date(2032, 2, 29)
-
-
-@pytest.mark.parametrize(
-    ("anchor", "unit", "count", "expected"),
-    [
-        # Future anchor: the anchor itself.
-        (date(2026, 11, 1), MONTH, 1, date(2026, 11, 1)),
-        # A charge due today is still upcoming.
-        (date(2026, 9, 15), MONTH, 1, date(2026, 10, 15)),
-        (date(2026, 9, 16), MONTH, 1, date(2026, 10, 16)),
-        (date(2026, 9, 14), MONTH, 1, date(2026, 11, 14)),
-        # Quarterly from January: Jan, Apr, Jul, Oct, Jan.
-        (date(2026, 1, 10), MONTH, 3, date(2027, 1, 10)),
-        (date(2026, 10, 1), BillingInterval.WEEK, 2, date(2026, 10, 15)),
-        (date(2026, 10, 2), BillingInterval.WEEK, 2, date(2026, 10, 16)),
-        (date(2020, 1, 1), BillingInterval.DAY, 1, TODAY),
-        (date(2019, 10, 20), BillingInterval.YEAR, 1, date(2026, 10, 20)),
-    ],
-)
-def test_next_billing_date(anchor: date, unit: BillingInterval, count: int, expected: date) -> None:
-    assert finance_service.next_billing_date(anchor, unit, count, TODAY) == expected
 
 
 # --- Create -------------------------------------------------------------------

@@ -1,16 +1,21 @@
-"""Shared pytest fixtures."""
+"""Root pytest configuration: tags every test with its tier.
 
-from collections.abc import AsyncGenerator
+Fixtures do not live here. Database and app fixtures are in
+integration/conftest.py so a unit test cannot reach them by accident; anything
+a test imports (ids, builders, fakes) is in the ``support`` package.
+"""
+
+from pathlib import Path
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+_TESTS_ROOT = Path(__file__).parent
+_TIERS = ("unit", "integration")
 
 
-@pytest.fixture
-async def client() -> AsyncGenerator[AsyncClient]:
-    """Async HTTP client wired to the ASGI app (no network)."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Mark each test by its top-level folder, so `-m "not integration"` works."""
+    for item in items:
+        tier = item.path.relative_to(_TESTS_ROOT).parts[0]
+        if tier in _TIERS:
+            item.add_marker(tier)
