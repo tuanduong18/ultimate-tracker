@@ -456,7 +456,7 @@ before it is stable.
 | Release | Scope | Definition of Done |
 |---|---|---|
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD | Deployed to Vercel and Render; an expense can be logged and shows up converted in the dashboard; CI green on every PR |
-| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Fitness training and steps, focus timer and entertainment budgets | A subscription reminds one day out and its renew button writes a real expense; a budget breach notifies; a workout and a step count can be logged |
+| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Fitness training and steps, focus timer and entertainment budgets | A subscription reminds three days out and renews itself into a real expense; a budget breach notifies; a workout and a step count can be logged |
 | **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest sends |
 | **v0.4** | Polish, performance pass, full observability, public launch | Sentry clean across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |
