@@ -21,10 +21,10 @@ from app.models.finance import Subscription
 
 
 async def test_subscription_create_and_list(finance_client: AsyncClient) -> None:
-    default = await make_category(finance_client, name="Subscriptions")
-    created = await make_subscription(finance_client)
+    category = await make_category(finance_client, name="Subscriptions")
+    created = await make_subscription(finance_client, category_id=category["id"])
 
-    assert created["category_id"] == default["id"]
+    assert created["category_id"] == category["id"]
     assert created["next_billing_on"] == FUTURE_START
     assert created["interval_unit"] == "month"
     assert created["interval_count"] == 1
@@ -34,9 +34,9 @@ async def test_subscription_create_and_list(finance_client: AsyncClient) -> None
     assert [s["id"] for s in listed] == [created["id"]]
 
 
-async def test_subscription_without_a_default_category_is_uncategorized(
-    finance_client: AsyncClient,
-) -> None:
+async def test_omitted_category_is_uncategorized(finance_client: AsyncClient) -> None:
+    """No server-side default, even when a "Subscriptions" category exists."""
+    await make_category(finance_client, name="Subscriptions")
     created = await make_subscription(finance_client)
     assert created["category_id"] is None
 

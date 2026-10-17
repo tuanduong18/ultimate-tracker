@@ -179,9 +179,7 @@ class Subscription(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False
     )
-    # Copied onto each auto-logged expense; the service defaults it to the seeded
-    # "Subscriptions" category. Held by id, not looked up by name, because users
-    # can rename that category. Nullable for the same reason as
+    # Copied onto each auto-logged expense. Nullable for the same reason as
     # Expense.category_id: deleting a category leaves the subscription in place.
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True

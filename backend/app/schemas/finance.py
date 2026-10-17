@@ -231,8 +231,8 @@ class SubscriptionCreate(BaseModel):
     # "Every interval_count interval_units": quarterly is month × 3.
     interval_unit: BillingInterval
     interval_count: IntervalCount = 1
-    # Leave it out to get the seeded "Subscriptions" category; send null to
-    # leave the subscription (and the expenses it logs) uncategorized.
+    # No server-side default: omitted or null leaves the subscription (and the
+    # expenses it logs) uncategorized. The form preselects "Subscriptions".
     category_id: uuid.UUID | None = None
     started_on: date
     # When set, the first charge falls on this day rather than started_on.

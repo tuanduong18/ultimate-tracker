@@ -15,7 +15,6 @@ from app.services.finance.budgets import (
 )
 from app.services.finance.categories import (
     DEFAULT_CATEGORIES,
-    SUBSCRIPTIONS_CATEGORY_NAME,
     build_default_categories,
     create_category,
     delete_category,
@@ -62,7 +61,6 @@ from app.services.finance.summaries import (
 __all__ = [
     "BUCKETERS",
     "DEFAULT_CATEGORIES",
-    "SUBSCRIPTIONS_CATEGORY_NAME",
     "UNCATEGORIZED_COLOUR",
     "UNCATEGORIZED_NAME",
     "CategoryNameTakenError",

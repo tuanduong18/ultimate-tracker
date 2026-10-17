@@ -20,16 +20,14 @@ from app.services.finance.errors import (
 # empty finance page unable to create a budget at all, since BudgetCreate
 # requires at least one category. Distinct colours so the first chart is
 # readable without anyone picking swatches.
-# Default category for new subscriptions, and so for the expenses their renewals
-# log. Matched by name only when a subscription is created without one.
-SUBSCRIPTIONS_CATEGORY_NAME = "Subscriptions"
-
 DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
     ("Food", "#22c55e"),
     ("Rent", "#ef4444"),
     ("Education", "#3b82f6"),
     ("Entertainment", "#a855f7"),
-    (SUBSCRIPTIONS_CATEGORY_NAME, "#f59e0b"),
+    # Where subscription renewals belong. The server never picks it by name;
+    # the subscription form preselects it, so renaming or deleting it is safe.
+    ("Subscriptions", "#f59e0b"),
     ("Other", "#94a3b8"),
 )
 

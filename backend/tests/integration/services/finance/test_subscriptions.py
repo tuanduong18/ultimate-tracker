@@ -53,18 +53,20 @@ async def _category_id(db: AsyncSession, user_id: uuid.UUID, name: str) -> uuid.
 # --- Create -------------------------------------------------------------------
 
 
-async def test_create_defaults_to_the_subscriptions_category(db: AsyncSession) -> None:
-    subscription = await finance_service.create_subscription(db, USER_ID, _create(), today=TODAY)
+async def test_create_keeps_the_given_category(db: AsyncSession) -> None:
+    chosen = await _category_id(db, USER_ID, "Subscriptions")
+    subscription = await finance_service.create_subscription(
+        db, USER_ID, _create(category_id=str(chosen)), today=TODAY
+    )
 
-    assert subscription.category_id == await _category_id(db, USER_ID, "Subscriptions")
+    assert subscription.category_id == chosen
     assert subscription.next_billing_on == TODAY
     assert subscription.amount == Decimal("12.99")
 
 
-async def test_explicit_null_category_leaves_it_uncategorized(db: AsyncSession) -> None:
-    subscription = await finance_service.create_subscription(
-        db, USER_ID, _create(category_id=None), today=TODAY
-    )
+async def test_no_category_is_picked_by_name(db: AsyncSession) -> None:
+    """Omitted means uncategorized, even with a "Subscriptions" category present."""
+    subscription = await finance_service.create_subscription(db, USER_ID, _create(), today=TODAY)
     assert subscription.category_id is None
 
 

@@ -12,13 +12,10 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.finance import BillingInterval, Category, Subscription
+from app.models.finance import BillingInterval, Subscription
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services.finance._common import _applied_changes, _check_scale
-from app.services.finance.categories import (
-    SUBSCRIPTIONS_CATEGORY_NAME,
-    _require_owned_category_ref,
-)
+from app.services.finance.categories import _require_owned_category_ref
 from app.services.finance.errors import InvalidDateRangeError, NotFoundError
 
 # --- Billing dates ------------------------------------------------------------
@@ -109,16 +106,6 @@ async def _get_owned_subscription(
     return subscription
 
 
-async def _default_category_id(db: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | None:
-    """The user's "Subscriptions" category, or None if they deleted or renamed it."""
-    category_id: uuid.UUID | None = await db.scalar(
-        select(Category.id).where(
-            Category.user_id == user_id, Category.name == SUBSCRIPTIONS_CATEGORY_NAME
-        )
-    )
-    return category_id
-
-
 async def create_subscription(
     db: AsyncSession, user_id: uuid.UUID, data: SubscriptionCreate, *, today: date
 ) -> Subscription:
@@ -127,14 +114,10 @@ async def create_subscription(
     A subscription started in the past does not log its past charges: the user
     has most likely recorded those already, and guessing would double-count.
     """
-    fields = data.model_dump()
-    # "Not sent" and "sent as null" differ here, as in the Update schemas.
-    if "category_id" not in data.model_fields_set:
-        fields["category_id"] = await _default_category_id(db, user_id)
-    elif data.category_id is not None:
+    if data.category_id is not None:
         await _require_owned_category_ref(db, user_id, data.category_id)
 
-    subscription = Subscription(user_id=user_id, **fields)
+    subscription = Subscription(user_id=user_id, **data.model_dump())
     subscription.next_billing_on = _schedule_next(subscription, today)
     db.add(subscription)
     await db.commit()

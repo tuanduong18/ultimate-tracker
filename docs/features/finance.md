@@ -67,7 +67,7 @@ charge, not after.
 |---|---|---|
 | `id` | uuid PK | |
 | `user_id` | uuid FK to `profiles.id` | cascade |
-| `category_id` | uuid FK to `categories.id`, nullable | renewals inherit it; defaults to the seeded "Subscriptions" category |
+| `category_id` | uuid FK to `categories.id`, nullable | renewals inherit it |
 | `name` | varchar(80) | "Spotify" |
 | `amount` | numeric(20, 3) | what one renewal costs |
 | `currency` | varchar(3) | |
@@ -86,8 +86,10 @@ renewals pick up the new amount — past expense rows are historical fact and ar
 
 Renewal expenses are ordinary rows in `expenses` with no link back to the subscription, so the
 expense table stays independent of this feature. They are told apart by category, which is why
-every profile is seeded with a "Subscriptions" category and new subscriptions default to it.
-`category_id` is held by id rather than looked up by name, because users can rename that category.
+every profile is seeded with a "Subscriptions" category. The server never picks it by name: an
+omitted `category_id` means uncategorized, and the subscription form preselects the user's
+category named "Subscriptions" (case-insensitive) when one exists. Renaming or deleting that
+category therefore breaks nothing — the form simply has nothing to preselect.
 
 Cancelling sets `cancelled_on` rather than deleting the row. A hard delete exists for mistakes;
 expenses already written survive it.
@@ -121,7 +123,7 @@ Resuming a cancelled subscription likewise skips the charges it missed while can
 | Method | Path | Notes |
 |---|---|---|
 | `GET` | `/finance/subscriptions` | List: live first, soonest charge first; cancelled last. |
-| `POST` | `/finance/subscriptions` | Create. Omit `category_id` for the default; send `null` for none. |
+| `POST` | `/finance/subscriptions` | Create. Omitted or `null` `category_id` means uncategorized. |
 | `PATCH` | `/finance/subscriptions/{id}` | Edit — including amount, which affects future renewals only. |
 | `DELETE` | `/finance/subscriptions/{id}` | Hard delete. Expenses already written survive. |
 
