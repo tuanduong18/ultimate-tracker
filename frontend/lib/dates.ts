@@ -141,3 +141,11 @@ export function formatRange(range: DateRange): string {
   if (range.start === range.end) return full.format(start);
   return full.formatRange(start, end);
 }
+
+/**
+ * Whole days from `fromIso` to `toIso`: 0 for the same day, negative when
+ * `toIso` is earlier. For "renews in 2 days", not for anything that sums money.
+ */
+export function daysUntil(toIso: string, fromIso: string = todayIso()): number {
+  return rangeLength({ start: fromIso, end: toIso }) - 1;
+}

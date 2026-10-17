@@ -4,10 +4,10 @@ import clsx from 'clsx';
 import type { ReactNode } from 'react';
 
 /**
- * The card every quadrant of the finance dashboard is drawn in.
+ * The card every panel of the finance dashboard is drawn in.
  *
- * The three along the bottom row are fixed-height and scroll their own body:
- * the whole point of the layout is that the four panels stay in view together,
+ * The four along the bottom row are fixed-height and scroll their own body:
+ * the whole point of the layout is that every panel stays in view together,
  * which a panel that grows with its list would break. The header and any error
  * sit outside that scroll area so neither can be scrolled out of sight.
  */

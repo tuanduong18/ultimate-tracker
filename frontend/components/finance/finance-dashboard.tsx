@@ -13,6 +13,7 @@ import {
 import { granularityFor } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
+import { SubscriptionSection } from '@/components/finance/subscription-section';
 import { monthRange, shiftRange } from '@/lib/dates';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type {
@@ -21,6 +22,7 @@ import type {
   CategoryBreakdown,
   Expense,
   PeriodBreakdown,
+  Subscription,
 } from '@/lib/types/finance';
 import type { Profile } from '@/lib/types/profile';
 
@@ -28,7 +30,7 @@ import type { Profile } from '@/lib/types/profile';
 const LATEST_EXPENSES = 10;
 
 /**
- * Owns every finance fetch on the page, and lays the four panels out.
+ * Owns every finance fetch on the page, and lays the six panels out.
  *
  * The collections live here rather than in the panels that render them because
  * they are not independent: the expense and budget forms pick from the same
@@ -37,8 +39,8 @@ const LATEST_EXPENSES = 10;
  * say so; deciding what went stale is this component's job, and having that in
  * one place is what keeps the page honest after a write.
  *
- * Layout is two charts across the top and a 2-4-4 split beneath them —
- * categories, expenses, budgets.
+ * Layout is two charts across the top and a 2-4-3-3 split beneath them —
+ * categories, expenses, subscriptions, budgets.
  */
 export function FinanceDashboard() {
   // A range each, rather than one shared by both charts. They answer different
@@ -62,6 +64,7 @@ export function FinanceDashboard() {
   // Carries everything the plain budget list does plus what has been spent, so
   // the bars and the edit forms cannot disagree after a write.
   const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
+  const subscriptions = useCollection<Subscription>('/finance/subscriptions');
 
   // Each chart refetches when its own range or filter moves: the path is the
   // hook's dependency, so either is a new resource rather than a manual reload.
@@ -86,6 +89,7 @@ export function FinanceDashboard() {
 
   const reloadExpenses = expenses.reload;
   const reloadBudgets = budgets.reload;
+  const reloadSubscriptions = subscriptions.reload;
   const reloadByCategory = byCategory.reload;
   const reloadByCategoryBefore = byCategoryBefore.reload;
   const reloadByPeriod = byPeriod.reload;
@@ -117,15 +121,22 @@ export function FinanceDashboard() {
   const onBudgetsChanged = reloadAggregates;
 
   /**
-   * A category changed. Deleting one sets its expenses' category_id to null and
-   * drops it from every budget that covered it — both server-side, so both
-   * lists have to come back from the API rather than be patched here. The pie
-   * moves too: that spend lands in the uncategorised slice.
+   * A subscription changed. Nothing else moves: editing one writes no expense —
+   * only a renewal does — and SubscriptionSection reloads its own list.
+   */
+  const onSubscriptionsChanged = useCallback(() => {}, []);
+
+  /**
+   * A category changed. Deleting one sets the category_id of its expenses and
+   * subscriptions to null and drops it from every budget that covered it — all
+   * server-side, so those lists have to come back from the API rather than be
+   * patched here. The pie moves too: that spend lands in the uncategorised slice.
    */
   const onCategoriesChanged = useCallback(() => {
     void reloadExpenses();
+    void reloadSubscriptions();
     onExpensesChanged();
-  }, [reloadExpenses, onExpensesChanged]);
+  }, [reloadExpenses, reloadSubscriptions, onExpensesChanged]);
 
   // USD only until /auth/me lands; the picker on /profile is what changes it.
   const defaultCurrency = profile.data?.display_currency ?? 'USD';
@@ -152,9 +163,9 @@ export function FinanceDashboard() {
         />
       </div>
 
-      {/* 2-4-4 across ten columns; stacked below lg, where side by side would
-          leave every panel too narrow to read. */}
-      <div className="grid gap-4 lg:h-120 lg:grid-cols-10">
+      {/* 2-4-3-3 across twelve columns; stacked below lg, where side by side
+          would leave every panel too narrow to read. */}
+      <div className="grid gap-4 lg:h-120 lg:grid-cols-12">
         <div className="min-h-0 lg:col-span-2">
           <CategorySection categories={categories} onChange={onCategoriesChanged} />
         </div>
@@ -171,7 +182,17 @@ export function FinanceDashboard() {
           />
         </div>
 
-        <div className="min-h-0 lg:col-span-4">
+        <div className="min-h-0 lg:col-span-3">
+          <SubscriptionSection
+            subscriptions={subscriptions}
+            categories={categories.items}
+            currencies={currencies.items}
+            defaultCurrency={defaultCurrency}
+            onChange={onSubscriptionsChanged}
+          />
+        </div>
+
+        <div className="min-h-0 lg:col-span-3">
           <BudgetSection
             budgets={budgets}
             categories={categories.items}
