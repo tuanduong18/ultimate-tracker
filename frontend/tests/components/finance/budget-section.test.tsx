@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { get, post, patch, del } = vi.hoisted(() => ({
@@ -32,8 +33,11 @@ const GROCERIES: BudgetProgress = {
   currency: 'USD',
   spent: '100.000',
   remaining: '300.000',
+  period: 'custom',
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
+  window_starts_on: '2026-08-01',
+  window_ends_on: '2026-08-31',
   categories: [FOOD],
   created_at: '2026-08-01T00:00:00Z',
 };
@@ -45,11 +49,32 @@ const OVERSPENT: BudgetProgress = {
   remaining: '-50.000',
 };
 
-function Harness({ categories = [FOOD] }: { categories?: Category[] }) {
-  const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
+/** A monthly budget, as the API reports it for the month being viewed. */
+const EATING_OUT: BudgetProgress = {
+  ...GROCERIES,
+  id: 'b3',
+  name: 'Eating out',
+  period: 'monthly',
+  starts_on: '2026-09-01',
+  ends_on: null,
+  window_starts_on: '2026-10-01',
+  window_ends_on: '2026-10-31',
+};
+
+function Harness({
+  categories = [FOOD],
+  initialMonth = '2026-08-01',
+}: {
+  categories?: Category[];
+  initialMonth?: string;
+}) {
+  const [month, setMonth] = useState(initialMonth);
+  const budgets = useCollection<BudgetProgress>(`/finance/budgets/progress?month=${month}`);
   return (
     <BudgetSection
       budgets={budgets}
+      month={month}
+      onMonthChange={setMonth}
       categories={categories}
       currencies={['USD']}
       defaultCurrency="USD"
@@ -85,6 +110,7 @@ describe('BudgetSection', () => {
     render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Custom dates/ }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Groceries' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '400' } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-08-01' } });
@@ -97,11 +123,72 @@ describe('BudgetSection', () => {
         name: 'Groceries',
         amount: '400',
         currency: 'USD',
+        period: 'custom',
         starts_on: '2026-08-01',
         ends_on: '2026-08-31',
         category_ids: ['c1'],
       })
     );
+  });
+
+  it('defaults a new budget to monthly, ongoing from the month on screen', async () => {
+    get.mockResolvedValueOnce([]).mockResolvedValueOnce([EATING_OUT]);
+    post.mockResolvedValue(EATING_OUT);
+    render(<Harness initialMonth="2026-10-01" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    expect(screen.getByRole('radio', { name: /Monthly/ })).toBeChecked();
+    expect(screen.getByLabelText('First month')).toHaveValue('2026-10');
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Eating out' } });
+    fireEvent.change(screen.getByLabelText('Amount per month'), { target: { value: '200' } });
+    fireEvent.click(screen.getByLabelText('Food'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/budgets',
+        expect.objectContaining({ period: 'monthly', starts_on: '2026-10-01', ends_on: null })
+      )
+    );
+  });
+
+  it('says a custom budget needs an end date', async () => {
+    get.mockResolvedValue([]);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Custom dates/ }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Trip' } });
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '400' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-08-01' } });
+    fireEvent.click(screen.getByLabelText('Food'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/needs an end date/i);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('measures budgets in the month chosen, and can step back to it', async () => {
+    get.mockResolvedValue([EATING_OUT]);
+    render(<Harness initialMonth="2026-10-01" />);
+
+    expect(await screen.findByText('Eating out')).toBeInTheDocument();
+    expect(get).toHaveBeenLastCalledWith('/finance/budgets/progress?month=2026-10-01');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+
+    await waitFor(() =>
+      expect(get).toHaveBeenLastCalledWith('/finance/budgets/progress?month=2026-09-01')
+    );
+  });
+
+  it('labels a monthly budget by its schedule', async () => {
+    get.mockResolvedValue([EATING_OUT]);
+    render(<Harness initialMonth="2026-10-01" />);
+
+    expect(await screen.findByText('Monthly')).toBeInTheDocument();
+    expect(screen.getByText(/^Since /)).toBeInTheDocument();
   });
 
   it('blocks a submit with no category ticked', async () => {
@@ -110,7 +197,7 @@ describe('BudgetSection', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Groceries' } });
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '400' } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '400' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/at least one category/i);
@@ -122,6 +209,7 @@ describe('BudgetSection', () => {
     render(<Harness />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Custom dates/ }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Backwards' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '10' } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2026-08-31' } });

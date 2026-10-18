@@ -15,7 +15,7 @@ import { SpendByCategoryChart } from '@/components/finance/spend-by-category-cha
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
 import { SubscriptionSection } from '@/components/finance/subscription-section';
 import { SummaryTiles } from '@/components/finance/summary-tiles';
-import { monthRange, sameDaysLastMonth, shiftRange, todayIso } from '@/lib/dates';
+import { monthRange, monthStart, sameDaysLastMonth, shiftRange, todayIso } from '@/lib/dates';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type {
   BudgetProgress,
@@ -68,7 +68,11 @@ export function FinanceDashboard() {
 
   // Carries everything the plain budget list does plus what has been spent, so
   // the bars and the edit forms cannot disagree after a write.
-  const budgets = useCollection<BudgetProgress>('/finance/budgets/progress');
+  // The month the Budgets panel is showing. Part of the path, so moving it is
+  // a new fetch rather than a filter over one: a monthly budget's spend has to
+  // be measured again for each month.
+  const [budgetMonth, setBudgetMonth] = useState(() => monthStart());
+  const budgets = useCollection<BudgetProgress>(`/finance/budgets/progress?month=${budgetMonth}`);
   const subscriptions = useCollection<Subscription>('/finance/subscriptions');
 
   // Each chart refetches when its own range or filter moves: the path is the
@@ -234,6 +238,8 @@ export function FinanceDashboard() {
         <div className="min-h-0 md:col-span-6 2xl:col-span-3">
           <BudgetSection
             budgets={budgets}
+            month={budgetMonth}
+            onMonthChange={setBudgetMonth}
             categories={categories.items}
             currencies={currencies.items}
             defaultCurrency={defaultCurrency}

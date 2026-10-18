@@ -28,13 +28,25 @@ export interface Expense {
   created_at: string;
 }
 
+/**
+ * How a budget's window is measured.
+ *
+ * - `monthly`: a fresh cap every calendar month, from its first month until
+ *   its last (or for good, when `ends_on` is null).
+ * - `custom`: one fixed date range, measured in full.
+ */
+export type BudgetPeriod = 'monthly' | 'custom';
+
 export interface Budget {
   id: string;
   name: string;
   amount: string;
   currency: string;
+  period: BudgetPeriod;
+  /** For a monthly budget, the 1st of its first month. */
   starts_on: string;
-  ends_on: string;
+  /** Null for an ongoing monthly budget; always set for a custom one. */
+  ends_on: string | null;
   /** Embedded by the API so a chart needs no second round trip. */
   categories: Category[];
   created_at: string;
@@ -131,8 +143,15 @@ export interface BudgetProgress {
   spent: string;
   /** Negative when overspent — show it, do not clamp it. */
   remaining: string;
+  period: BudgetPeriod;
   starts_on: string;
-  ends_on: string;
+  ends_on: string | null;
+  /**
+   * The days `spent` covers: the requested month for a monthly budget, the
+   * whole range for a custom one.
+   */
+  window_starts_on: string;
+  window_ends_on: string;
   categories: Category[];
   /** Orders the card colours, so adding a budget does not recolour the rest. */
   created_at: string;
