@@ -1,13 +1,13 @@
 'use client';
 
-import { Pencil, PiggyBank } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 
 import { BudgetForm, type BudgetValues } from '@/components/finance/budget-form';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
-import { formatDate, monthRange } from '@/lib/dates';
+import { formatDate, formatMonth, formatMonthShort, monthStart, shiftMonth } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { budgetTint } from '@/lib/tint';
 import { formatMoney, type BudgetProgress, type Category } from '@/lib/types/finance';
@@ -91,14 +91,71 @@ interface BudgetSectionProps {
    * one fetch instead of two lists that can disagree after a write.
    */
   budgets: Collection<BudgetProgress>;
+  /** The month being viewed, as its first day (YYYY-MM-01). */
+  month: string;
+  onMonthChange: (month: string) => void;
   categories: Category[];
   currencies: string[];
   defaultCurrency: string;
   onChange: () => void;
 }
 
+/**
+ * The line under a budget's name: what kind it is and which days it covers.
+ *
+ * A monthly card names its months ("Since Sep 2026"), since the
+ * month on screen is already in the panel header; a custom card names its
+ * exact range, which is the whole point of a custom budget.
+ */
+function scheduleOf(budget: BudgetProgress): string {
+  if (budget.period === 'custom') {
+    return `${formatDate(budget.starts_on)} – ${formatDate(budget.ends_on ?? budget.starts_on)}`;
+  }
+  // The badge beside this already says "Monthly"; the line only adds when.
+  const from = formatMonthShort(budget.starts_on);
+  return budget.ends_on ? `${from} – ${formatMonthShort(budget.ends_on)}` : `Since ${from}`;
+}
+
+/**
+ * Previous / next month, with a way back to today.
+ *
+ * Lives in the panel rather than on the page: it chooses which month the
+ * budgets are measured in, and nothing else on the page follows it.
+ */
+function MonthSwitcher({ month, onChange }: { month: string; onChange: (month: string) => void }) {
+  const current = monthStart();
+  return (
+    <div className="flex items-center gap-1">
+      <IconButton
+        label="Previous month"
+        icon={ChevronLeft}
+        onClick={() => onChange(shiftMonth(month, -1))}
+      />
+      <p className="min-w-0 flex-1 text-center text-sm font-semibold" aria-live="polite">
+        {formatMonth(month)}
+      </p>
+      <IconButton
+        label="Next month"
+        icon={ChevronRight}
+        onClick={() => onChange(shiftMonth(month, 1))}
+      />
+      {month !== current && (
+        <button
+          type="button"
+          onClick={() => onChange(current)}
+          className="ml-1 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary-soft pointer-coarse:min-h-11"
+        >
+          This month
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function BudgetSection({
   budgets,
+  month,
+  onMonthChange,
   categories,
   currencies,
   defaultCurrency,
@@ -149,8 +206,11 @@ export function BudgetSection({
       name: values.name.trim(),
       amount: values.amount.trim(),
       currency: values.currency,
+      period: values.period,
       starts_on: values.starts_on,
-      ends_on: values.ends_on,
+      // Empty means "ongoing" for a monthly budget; sent as an explicit null so
+      // an edit that clears the last month really clears it.
+      ends_on: values.ends_on || null,
       category_ids: values.category_ids,
     };
   }
@@ -171,13 +231,12 @@ export function BudgetSection({
     if (updated) setEditingId(null);
   }
 
-  const thisMonth = monthRange();
-
   return (
     <Panel
       title="Budgets"
       error={error}
       className="h-full"
+      header={<MonthSwitcher month={month} onChange={onMonthChange} />}
       action={
         <PanelButton
           disabled={blocked}
@@ -198,8 +257,10 @@ export function BudgetSection({
             name: '',
             amount: '',
             currency: defaultCurrency,
-            starts_on: thisMonth.start,
-            ends_on: thisMonth.end,
+            // Monthly is the common case; a new one starts in the month on screen.
+            period: 'monthly',
+            starts_on: month,
+            ends_on: '',
             category_ids: [],
           }}
           categories={categories}
@@ -217,7 +278,7 @@ export function BudgetSection({
           <PanelEmpty icon={PiggyBank}>
             {blocked
               ? 'Add a category first — a budget caps spending across categories.'
-              : 'No budgets yet. A budget caps spending across one or more categories.'}
+              : `No budgets apply to ${formatMonth(month)}. A monthly budget resets on the 1st; a custom one covers dates you pick.`}
           </PanelEmpty>
         )
       ) : (
@@ -231,8 +292,9 @@ export function BudgetSection({
                     name: budget.name,
                     amount: budget.amount,
                     currency: budget.currency,
+                    period: budget.period,
                     starts_on: budget.starts_on,
-                    ends_on: budget.ends_on,
+                    ends_on: budget.ends_on ?? '',
                     category_ids: budget.categories.map((category) => category.id),
                   }}
                   categories={categories}
@@ -272,16 +334,19 @@ export function BudgetSection({
                   />
                 </div>
 
-                {/* Kept, unlike the mock: budgets here span any range the user
-                    picks, so which days a card covers is not a given. */}
-                <p className="truncate text-xs text-fg-muted">
-                  {formatDate(budget.starts_on)} – {formatDate(budget.ends_on)}
-                  {budget.categories.length > 0 && (
-                    <>
-                      {' · '}
-                      {budget.categories.map((category) => category.name).join(', ')}
-                    </>
-                  )}
+                <p className="flex items-center gap-1.5 truncate text-xs text-fg-muted">
+                  <span className="shrink-0 rounded-full bg-surface/70 px-1.5 py-px text-[11px] font-medium text-fg">
+                    {budget.period === 'monthly' ? 'Monthly' : 'Custom'}
+                  </span>
+                  <span className="truncate">
+                    {scheduleOf(budget)}
+                    {budget.categories.length > 0 && (
+                      <>
+                        {' · '}
+                        {budget.categories.map((category) => category.name).join(', ')}
+                      </>
+                    )}
+                  </span>
                 </p>
 
                 <BudgetCard budget={budget} />

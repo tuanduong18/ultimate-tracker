@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Budget, Expense
 from app.services import exchange_rates
-from app.services.finance.budgets import list_budgets
+from app.services.finance.budgets import budget_window, list_budgets
 from app.services.finance.categories import list_categories
 from app.services.finance.errors import (
     InvalidDateRangeError,
@@ -67,7 +67,8 @@ async def summarize(
             select(Budget.amount, Budget.currency).where(
                 Budget.user_id == user_id,
                 Budget.starts_on <= end_date,
-                Budget.ends_on >= start_date,
+                # An ongoing monthly budget has no end, so it overlaps everything after its start.
+                or_(Budget.ends_on.is_(None), Budget.ends_on >= start_date),
             )
         )
     ).all()
@@ -284,28 +285,40 @@ async def summarize_by_period(
     }
 
 
-async def budget_progress(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Every budget with what has been spent against it, in its own currency.
+async def budget_progress(
+    db: AsyncSession, user_id: uuid.UUID, *, month: date
+) -> list[dict[str, Any]]:
+    """The budgets that apply to ``month``, each with what has been spent against it.
+
+    Which days count depends on the budget's period — see budget_window. A
+    monthly budget is measured over the chosen month alone, so it starts from
+    zero every month without anything being written when the month turns. A
+    custom budget is measured over its whole range, and appears in every month
+    that range touches. Budgets with nothing to say about the month are left out.
 
     Each budget is measured in the currency it was written in, not the profile
     display currency. The bar compares spend against *this* budget cap, and
     converting both into some third currency would let the percentage drift as
     rates move without anyone having spent anything.
 
-    Only expenses in the covered categories and inside the budget date range
-    count. Uncategorized spend counts towards no budget at all — which is what
-    deleting a category silently does to these figures, and worth knowing when a
-    bar drops for no apparent reason.
+    Only expenses in the covered categories and inside the window count.
+    Uncategorized spend counts towards no budget at all — which is what deleting
+    a category silently does to these figures, and worth knowing when a bar
+    drops for no apparent reason.
     """
-    budgets = await list_budgets(db, user_id)
-    if not budgets:
+    windowed = [
+        (budget, window)
+        for budget in await list_budgets(db, user_id)
+        if (window := budget_window(budget, month)) is not None
+    ]
+    if not windowed:
         return []
 
-    # One query across the union of every budget range rather than one per
-    # budget; filtering the rows afterwards is cheap next to a round trip each,
-    # and the budgets on one page are few.
-    earliest = min(budget.starts_on for budget in budgets)
-    latest = max(budget.ends_on for budget in budgets)
+    # One query across the union of every window rather than one per budget;
+    # filtering the rows afterwards is cheap next to a round trip each, and the
+    # budgets on one page are few.
+    earliest = min(start for _, (start, _end) in windowed)
+    latest = max(end for _, (_start, end) in windowed)
     rows = (
         await db.execute(
             select(Expense.amount, Expense.currency, Expense.category_id, Expense.spent_on).where(
@@ -318,12 +331,12 @@ async def budget_progress(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str
     ).all()
 
     progress: list[dict[str, Any]] = []
-    for budget in budgets:
+    for budget, (window_start, window_end) in windowed:
         covered = {category.id for category in budget.categories}
         spends = [
             (amount, currency)
             for amount, currency, category_id, spent_on in rows
-            if category_id in covered and budget.starts_on <= spent_on <= budget.ends_on
+            if category_id in covered and window_start <= spent_on <= window_end
         ]
         try:
             spent = await _total_in(spends, budget.currency)
@@ -339,8 +352,11 @@ async def budget_progress(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str
                 # Negative is the overspend, and the bar should say so rather
                 # than clamp — the same rule as SummaryRead.remaining.
                 "remaining": budget.amount - spent,
+                "period": budget.period,
                 "starts_on": budget.starts_on,
                 "ends_on": budget.ends_on,
+                "window_starts_on": window_start,
+                "window_ends_on": window_end,
                 "categories": budget.categories,
                 "created_at": budget.created_at,
             }

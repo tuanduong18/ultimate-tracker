@@ -178,17 +178,25 @@ async def list_budgets(
 
 @router.get("/budgets/progress", response_model=list[BudgetProgressRead])
 async def read_budget_progress(
+    month: date | None = Query(
+        default=None,
+        description="Any day in the month to report on; defaults to the user's current month.",
+    ),
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> list[BudgetProgressRead]:
-    """Every budget with spend measured against its own cap and currency.
+    """The budgets that apply to a month, with spend measured against each cap.
 
-    Separate from GET /budgets rather than folded into it: this one converts
-    currencies, and the forms that only need the list of budgets should not pay
-    for an exchange-rate lookup to render a dropdown.
+    A monthly budget is measured over that month alone; a custom one over its
+    whole range, in every month it touches. Separate from GET /budgets rather
+    than folded into it: this one converts currencies, and the forms that only
+    need the list of budgets should not pay for an exchange-rate lookup.
     """
+    if month is None:
+        profile = await profile_service.get_or_create_profile(db, user_id)
+        month = _today_in(profile.timezone)
     try:
-        progress = await finance_service.budget_progress(db, user_id)
+        progress = await finance_service.budget_progress(db, user_id, month=month)
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
     return [BudgetProgressRead.model_validate(p) for p in progress]

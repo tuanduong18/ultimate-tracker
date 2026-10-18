@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatDate,
+  formatMonth,
   formatSpan,
   monthRange,
+  monthStart,
   sameDaysLastMonth,
+  shiftMonth,
   toIsoDate,
   todayIso,
 } from '@/lib/dates';
@@ -92,5 +95,21 @@ describe('sameDaysLastMonth', () => {
       start: '2026-12-01',
       end: '2026-12-05',
     });
+  });
+});
+
+describe('month helpers', () => {
+  it('finds the first of the month', () => {
+    expect(monthStart('2026-10-18')).toBe('2026-10-01');
+  });
+
+  it('steps by whole months, across a year boundary', () => {
+    expect(shiftMonth('2026-10-01', -1)).toBe('2026-09-01');
+    expect(shiftMonth('2026-12-01', 1)).toBe('2027-01-01');
+    expect(shiftMonth('2026-01-01', -1)).toBe('2025-12-01');
+  });
+
+  it('names a month with its year', () => {
+    expect(formatMonth('2026-10-01')).toMatch(/2026/);
   });
 });

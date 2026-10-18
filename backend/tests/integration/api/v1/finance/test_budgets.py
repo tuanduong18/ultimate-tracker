@@ -20,6 +20,10 @@ from tests.support.ids import OTHER_USER_ID
 from app.models.finance import Budget, Category
 from app.services import exchange_rates
 
+# The fixture budgets all run through August 2026. Progress is reported per
+# month, so the tests ask for that month rather than "now".
+AUGUST_PROGRESS = "/api/v1/finance/budgets/progress?month=2026-08-01"
+
 
 async def test_budget_create_embeds_its_categories(finance_client: AsyncClient) -> None:
     food = await make_category(finance_client, name="Food")
@@ -118,7 +122,7 @@ async def test_budget_progress_counts_only_covered_categories(
     # Uncategorised spend counts towards no budget at all.
     await make_expense(finance_client, amount="55.00", currency="USD", spent_on="2026-08-10")
 
-    resp = await finance_client.get("/api/v1/finance/budgets/progress")
+    resp = await finance_client.get(AUGUST_PROGRESS)
     assert resp.status_code == 200, resp.text
     [progress] = resp.json()
     assert Decimal(progress["spent"]) == Decimal("30.00")
@@ -151,7 +155,7 @@ async def test_budget_progress_converts_spend_into_the_budget_currency(
         spent_on="2026-08-10",
     )
 
-    [progress] = (await finance_client.get("/api/v1/finance/budgets/progress")).json()
+    [progress] = (await finance_client.get(AUGUST_PROGRESS)).json()
     # USD 10.00 * 1.28 = SGD 12.80, measured against the SGD cap, not a USD one.
     assert progress["currency"] == "SGD"
     assert Decimal(progress["spent"]) == Decimal("12.80")
@@ -171,7 +175,7 @@ async def test_budget_progress_reports_an_overspend_as_negative(
         spent_on="2026-08-10",
     )
 
-    [progress] = (await finance_client.get("/api/v1/finance/budgets/progress")).json()
+    [progress] = (await finance_client.get(AUGUST_PROGRESS)).json()
     assert Decimal(progress["remaining"]) == Decimal("-100.00")
 
 
@@ -179,7 +183,7 @@ async def test_budget_progress_is_empty_without_budgets(
     finance_client: AsyncClient, stub_rates: None
 ) -> None:
     """No budgets means no rate lookup either — nothing to convert."""
-    assert (await finance_client.get("/api/v1/finance/budgets/progress")).json() == []
+    assert (await finance_client.get(AUGUST_PROGRESS)).json() == []
 
 
 async def test_budget_progress_reports_a_missing_rate_as_our_outage(
@@ -199,7 +203,7 @@ async def test_budget_progress_reports_a_missing_rate_as_our_outage(
         spent_on="2026-08-10",
     )
 
-    resp = await finance_client.get("/api/v1/finance/budgets/progress")
+    resp = await finance_client.get(AUGUST_PROGRESS)
     assert resp.status_code == 503
     assert resp.json()["error"]["code"] == "RATE_UNAVAILABLE"
 
@@ -226,4 +230,175 @@ async def test_someone_elses_budget_is_not_in_my_progress(
         )
         await session.commit()
 
-    assert (await finance_client.get("/api/v1/finance/budgets/progress")).json() == []
+    assert (await finance_client.get(AUGUST_PROGRESS)).json() == []
+
+
+# --- Budget periods -----------------------------------------------------------
+
+
+def _progress(month: str) -> str:
+    return f"/api/v1/finance/budgets/progress?month={month}"
+
+
+async def test_a_monthly_budget_is_stored_as_whole_months(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+
+    budget = await make_budget(
+        finance_client, [food["id"]], period="monthly", starts_on="2026-09-17", ends_on=None
+    )
+
+    assert budget["period"] == "monthly"
+    assert budget["starts_on"] == "2026-09-01"
+    assert budget["ends_on"] is None
+
+
+async def test_existing_style_budgets_default_to_custom(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+
+    budget = await make_budget(finance_client, [food["id"]])
+
+    assert budget["period"] == "custom"
+    assert budget["ends_on"] == "2026-08-31"
+
+
+async def test_a_custom_budget_without_an_end_is_a_422(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+
+    resp = await finance_client.post(
+        "/api/v1/finance/budgets",
+        json={
+            "name": "Open-ended",
+            "amount": "100.00",
+            "currency": "USD",
+            "starts_on": "2026-09-01",
+            "category_ids": [food["id"]],
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_a_monthly_budget_starts_from_zero_each_month(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    await make_budget(
+        finance_client,
+        [food["id"]],
+        name="Groceries",
+        period="monthly",
+        amount="300.00",
+        starts_on="2026-09-01",
+        ends_on=None,
+    )
+    await make_expense(
+        finance_client, amount="120.00", category_id=food["id"], spent_on="2026-09-20"
+    )
+    await make_expense(
+        finance_client, amount="45.00", category_id=food["id"], spent_on="2026-10-03"
+    )
+
+    [september] = (await finance_client.get(_progress("2026-09-15"))).json()
+    [october] = (await finance_client.get(_progress("2026-10-01"))).json()
+
+    assert Decimal(september["spent"]) == Decimal("120.00")
+    assert (september["window_starts_on"], september["window_ends_on"]) == (
+        "2026-09-01",
+        "2026-09-30",
+    )
+    # September's 120 does not follow it into October.
+    assert Decimal(october["spent"]) == Decimal("45.00")
+    assert Decimal(october["remaining"]) == Decimal("255.00")
+
+
+async def test_a_monthly_budget_is_absent_outside_its_months(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+    await make_budget(
+        finance_client,
+        [food["id"]],
+        period="monthly",
+        starts_on="2026-09-01",
+        ends_on="2026-10-31",
+    )
+
+    assert (await finance_client.get(_progress("2026-08-01"))).json() == []
+    assert len((await finance_client.get(_progress("2026-10-01"))).json()) == 1
+    assert (await finance_client.get(_progress("2026-11-01"))).json() == []
+
+
+async def test_a_custom_budget_is_measured_in_full_in_each_month_it_touches(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    await make_budget(
+        finance_client, [food["id"]], name="Trip", starts_on="2026-09-25", ends_on="2026-10-05"
+    )
+    await make_expense(
+        finance_client, amount="30.00", category_id=food["id"], spent_on="2026-09-28"
+    )
+    await make_expense(
+        finance_client, amount="20.00", category_id=food["id"], spent_on="2026-10-02"
+    )
+
+    [in_september] = (await finance_client.get(_progress("2026-09-01"))).json()
+    [in_october] = (await finance_client.get(_progress("2026-10-01"))).json()
+
+    # One cap over the whole trip, so both months report the same 50.
+    assert Decimal(in_september["spent"]) == Decimal("50.00")
+    assert Decimal(in_october["spent"]) == Decimal("50.00")
+    assert in_october["window_starts_on"] == "2026-09-25"
+
+
+async def test_switching_to_custom_needs_an_end(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+    budget = await make_budget(
+        finance_client, [food["id"]], period="monthly", starts_on="2026-09-01", ends_on=None
+    )
+
+    resp = await finance_client.patch(
+        f"/api/v1/finance/budgets/{budget['id']}", json={"period": "custom"}
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "INVALID_DATE_RANGE"
+
+
+async def test_clearing_the_end_makes_a_monthly_budget_ongoing(
+    finance_client: AsyncClient,
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    budget = await make_budget(
+        finance_client,
+        [food["id"]],
+        period="monthly",
+        starts_on="2026-09-01",
+        ends_on="2026-12-31",
+    )
+
+    resp = await finance_client.patch(
+        f"/api/v1/finance/budgets/{budget['id']}", json={"ends_on": None}
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ends_on"] is None
+
+
+async def test_the_summary_counts_an_ongoing_monthly_budget(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    await make_budget(
+        finance_client,
+        [food["id"]],
+        period="monthly",
+        amount="300.00",
+        starts_on="2026-09-01",
+        ends_on=None,
+    )
+
+    summary = (
+        await finance_client.get(
+            "/api/v1/finance/summary", params={"start_date": "2027-01-01", "end_date": "2027-01-31"}
+        )
+    ).json()
+
+    assert Decimal(summary["budgeted"]) == Decimal("300.00")

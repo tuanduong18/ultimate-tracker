@@ -164,3 +164,29 @@ export function sameDaysLastMonth(on: Date = new Date()): DateRange {
   const end = new Date(start.getFullYear(), start.getMonth(), Math.min(on.getDate(), lastDay));
   return { start: toIsoDate(start), end: toIsoDate(end) };
 }
+
+/** The first of the month containing `iso` (or today): "2026-10-18" → "2026-10-01". */
+export function monthStart(iso: string = todayIso()): string {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+/** Move a month-start date by whole months: ("2026-10-01", -1) → "2026-09-01". */
+export function shiftMonth(iso: string, by: number): string {
+  const parsed = fromIso(iso);
+  if (!parsed) return iso;
+  return toIsoDate(new Date(parsed.getFullYear(), parsed.getMonth() + by, 1));
+}
+
+/** "October 2026" — the month a budget view is showing. */
+export function formatMonth(iso: string): string {
+  const parsed = fromIso(iso);
+  if (!parsed) return iso;
+  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(parsed);
+}
+
+/** "Oct 2026" — a month inside a sentence, where the long form is too heavy. */
+export function formatMonthShort(iso: string): string {
+  const parsed = fromIso(iso);
+  if (!parsed) return iso;
+  return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(parsed);
+}

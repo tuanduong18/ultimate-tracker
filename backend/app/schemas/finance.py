@@ -28,7 +28,7 @@ from pydantic import (
 )
 
 from app.core.currencies import minor_units, normalize_currency
-from app.models.finance import BillingInterval
+from app.models.finance import BillingInterval, BudgetPeriod
 
 # Mirrors Numeric(20, 3) on the expense and budget columns. The scale is the
 # widest any supported currency needs (KWD, BHD, JOD, OMR, LYD, TND); per-currency
@@ -153,13 +153,27 @@ class ExpenseRead(BaseModel):
 # --- Budgets ------------------------------------------------------------------
 
 
+def _check_budget_range(
+    period: BudgetPeriod | None, starts_on: date | None, ends_on: date | None
+) -> None:
+    """The date rules both budget schemas share, for whichever fields arrived."""
+    if period is BudgetPeriod.CUSTOM and starts_on is not None and ends_on is None:
+        raise ValueError("a custom budget needs ends_on")
+    if starts_on is not None and ends_on is not None and ends_on < starts_on:
+        raise ValueError("ends_on must be on or after starts_on")
+
+
 class BudgetCreate(BaseModel):
     name: BudgetName
     amount: Amount
     currency: CurrencyCode
-    # Inclusive range, both ends.
+    # custom: one fixed range. monthly: starts fresh every calendar month.
+    period: BudgetPeriod = BudgetPeriod.CUSTOM
+    # Inclusive. For a monthly budget, any day in its first month (and, for
+    # ends_on, its last month) — the service rounds both out to month edges.
     starts_on: date
-    ends_on: date
+    # Required for custom; optional for monthly, where null means "ongoing".
+    ends_on: date | None = None
     # A budget that caps nothing is meaningless to create. It may still *end up*
     # with none once a category is deleted — that is the service's problem, not
     # a reason to reject the row here.
@@ -168,8 +182,7 @@ class BudgetCreate(BaseModel):
     @model_validator(mode="after")
     def _validate(self) -> Self:
         check_amount_scale(self.amount, self.currency)
-        if self.ends_on < self.starts_on:
-            raise ValueError("ends_on must be on or after starts_on")
+        _check_budget_range(self.period, self.starts_on, self.ends_on)
         return self
 
 
@@ -177,7 +190,9 @@ class BudgetUpdate(BaseModel):
     name: BudgetName | None = None
     amount: Amount | None = None
     currency: CurrencyCode | None = None
+    period: BudgetPeriod | None = None
     starts_on: date | None = None
+    # Send null to make a monthly budget ongoing; a custom one rejects that.
     ends_on: date | None = None
     # When present, replaces the covered set outright rather than merging.
     category_ids: Annotated[list[uuid.UUID], Field(min_length=1)] | None = None
@@ -187,10 +202,10 @@ class BudgetUpdate(BaseModel):
         if self.amount is not None and self.currency is not None:
             check_amount_scale(self.amount, self.currency)
         # Same caveat as ExpenseUpdate: a PATCH moving only one end of the range
-        # has to be validated in the service against the stored other end.
+        # — or switching the period — is checked in the service against the
+        # stored values.
         if self.starts_on is not None and self.ends_on is not None:
-            if self.ends_on < self.starts_on:
-                raise ValueError("ends_on must be on or after starts_on")
+            _check_budget_range(None, self.starts_on, self.ends_on)
         return self
 
 
@@ -201,8 +216,10 @@ class BudgetRead(BaseModel):
     name: str
     amount: Decimal
     currency: str
+    period: BudgetPeriod
     starts_on: date
-    ends_on: date
+    # Null for an ongoing monthly budget.
+    ends_on: date | None
     # Loaded via the model's selectin relationship; carries name and colour so a
     # chart does not need a second round trip.
     categories: list[CategoryRead]
@@ -375,8 +392,13 @@ class BudgetProgressRead(BaseModel):
     spent: Decimal
     # Negative when overspent, like SummaryRead.remaining — show it, do not clamp.
     remaining: Decimal
+    period: BudgetPeriod
     starts_on: date
-    ends_on: date
+    ends_on: date | None
+    # The stretch `spent` was measured over: the chosen month (clipped to the
+    # budget's own months) for a monthly budget, the whole range for a custom one.
+    window_starts_on: date
+    window_ends_on: date
     categories: list[CategoryRead]
     # Carried so the UI can colour budgets in the order they were made. Without
     # it the only stable order is the display order, and that puts a new budget

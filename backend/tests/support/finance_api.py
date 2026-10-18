@@ -19,18 +19,19 @@ async def make_expense(client: AsyncClient, **overrides: Any) -> dict[str, Any]:
     return dict(resp.json())
 
 
-async def make_budget(client: AsyncClient, category_ids: list[str]) -> dict[str, Any]:
-    resp = await client.post(
-        "/api/v1/finance/budgets",
-        json={
-            "name": "Essentials",
-            "amount": "500.00",
-            "currency": "USD",
-            "starts_on": "2026-08-01",
-            "ends_on": "2026-08-31",
-            "category_ids": category_ids,
-        },
-    )
+async def make_budget(
+    client: AsyncClient, category_ids: list[str], **overrides: Any
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": "Essentials",
+        "amount": "500.00",
+        "currency": "USD",
+        "starts_on": "2026-08-01",
+        "ends_on": "2026-08-31",
+        "category_ids": category_ids,
+    }
+    payload.update(overrides)
+    resp = await client.post("/api/v1/finance/budgets", json=payload)
     assert resp.status_code == 201, resp.text
     return dict(resp.json())
 
