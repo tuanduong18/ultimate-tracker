@@ -18,8 +18,9 @@ This is the first domain built and the most complete.
 
 - Categories — full CRUD, each with a name and a colour.
 - Expenses — full CRUD, each with its own currency, amount, optional category, date and note.
-- Budgets — full CRUD. A budget is a named cap over an explicit date range, applied to
-  **any number of categories** (many-to-many), not a single category on a fixed weekly/monthly cycle.
+- Budgets — full CRUD. A budget is a named cap applied to **any number of categories**
+  (many-to-many), of one of two kinds: **monthly**, which starts fresh every calendar month, or
+  **custom**, over one fixed date range. See [Budgets](#budgets).
 - Multi-currency — every expense and budget stores its own currency. Totals convert into the
   user's display currency server-side, using rates from open.er-api.com cached for 6 hours.
 - Budget progress — spend-to-date against each cap, converted.
@@ -33,6 +34,36 @@ This is the first domain built and the most complete.
 - Budget breach alerts. Progress is calculated and displayed; nothing notifies you.
 - Income. The domain is expense-only today; there is no income/expense type split.
 - CSV import, savings goals.
+
+---
+
+## Budgets
+
+A budget caps spending in one or more categories, in its own currency. There are two kinds, and
+the kind decides which expenses count:
+
+| Kind | Dates stored | Measured over, when viewing a month |
+|---|---|---|
+| **Monthly** | `starts_on` = the 1st of its first month; `ends_on` = the last day of its last month, or null for ongoing | That calendar month only — a fresh cap every month |
+| **Custom** | the exact range the user picked; `ends_on` required | The whole range, in every month it touches |
+
+**Monthly budgets reset by calculation, not by writing anything.** Progress for a month counts
+only that month's expenses, so nothing happens when a month turns over and no scheduled job is
+involved. Looking at an earlier month — the Budgets panel's ‹ month › control, or
+`GET /finance/budgets/progress?month=YYYY-MM-DD` — simply measures that month instead. Without
+`month`, the endpoint uses the current month in the profile's timezone.
+
+**A custom budget is one cap.** A trip from 25 September to 8 October shows in both months'
+views and reports the same full-range spend in each, because splitting it by month would invent
+two caps the user never set.
+
+Rows written before `period` existed are all `custom`, which is exactly what they already meant.
+There is deliberately **no rollover** of unspent money into the next month, and no weekly or
+yearly kind yet; `period` is a CHECKed string so either can be added without an enum migration.
+
+There is no single "budget left" figure on the dashboard. Budgets cover different dates,
+categories and currencies, so any total across them would be wrong; each is shown against its
+own cap instead.
 
 ---
 
@@ -168,7 +199,8 @@ alerts must use the same mechanism; the two are not built twice.
 
 - **[Core]** Expense logging — amount, currency, category, date, note. Full CRUD.
 - **[Core]** Custom categories — CRUD, colour-coded.
-- **[Core]** Budgets — named cap over an explicit date range across one or more categories.
+- **[Core]** Budgets — named cap across one or more categories, monthly (resets each month) or
+  over a custom date range, with a month picker for past months.
 - **[Core]** Multi-currency with a per-user display currency and server-side conversion.
 - **[Core]** Spending dashboard — category and period breakdowns, per-chart range picker,
   category filtering, two-range comparison.

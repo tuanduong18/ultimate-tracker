@@ -113,8 +113,24 @@ class Expense(Base):
     )
 
 
+class BudgetPeriod(StrEnum):
+    """How a budget's window is measured."""
+
+    # One fixed date range — a holiday, a semester. Measured over that range.
+    CUSTOM = "custom"
+    # A cap that starts fresh every calendar month, from starts_on's month until
+    # ends_on's (or for good, when ends_on is null). Each month is measured on
+    # its own, so nothing is written when a month turns over.
+    MONTHLY = "monthly"
+
+
+_PERIOD_LEN = 7
+_PERIOD_CHECK = "period IN ({})".format(", ".join(f"'{p.value}'" for p in BudgetPeriod))
+
+
 class Budget(Base):
-    """A spending cap over an arbitrary date range, covering one or more categories."""
+    """A spending cap covering one or more categories, either over one fixed
+    date range (custom) or repeating every calendar month (monthly)."""
 
     __tablename__ = "budgets"
 
@@ -128,9 +144,18 @@ class Budget(Base):
         Numeric(_AMOUNT_PRECISION, _AMOUNT_SCALE), nullable=False
     )
     currency: Mapped[str] = mapped_column(String(_CURRENCY_LEN), nullable=False)
-    # Inclusive range, replacing the old month-only cap.
+    # A CHECKed string rather than a Postgres enum, as with subscriptions'
+    # interval_unit. The server default keeps rows written before this column
+    # existed — all fixed-range budgets — meaning exactly what they meant.
+    period: Mapped[str] = mapped_column(
+        String(_PERIOD_LEN), nullable=False, default=BudgetPeriod.CUSTOM, server_default="custom"
+    )
+    # Inclusive. For a custom budget, the range it covers. For a monthly one,
+    # the first day of its first month and (optionally) the last day of its last;
+    # the service normalises both to month edges.
     starts_on: Mapped[date] = mapped_column(Date, nullable=False)
-    ends_on: Mapped[date] = mapped_column(Date, nullable=False)
+    # Null only for a monthly budget with no end — see ck_budgets_custom_has_end.
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -144,6 +169,10 @@ class Budget(Base):
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_budgets_amount_positive"),
         CheckConstraint("ends_on >= starts_on", name="ck_budgets_range_valid"),
+        CheckConstraint(_PERIOD_CHECK, name="ck_budgets_period"),
+        CheckConstraint(
+            "period = 'monthly' OR ends_on IS NOT NULL", name="ck_budgets_custom_has_end"
+        ),
         Index("ix_budgets_user_range", "user_id", "starts_on", "ends_on"),
     )
 
