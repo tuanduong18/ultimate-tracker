@@ -137,3 +137,32 @@ export interface BudgetProgress {
   /** Orders the card colours, so adding a budget does not recolour the rest. */
   created_at: string;
 }
+
+/** The unit of a subscription's billing cycle; paired with `interval_count`. */
+export type BillingInterval = 'day' | 'week' | 'month' | 'year';
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: string;
+  currency: string;
+  interval_unit: BillingInterval;
+  /** "Every N units": quarterly is month × 3. */
+  interval_count: number;
+  /** Null means uncategorised. The server never picks one by name. */
+  category_id: string | null;
+  started_on: string;
+  /** When set, the first charge falls on this day rather than started_on. */
+  trial_ends_on: string | null;
+  /** The next charge. Computed by the server; read-only here. */
+  next_billing_on: string;
+  /** Set to cancel, possibly in the future for a fixed-term plan. */
+  cancelled_on: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/** "month" or "3 months" — how often a subscription bills, for "every …" and "/ …". */
+export function formatInterval(unit: BillingInterval, count: number): string {
+  return count === 1 ? unit : `${count} ${unit}s`;
+}

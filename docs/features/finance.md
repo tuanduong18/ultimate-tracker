@@ -7,7 +7,7 @@ This is the first domain built and the most complete.
 - **Scope name:** `finance`
 - **API prefix:** `/api/v1/finance`
 - **Code:** [`backend/app/api/v1/finance.py`](../../backend/app/api/v1/finance.py) ·
-  [`services/finance.py`](../../backend/app/services/finance.py) ·
+  [`services/finance/`](../../backend/app/services/finance/) ·
   [`models/finance.py`](../../backend/app/models/finance.py)
 
 ---
@@ -29,7 +29,7 @@ This is the first domain built and the most complete.
 
 **Not built:**
 
-- Subscriptions (all of it — see below).
+- Subscriptions — schema, CRUD and routes are built; renewal and reminders are not (see below).
 - Budget breach alerts. Progress is calculated and displayed; nothing notifies you.
 - Income. The domain is expense-only today; there is no income/expense type split.
 - CSV import, savings goals.
@@ -38,7 +38,8 @@ This is the first domain built and the most complete.
 
 ## Subscriptions
 
-**Status: not started. Release: v0.2 — the whole feature in one release, reminders included.**
+**Status: in progress. Release: v0.2 — the whole feature in one release, reminders included.**
+Built: schema, CRUD service and routes. Not built: the renewal job and reminders.
 
 Recurring costs are the spending that hurts most and gets watched least: they are invisible
 between renewals, and each one individually looks too small to bother cancelling. Tracking them
@@ -47,115 +48,117 @@ subscription is a commitment that will keep happening until you stop it.
 
 ### What it must do
 
-1. **Track a subscription** — name, amount, currency, category, and how often it renews.
-2. **Remind, one day before the current period ends.** Enough warning to cancel; not so much
-   that the reminder gets dismissed and forgotten.
-3. **Renew with one button.** Pressing it does two things atomically:
-   - rolls the current period forward to the next one, and
-   - writes a new row into `expenses` for the subscription's amount.
+1. **Track a subscription** — name, amount, currency, category, how often it renews, and an
+   optional free trial.
+2. **Renew automatically.** On each billing date the subscription writes a row into `expenses`
+   for its amount and moves on to the next billing date. No button: the card is charged whether
+   or not anyone opens the app, so the record follows the charge rather than waiting for a click.
+3. **Remind for three days before each charge**, and before a free trial turns into one. Enough
+   warning to cancel; the same reminder shows on each of the three days rather than stacking up.
 
-That second half is the point. Without it, a renewed subscription is a date change that never
-reaches your spending totals, and budgets silently under-report. The renewal is what makes a
-subscription real money.
+Without the expense, a renewal is a date change that never reaches your spending totals, and
+budgets silently under-report. The renewal is what makes a subscription real money. The
+reminder is what keeps automatic renewal honest: a forgotten subscription surfaces before each
+charge, not after.
 
 ### Data model
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
-| `user_id` | uuid FK to `profiles.id` | |
+| `user_id` | uuid FK to `profiles.id` | cascade |
 | `category_id` | uuid FK to `categories.id`, nullable | renewals inherit it |
 | `name` | varchar(80) | "Spotify" |
-| `amount` | numeric | what one renewal costs |
+| `amount` | numeric(20, 3) | what one renewal costs |
 | `currency` | varchar(3) | |
-| `cadence` | varchar | `weekly` / `monthly` / `quarterly` / `yearly` / `custom` |
-| `cadence_days` | int, nullable | only when cadence is `custom` |
-| `current_period_start` | date | inclusive |
-| `current_period_end` | date | inclusive — the last day covered |
-| `reminder_days_before` | int, default 1 | |
-| `reminder_enabled` | bool, default true | |
-| `active` | bool, default true | |
-| `cancelled_on` | date, nullable | |
+| `interval_unit` | varchar(5) | `day` / `week` / `month` / `year`, CHECKed |
+| `interval_count` | smallint, default 1 | every *N* units: quarterly is `month` × 3 |
+| `started_on` | date | the day the user signed up |
+| `trial_ends_on` | date, nullable | first paid charge when there is a free trial |
+| `next_billing_on` | date | the next charge; maintained by the server |
+| `cancelled_on` | date, nullable | set to cancel, may be in the future; null to resume |
+| `note` | text, nullable | |
 | `created_at` | timestamptz | |
 
 The amount lives on the subscription, not on each renewal, because the user defines it once and
 every renewal reuses it. When a price changes, the user edits the subscription and future
 renewals pick up the new amount — past expense rows are historical fact and are never rewritten.
 
-`category_id` is nullable for the same reason it is nullable on expenses, and it matters more
-here: a renewal inherits the subscription's category, so setting it once is what makes
-subscription spend appear correctly in the category breakdown and count against budgets.
+Renewal expenses are ordinary rows in `expenses` with no link back to the subscription, so the
+expense table stays independent of this feature. They are told apart by category, which is why
+every profile is seeded with a "Subscriptions" category. The server never picks it by name: an
+omitted `category_id` means uncategorized, and the subscription form preselects the user's
+category named "Subscriptions" (case-insensitive) when one exists. Renaming or deleting that
+category therefore breaks nothing — the form simply has nothing to preselect.
 
-### Period arithmetic
+Cancelling sets `cancelled_on` rather than deleting the row. A hard delete exists for mistakes;
+expenses already written survive it.
 
-Periods are **inclusive on both ends**, matching `budgets.starts_on` / `ends_on`. A renewal sets:
+### Billing dates
+
+The first paid charge — the **anchor** — is `trial_ends_on` when there is a trial, otherwise
+`started_on`. Every later charge is computed from the anchor, never from the previous charge:
 
 ```
-new_start = old_end + 1 day
-new_end   = new_start + one cadence - 1 day
+charge k = anchor + k × (interval_count interval_units)
 ```
 
-Month and year cadences clamp to the end of the month rather than overflowing: a subscription
-whose period ends 31 January renews to 28 February (29 in a leap year), not 3 March. A period
-anchored to the 31st keeps renewing on month-end thereafter — clamping must not silently walk
-the renewal date backwards a few days every month.
+Month and year intervals clamp to the end of the month rather than overflowing: a subscription
+anchored on 31 January bills on 28 February (29 in a leap year), not 3 March, and then on
+31 March. Counting from the anchor is what keeps clamping from walking the date backwards a few
+days every month. Day and week intervals need no clamping.
 
-A `custom` cadence uses `cadence_days` and needs no clamping.
+`next_billing_on` is stored rather than computed on read so the daily job is an indexed range
+scan. It is recalculated as the first charge on or after today whenever the schedule changes —
+interval, start, trial end, or cancellation — and otherwise only the renewal job moves it.
+
+A subscription created with a start date in the past does **not** back-fill the charges before
+today: the user has most likely recorded those already, and guessing would double-count.
+Resuming a cancelled subscription likewise skips the charges it missed while cancelled.
+
+"Today" is the user's today, in the timezone on their profile.
 
 ### Endpoints
 
 | Method | Path | Notes |
 |---|---|---|
-| `GET` | `/finance/subscriptions` | List. `?active=true` hides cancelled ones. |
-| `POST` | `/finance/subscriptions` | Create. |
+| `GET` | `/finance/subscriptions` | List: live first, soonest charge first; cancelled last. |
+| `POST` | `/finance/subscriptions` | Create. Omitted or `null` `category_id` means uncategorized. |
 | `PATCH` | `/finance/subscriptions/{id}` | Edit — including amount, which affects future renewals only. |
 | `DELETE` | `/finance/subscriptions/{id}` | Hard delete. Expenses already written survive. |
-| `POST` | `/finance/subscriptions/{id}/renew` | The renew button. Advances the period **and** creates the expense, in one transaction. |
-| `GET` | `/finance/subscriptions/upcoming` | Renewing within N days — feeds the dashboard and the reminder job. |
 
-### Renewal must be idempotent
+### Renewal job
 
-A double-clicked renew button must not produce two expense rows and skip two periods. The
-endpoint takes the period the client believes is current and refuses if that is not the period
-on the record:
+A daily job finds every subscription with `next_billing_on <= today` that is not cancelled as of
+that date, and for each one, in a **single transaction**:
 
-```json
-{
-  "error": {
-    "code": "SUBSCRIPTION_PERIOD_STALE",
-    "message": "This subscription has already been renewed."
-  }
-}
-```
+1. writes an expense for the amount, in the subscription's currency and category, dated to the
+   billing date it covers (not the day the job ran), and
+2. advances `next_billing_on` to the following charge.
 
-A client-supplied idempotency key would also work, but the period is data the client already
-holds, and it prevents the exact failure that matters.
+If the job missed days, it repeats this until `next_billing_on` is in the future, so each
+missed charge is recorded against the period it belongs to and budgets for that period stay
+accurate.
 
-Renewal writes the expense **and** advances the period in a single transaction. A crash between
-the two halves must not leave a charged period that was never recorded, or an expense for a
-period that never advanced.
+Doing both halves in one transaction is what makes the job safe to re-run: once a charge is
+recorded, `next_billing_on` has already moved past it. A crash between the two must not leave a
+charge that was never recorded, or an expense for a date that never advanced. Rows are locked
+while processed so two overlapping runs cannot both take the same charge.
 
 ### Reminders
 
-The reminder is a scheduled job, which is why this feature waits for v0.2 rather than riding
-along with the rest of Finance in v0.1 — there is no scheduler before then. The job runs daily,
-finds subscriptions where `current_period_end` minus `reminder_days_before` is today and
-reminders are enabled, and delivers one notification per subscription per period.
+The same daily job raises a reminder for every live subscription whose next charge is within
+**three days**, and for every trial ending within three days. It is one reminder per
+subscription per billing date: shown on each of the three days, not created three times.
 
-Delivery reuses whatever channel budget breach alerts use; the two must not be built twice. The
-reminder carries the renew action, so the path from "this renews tomorrow" to a recorded expense
-is one click.
-
-**A reminder is not a renewal.** Nothing renews on its own. The user presses the button — an
-unrenewed subscription shows as overdue, which is the honest state, and is also how a
-cancelled-but-forgotten subscription surfaces.
+Delivery is in-app first, with email as a second channel for the same reminder. Budget breach
+alerts must use the same mechanism; the two are not built twice.
 
 ### Open questions
 
-- Should an overdue subscription keep reminding, or remind once and then sit in an overdue state?
-  Leaning toward once — daily nagging trains dismissal.
-- Should renewing an overdue subscription date the expense to the period it covers, or to today?
-  Leaning toward the period it covers, so budgets for that period stay accurate.
+- Which scheduler triggers the job — Supabase `pg_cron`, a GitHub Actions cron hitting a
+  protected endpoint, or an in-process scheduler?
+- Which email provider?
 
 ---
 
@@ -172,7 +175,8 @@ cancelled-but-forgotten subscription surfaces.
 
 ### Planned
 
-- **[v0.2]** Subscriptions — tracking, one-day-before reminders, one-click renew that writes an expense.
+- **[v0.2]** Subscriptions — tracking with free trials, automatic renewal that writes an expense,
+  reminders for three days before each charge.
 - **[v0.2]** Budget breach alerts at configurable thresholds (default 80% / 100%).
 
 ### Future
@@ -192,4 +196,4 @@ cancelled-but-forgotten subscription surfaces.
   category per budget is wrong.
 - **Never sum amounts without converting.** Expenses carry their own currency; adding raw amounts
   across currencies produces a number that means nothing. Conversion belongs in
-  `services/finance.py`, server-side — the browser does not have a rate table.
+  `services/finance/summaries.py`, server-side — the browser does not have a rate table.

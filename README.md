@@ -24,7 +24,7 @@ Five domains, listed in the order they appear in the app.
 
 | # | Domain | Status | What it covers |
 |---|---|---|---|
-| 1 | 💰 Finance & Budgeting | Partly built | Expenses, categories, multi-currency budgets, spending breakdowns — plus subscriptions with renewal reminders and one-click renew |
+| 1 | 💰 Finance & Budgeting | Partly built | Expenses, categories, multi-currency budgets, spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders |
 | 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
 | 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
 | 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
