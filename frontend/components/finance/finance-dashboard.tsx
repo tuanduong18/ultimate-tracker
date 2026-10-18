@@ -14,7 +14,8 @@ import { granularityFor } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
 import { SubscriptionSection } from '@/components/finance/subscription-section';
-import { monthRange, shiftRange } from '@/lib/dates';
+import { SummaryTiles } from '@/components/finance/summary-tiles';
+import { monthRange, sameDaysLastMonth, shiftRange, todayIso } from '@/lib/dates';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type {
   BudgetProgress,
@@ -23,6 +24,7 @@ import type {
   Expense,
   PeriodBreakdown,
   Subscription,
+  Summary,
 } from '@/lib/types/finance';
 import type { Profile } from '@/lib/types/profile';
 
@@ -39,8 +41,11 @@ const LATEST_EXPENSES = 10;
  * say so; deciding what went stale is this component's job, and having that in
  * one place is what keeps the page honest after a write.
  *
- * Layout is two charts across the top and a 2-4-3-3 split beneath them —
- * categories, expenses, subscriptions, budgets.
+ * Layout narrows in steps rather than squeezing. On wide screens: two charts
+ * across the top and a 2-4-3-3 row beneath — categories, expenses,
+ * subscriptions, budgets. Below 2xl that row becomes two (categories with
+ * expenses, subscriptions with budgets); below xl the charts stack; below md
+ * everything is one column, in that same reading order.
  */
 export function FinanceDashboard() {
   // A range each, rather than one shared by both charts. They answer different
@@ -87,7 +92,22 @@ export function FinanceDashboard() {
       `&granularity=${granularityFor(periodRange)}${selectionQuery(periodSelection)}`
   );
 
+  // The headline tiles: this calendar month, and the same days of last month
+  // to compare it against. Fixed to the calendar rather than to either chart's
+  // range — "this month" is the question the tiles answer.
+  const [thisMonth] = useState(monthRange);
+  const [lastMonthSoFar] = useState(() => sameDaysLastMonth());
+  const [today] = useState(todayIso);
+  const summary = useResource<Summary>(
+    `/finance/summary?start_date=${thisMonth.start}&end_date=${thisMonth.end}`
+  );
+  const summaryBefore = useResource<Summary>(
+    `/finance/summary?start_date=${lastMonthSoFar.start}&end_date=${lastMonthSoFar.end}`
+  );
+
   const reloadExpenses = expenses.reload;
+  const reloadSummary = summary.reload;
+  const reloadSummaryBefore = summaryBefore.reload;
   const reloadBudgets = budgets.reload;
   const reloadSubscriptions = subscriptions.reload;
   const reloadByCategory = byCategory.reload;
@@ -106,7 +126,15 @@ export function FinanceDashboard() {
     void reloadByCategory();
     void reloadByCategoryBefore();
     void reloadByPeriod();
-  }, [reloadByCategory, reloadByCategoryBefore, reloadByPeriod]);
+    void reloadSummary();
+    void reloadSummaryBefore();
+  }, [
+    reloadByCategory,
+    reloadByCategoryBefore,
+    reloadByPeriod,
+    reloadSummary,
+    reloadSummaryBefore,
+  ]);
 
   /** An expense moved, so the budget bars it counts against moved with it. */
   const onExpensesChanged = useCallback(() => {
@@ -143,7 +171,16 @@ export function FinanceDashboard() {
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <SummaryTiles
+        current={summary}
+        previous={summaryBefore}
+        previousRange={lastMonthSoFar}
+        subscriptions={subscriptions.items}
+        subscriptionsLoading={subscriptions.loading}
+        today={today}
+      />
+
+      <div className="grid gap-4 xl:grid-cols-2">
         <SpendByCategoryChart
           current={byCategory}
           previous={byCategoryBefore}
@@ -163,14 +200,16 @@ export function FinanceDashboard() {
         />
       </div>
 
-      {/* 2-4-3-3 across twelve columns; stacked below lg, where side by side
-          would leave every panel too narrow to read. */}
-      <div className="grid gap-4 lg:h-120 lg:grid-cols-12">
-        <div className="min-h-0 lg:col-span-2">
+      {/* Twelve columns from md: 5-7 then 6-6 in two fixed-height rows, and
+          2-4-3-3 in one row from 2xl, where four fit without any being too
+          narrow to read. Fixed rows keep each panel scrolling its own list.
+          Below md the panels stack and simply grow with their content. */}
+      <div className="grid gap-4 md:auto-rows-[30rem] md:grid-cols-12">
+        <div className="min-h-0 md:col-span-5 2xl:col-span-2">
           <CategorySection categories={categories} onChange={onCategoriesChanged} />
         </div>
 
-        <div className="min-h-0 lg:col-span-4">
+        <div className="min-h-0 md:col-span-7 2xl:col-span-4">
           <ExpenseSection
             expenses={expenses}
             categories={categories.items}
@@ -182,7 +221,7 @@ export function FinanceDashboard() {
           />
         </div>
 
-        <div className="min-h-0 lg:col-span-3">
+        <div className="min-h-0 md:col-span-6 2xl:col-span-3">
           <SubscriptionSection
             subscriptions={subscriptions}
             categories={categories.items}
@@ -192,7 +231,7 @@ export function FinanceDashboard() {
           />
         </div>
 
-        <div className="min-h-0 lg:col-span-3">
+        <div className="min-h-0 md:col-span-6 2xl:col-span-3">
           <BudgetSection
             budgets={budgets}
             categories={categories.items}

@@ -91,33 +91,37 @@ export function RangeControls({
         </button>
       ))}
 
-      <label className="sr-only" htmlFor={`${idPrefix}-start`}>
-        Range start
-      </label>
-      <input
-        id={`${idPrefix}-start`}
-        type="date"
-        className="rounded-sm border bg-surface px-1.5 py-0.5"
-        value={range.start}
-        max={range.end}
-        onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
-      />
+      {/* One unit, so a narrow panel wraps the pair to a new line together
+          instead of stranding the end date on a line of its own. */}
+      <span className="flex items-center gap-1.5">
+        <label className="sr-only" htmlFor={`${idPrefix}-start`}>
+          Range start
+        </label>
+        <input
+          id={`${idPrefix}-start`}
+          type="date"
+          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5"
+          value={range.start}
+          max={range.end}
+          onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
+        />
 
-      <span aria-hidden className="text-fg-muted">
-        –
+        <span aria-hidden className="text-fg-muted">
+          –
+        </span>
+
+        <label className="sr-only" htmlFor={`${idPrefix}-end`}>
+          Range end
+        </label>
+        <input
+          id={`${idPrefix}-end`}
+          type="date"
+          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5"
+          value={range.end}
+          min={range.start}
+          onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}
+        />
       </span>
-
-      <label className="sr-only" htmlFor={`${idPrefix}-end`}>
-        Range end
-      </label>
-      <input
-        id={`${idPrefix}-end`}
-        type="date"
-        className="rounded-sm border bg-surface px-1.5 py-0.5"
-        value={range.end}
-        min={range.start}
-        onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}
-      />
 
       {/* The category filter sits here rather than up by the title: it narrows
           the same thing the dates do, and belongs with them. */}

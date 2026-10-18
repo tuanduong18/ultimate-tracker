@@ -46,6 +46,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Frontend | Next.js 16 (App Router) + TypeScript | SSR for fast dashboard loads, strong ecosystem |
 | Styling | Tailwind CSS + shadcn/ui | Fast to build, consistent, no design system from scratch |
 | Charts | Recharts | Lightweight, React-native, good defaults |
+| Icons | lucide-react | Tree-shaken SVG icons, one import per icon; MIT |
 | Backend | FastAPI (Python 3.14) | Async-first, type-safe, fast to build REST APIs |
 | Database | PostgreSQL via Supabase | Relational data suits cross-domain queries, generous free tier |
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |

@@ -1,9 +1,10 @@
 'use client';
 
+import { Pencil, Tags } from 'lucide-react';
 import { useState } from 'react';
 
 import { DeleteButton } from '@/components/finance/delete-button';
-import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
+import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { cardTint } from '@/lib/tint';
@@ -144,8 +145,12 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
 
       {loading ? (
         <PanelNote>Loading…</PanelNote>
-      ) : items.length === 0 ? (
-        !adding && <PanelNote>No categories yet. Create one before setting a budget.</PanelNote>
+      ) : items.length === 0 && error ? null : items.length === 0 ? (
+        !adding && (
+          <PanelEmpty icon={Tags}>
+            No categories yet. Create one before setting a budget.
+          </PanelEmpty>
+        )
       ) : (
         <ul className="space-y-2 p-3">
           {items.map((category) =>
@@ -177,7 +182,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                   <button
                     type="button"
                     disabled={busy}
-                    className="text-xs underline disabled:opacity-50"
+                    className="text-xs underline disabled:opacity-50 inline-flex items-center pointer-coarse:min-h-11 pointer-coarse:px-1.5"
                     onClick={() => void handleEdit(category.id)}
                   >
                     Save
@@ -200,18 +205,17 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                 {/* No swatch: the card is already wearing this colour. */}
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
 
-                <button
-                  type="button"
-                  className="shrink-0 text-xs underline"
+                <IconButton
+                  label={`Rename ${category.name}`}
+                  icon={Pencil}
                   onClick={() => {
                     setEditing(category.id);
                     setEditName(category.name);
                     setEditColour(category.colour);
                   }}
-                >
-                  Rename
-                </button>
+                />
                 <DeleteButton
+                  label={`Delete ${category.name}`}
                   prompt="Delete? Its expenses become uncategorised."
                   busy={busy}
                   onConfirm={() => void handleDelete(category.id)}

@@ -76,6 +76,21 @@ describe('SubscriptionSection', () => {
     expect(screen.getByText(/SUBSCRIPTIONS/)).toBeInTheDocument();
   });
 
+  it('marks each card with the first letter or digit of its name', async () => {
+    get.mockResolvedValue([
+      { ...STREAMING, id: 'a', name: 'iCloud+ 200GB' },
+      { ...STREAMING, id: 'b', name: '(Old) plan' },
+      { ...STREAMING, id: 'c', name: '1Password' },
+    ]);
+    render(<Harness />);
+
+    expect(await screen.findByText('iCloud+ 200GB')).toBeInTheDocument();
+    // Skips leading punctuation; a digit counts, as it does on an app icon.
+    for (const initial of ['I', 'O', '1']) {
+      expect(screen.getByText(initial, { selector: 'span[aria-hidden]' })).toBeInTheDocument();
+    }
+  });
+
   it('counts down inside the three-day reminder window', async () => {
     // Only Date is faked, so the findBy polling below still runs on real timers.
     vi.useFakeTimers({ toFake: ['Date'] });

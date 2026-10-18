@@ -138,7 +138,7 @@ describe('BudgetSection', () => {
     patch.mockResolvedValue(GROCERIES);
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Edit / }));
     expect(screen.getByLabelText('Food')).toBeChecked();
 
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '450' } });
@@ -157,7 +157,7 @@ describe('BudgetSection', () => {
     del.mockResolvedValue(undefined);
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Delete / }));
     expect(del).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));

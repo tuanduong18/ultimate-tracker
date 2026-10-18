@@ -1,5 +1,6 @@
 'use client';
 
+import { BarChart3, Filter } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import {
@@ -7,7 +8,7 @@ import {
   isEmptySelection,
   type CategorySelection,
 } from '@/components/finance/category-filter';
-import { Panel, PanelNote } from '@/components/finance/panel';
+import { Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { RangeControls, RangeNav } from '@/components/finance/range-control';
 import { formatSpan, type DateRange } from '@/lib/dates';
 import { useThemeColours } from '@/lib/hooks/use-theme-colours';
@@ -134,7 +135,7 @@ export function SpendByPeriodChart({
     <Panel
       title="Spending amount"
       error={error}
-      className="h-104"
+      className="h-80 sm:h-104"
       action={<RangeNav range={range} onChange={onRangeChange} />}
       header={
         <RangeControls range={range} onChange={onRangeChange} idPrefix="period">
@@ -150,9 +151,9 @@ export function SpendByPeriodChart({
       {loading ? (
         <PanelNote>Loading…</PanelNote>
       ) : isEmptySelection(selection) ? (
-        <PanelNote>No categories selected.</PanelNote>
+        <PanelEmpty icon={Filter}>No categories selected.</PanelEmpty>
       ) : !anySpend ? (
-        <PanelNote>Nothing spent in this period yet.</PanelNote>
+        <PanelEmpty icon={BarChart3}>Nothing spent in this period yet.</PanelEmpty>
       ) : (
         <div className="h-full overflow-x-auto p-4 pt-2">
           {/* min-width is a floor, not a width: a short range still spreads

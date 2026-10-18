@@ -5,6 +5,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { MailCheck } from 'lucide-react';
+
+import { AuthShell, Field, SubmitButton } from '@/components/shared/auth-shell';
 import { supabase } from '@/lib/supabase';
 
 export default function SignupPage() {
@@ -38,78 +41,78 @@ export default function SignupPage() {
 
   if (confirmationSent) {
     return (
-      <main className="mx-auto max-w-sm p-8">
-        <h1 className="text-2xl font-semibold">Check your email</h1>
-        <p className="mt-2 text-sm text-fg-muted">
-          We sent a confirmation link to <span className="font-mono">{email}</span>. Open it, then
-          log in.
-        </p>
-        <p className="mt-6 text-sm">
-          <Link className="underline" href="/login">
+      <AuthShell
+        title="Check your email"
+        footer={
+          <Link
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href="/login"
+          >
             Back to log in
           </Link>
-        </p>
-      </main>
+        }
+      >
+        <div className="flex items-start gap-3 rounded-lg bg-primary-soft p-4 text-sm">
+          <MailCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
+          <p>
+            We sent a confirmation link to <span className="font-medium">{email}</span>. Open it,
+            then log in.
+          </p>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="mx-auto max-w-sm p-8">
-      <h1 className="text-2xl font-semibold">Sign up</h1>
-
-      <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
-        <div>
-          <label className="block text-sm" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            className="mt-1 w-full rounded-sm border px-3 py-2"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            className="mt-1 w-full rounded-sm border px-3 py-2"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-sm bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-50"
-        >
+    <AuthShell
+      title="Create your account"
+      subtitle="Start with your money — the rest of your life follows."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            href="/login"
+          >
+            Log in
+          </Link>
+        </>
+      }
+    >
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <Field
+          id="email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Field
+          id="password"
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          hint="At least 8 characters."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <SubmitButton busy={submitting}>
           {submitting ? 'Creating account…' : 'Sign up'}
-        </button>
+        </SubmitButton>
       </form>
 
       {error && (
-        <p role="alert" className="mt-4 text-sm text-negative">
+        <p
+          role="alert"
+          className="mt-4 rounded-lg bg-negative-soft px-3 py-2 text-sm text-negative"
+        >
           {error}
         </p>
       )}
-
-      <p className="mt-6 text-sm text-fg-muted">
-        Already have an account?{' '}
-        <Link className="underline" href="/login">
-          Log in
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }

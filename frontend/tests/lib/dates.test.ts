@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDate, formatSpan, monthRange, toIsoDate, todayIso } from '@/lib/dates';
+import {
+  formatDate,
+  formatSpan,
+  monthRange,
+  sameDaysLastMonth,
+  toIsoDate,
+  todayIso,
+} from '@/lib/dates';
 
 describe('date helpers', () => {
   it('formats a date from its local parts, not UTC', () => {
@@ -62,5 +69,28 @@ describe('date helpers', () => {
 
   it('hands back a span it cannot parse unchanged', () => {
     expect(formatSpan('not-a-date', '2026-08-09')).toContain('not-a-date');
+  });
+});
+
+describe('sameDaysLastMonth', () => {
+  it('covers the same days of the previous month', () => {
+    expect(sameDaysLastMonth(new Date(2026, 9, 18))).toEqual({
+      start: '2026-09-01',
+      end: '2026-09-18',
+    });
+  });
+
+  it('clips to a shorter previous month', () => {
+    expect(sameDaysLastMonth(new Date(2026, 2, 31))).toEqual({
+      start: '2026-02-01',
+      end: '2026-02-28',
+    });
+  });
+
+  it('crosses a year boundary', () => {
+    expect(sameDaysLastMonth(new Date(2027, 0, 5))).toEqual({
+      start: '2026-12-01',
+      end: '2026-12-05',
+    });
   });
 });

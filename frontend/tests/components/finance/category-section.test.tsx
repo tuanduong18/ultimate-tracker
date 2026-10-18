@@ -87,7 +87,7 @@ describe('CategorySection', () => {
     patch.mockResolvedValue({ ...FOOD, name: 'Groceries' });
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Rename' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Rename / }));
     fireEvent.change(screen.getByLabelText('Rename Food'), { target: { value: 'Groceries' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -106,7 +106,7 @@ describe('CategorySection', () => {
     patch.mockResolvedValue({ ...FOOD, colour: '#000000' });
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Rename' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Rename / }));
     // Seeded from the row, so opening the editor shows the colour it has.
     const picker = screen.getByLabelText('Colour for Food');
     expect(picker).toHaveValue('#22c55e');
@@ -127,7 +127,7 @@ describe('CategorySection', () => {
     del.mockResolvedValue(undefined);
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Delete / }));
     expect(screen.getByText(/expenses become uncategorised/i)).toBeInTheDocument();
     expect(del).not.toHaveBeenCalled();
 
@@ -139,7 +139,7 @@ describe('CategorySection', () => {
     get.mockResolvedValue([FOOD]);
     render(<Harness />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Delete / }));
     fireEvent.click(screen.getByRole('button', { name: 'Keep' }));
 
     expect(del).not.toHaveBeenCalled();
