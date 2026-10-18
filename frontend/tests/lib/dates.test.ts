@@ -8,6 +8,7 @@ import {
   monthStart,
   sameDaysLastMonth,
   shiftMonth,
+  shiftRange,
   toIsoDate,
   todayIso,
 } from '@/lib/dates';
@@ -111,5 +112,59 @@ describe('month helpers', () => {
 
   it('names a month with its year', () => {
     expect(formatMonth('2026-10-01')).toMatch(/2026/);
+  });
+});
+
+describe('shiftRange', () => {
+  it('steps a whole month to the previous calendar month, not its length in days', () => {
+    // 31 days back from October would be 31 Aug – 30 Sep.
+    expect(shiftRange({ start: '2026-10-01', end: '2026-10-31' }, -1)).toEqual({
+      start: '2026-09-01',
+      end: '2026-09-30',
+    });
+  });
+
+  it('steps forward from a short month to the whole of the next', () => {
+    expect(shiftRange({ start: '2026-09-01', end: '2026-09-30' }, 1)).toEqual({
+      start: '2026-10-01',
+      end: '2026-10-31',
+    });
+  });
+
+  it('lands on the right end of February, leap year or not', () => {
+    expect(shiftRange({ start: '2026-03-01', end: '2026-03-31' }, -1)).toEqual({
+      start: '2026-02-01',
+      end: '2026-02-28',
+    });
+    expect(shiftRange({ start: '2028-03-01', end: '2028-03-31' }, -1)).toEqual({
+      start: '2028-02-01',
+      end: '2028-02-29',
+    });
+  });
+
+  it('steps a run of whole months by the same number of months', () => {
+    expect(shiftRange({ start: '2026-07-01', end: '2026-09-30' }, -1)).toEqual({
+      start: '2026-04-01',
+      end: '2026-06-30',
+    });
+  });
+
+  it('crosses a year boundary', () => {
+    expect(shiftRange({ start: '2027-01-01', end: '2027-01-31' }, -1)).toEqual({
+      start: '2026-12-01',
+      end: '2026-12-31',
+    });
+  });
+
+  it('moves anything that is not whole months by its own length', () => {
+    expect(shiftRange({ start: '2026-08-10', end: '2026-08-12' }, 1)).toEqual({
+      start: '2026-08-13',
+      end: '2026-08-15',
+    });
+    // A Monday–Sunday week steps to the next week.
+    expect(shiftRange({ start: '2026-10-12', end: '2026-10-18' }, -1)).toEqual({
+      start: '2026-10-05',
+      end: '2026-10-11',
+    });
   });
 });

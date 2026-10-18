@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import {
   formatRange,
+  isCalendarMonth,
+  isCalendarWeek,
   monthRange,
   rangeLength,
   shiftRange,
@@ -51,10 +53,6 @@ export function RangeNav({ range, onChange }: RangeProps) {
   );
 }
 
-function isPreset(range: DateRange, preset: DateRange): boolean {
-  return range.start === preset.start && range.end === preset.end;
-}
-
 /**
  * Presets and the two date fields, plus whatever else the panel filters by.
  *
@@ -68,9 +66,13 @@ export function RangeControls({
   idPrefix,
   children,
 }: RangeProps & { idPrefix: string; children?: ReactNode }) {
+  // Each preset is a mode, not a single range: "Month" stays selected for any
+  // whole calendar month, so stepping back with the arrows (which move whole
+  // months — see shiftRange) keeps it selected, as does a month typed by hand.
+  // Clicking a preset always jumps to the current week or month.
   const presets = [
-    { label: 'Week', value: weekRange() },
-    { label: 'Month', value: monthRange() },
+    { label: 'Week', value: weekRange(), matches: isCalendarWeek },
+    { label: 'Month', value: monthRange(), matches: isCalendarMonth },
   ];
 
   return (
@@ -79,9 +81,9 @@ export function RangeControls({
         <button
           key={preset.label}
           type="button"
-          aria-pressed={isPreset(range, preset.value)}
+          aria-pressed={preset.matches(range)}
           className={`rounded-full px-2.5 py-1 ${
-            isPreset(range, preset.value)
+            preset.matches(range)
               ? 'bg-primary text-primary-fg'
               : 'bg-primary-soft text-fg hover:opacity-80'
           }`}
