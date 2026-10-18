@@ -90,7 +90,9 @@ that fires twice is a bug the user sees.
 
 ## Settings and onboarding
 
-- **[v0.1, built]** Timezone and display currency.
+- **[v0.1, built]** Timezone and display currency. The timezone follows the browser: it is
+  synced to the profile silently on each signed-in page load, so server-side work (subscription
+  scheduling, renewals and reminders) uses wherever the user is now.
 - **[v0.1, built]** Colour scheme, including a system-preference default.
 - **[v0.2]** Notification preferences, arriving with the notification service.
 - **[v0.3]** Connected accounts — Google Calendar, and later Riot and Steam.
