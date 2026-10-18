@@ -3,6 +3,7 @@
 import { AppHeader } from '@/components/shared/app-header';
 import { AppSidebar } from '@/components/shared/app-nav';
 import { AuthGuard } from '@/components/shared/auth-guard';
+import { TimezoneSync } from '@/components/shared/timezone-sync';
 
 /**
  * Layout for every route that needs a signed-in user. Grouping them under
@@ -13,10 +14,14 @@ import { AuthGuard } from '@/components/shared/auth-guard';
  * Navigation adapts to the width: a sidebar on desktops, a rail on tablets,
  * and a menu button with a slide-out drawer on phones. The account menu sits
  * in the header, top right, at every width.
+ *
+ * TimezoneSync sits inside the guard so it only runs for a signed-in user, and
+ * here rather than on a page so it runs whichever page they land on.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
+      <TimezoneSync />
       <div className="flex min-h-dvh">
         <AppSidebar />
         {/* min-w-0 lets wide content scroll inside the page instead of
