@@ -103,18 +103,32 @@ export function rangeLength(range: DateRange): number {
 }
 
 /**
- * Step a range forward or back by its own length.
+ * Step a range forward or back: by whole months when it is made of whole
+ * calendar months, by its own length otherwise.
  *
- * Deliberately not "the next calendar month": a range picked by hand has no
- * calendar unit to advance by, and one rule that works for every range beats a
- * rule that only works for the two presets. The cost is that stepping on from
- * a 30-day September lands on 1–30 October rather than 1–31 — pick the preset
- * again to resynchronise with the calendar.
+ * Whole months step as months, because that is what the range means: the
+ * month before 1–31 October is 1–30 September, not the 31 days before it
+ * (31 Aug – 30 Sep). A quarter steps by a quarter the same way. Anything else
+ * — a week, a hand-picked span — has no calendar unit to advance by, so it
+ * moves by its length: 10–12 Aug steps to 13–15 Aug.
  */
 export function shiftRange(range: DateRange, direction: 1 | -1): DateRange {
   const start = fromIso(range.start);
   const end = fromIso(range.end);
   if (!start || !end) return range;
+
+  const lastOfEndMonth = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+  if (start.getDate() === 1 && end.getDate() === lastOfEndMonth) {
+    const months =
+      (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+    const step = months * direction;
+    return {
+      start: toIsoDate(new Date(start.getFullYear(), start.getMonth() + step, 1)),
+      // Day 0 of the following month is the last day of this one, so a step
+      // into February lands on the 28th or 29th as the year has it.
+      end: toIsoDate(new Date(end.getFullYear(), end.getMonth() + step + 1, 0)),
+    };
+  }
 
   const days = rangeLength(range) * direction;
   const moved = (value: Date) =>
@@ -189,4 +203,20 @@ export function formatMonthShort(iso: string): string {
   const parsed = fromIso(iso);
   if (!parsed) return iso;
   return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(parsed);
+}
+
+/** True when a range is exactly one calendar month, the 1st to its last day. */
+export function isCalendarMonth(range: DateRange): boolean {
+  const start = fromIso(range.start);
+  const end = fromIso(range.end);
+  if (!start || !end || start.getDate() !== 1) return false;
+  const last = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+  return toIsoDate(last) === range.end;
+}
+
+/** True when a range is exactly one Monday-to-Sunday week. */
+export function isCalendarWeek(range: DateRange): boolean {
+  const start = fromIso(range.start);
+  // getDay() is 1 for Monday; seven days inclusive ends on the Sunday.
+  return start !== null && start.getDay() === 1 && rangeLength(range) === 7;
 }
