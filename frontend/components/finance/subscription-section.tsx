@@ -1,9 +1,10 @@
 'use client';
 
+import { BellRing, Pencil, Repeat } from 'lucide-react';
 import { useState } from 'react';
 
 import { DeleteButton } from '@/components/finance/delete-button';
-import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
+import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import {
   SubscriptionForm,
   preselectedCategoryId,
@@ -12,7 +13,7 @@ import {
 import { api } from '@/lib/api-client';
 import { daysUntil, formatDate, todayIso } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { cardTint } from '@/lib/tint';
+import { NEUTRAL_COLOUR, cardTint, withAlpha } from '@/lib/tint';
 import { formatInterval, formatMoney, type Category, type Subscription } from '@/lib/types/finance';
 
 /**
@@ -20,6 +21,11 @@ import { formatInterval, formatMoney, type Category, type Subscription } from '@
  * three-day window the reminders use, so the card and the reminder agree.
  */
 const REMINDER_DAYS = 3;
+
+/** "netflix" → "N"; the first letter or digit, so "(Old) Plan" still gets one. */
+function initialOf(name: string): string {
+  return (name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
+}
 
 function inDays(days: number): string {
   if (days === 0) return 'today';
@@ -173,11 +179,11 @@ export function SubscriptionSection({
 
       {loading ? (
         <PanelNote>Loading…</PanelNote>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && error ? null : items.length === 0 ? (
         !adding && (
-          <PanelNote>
+          <PanelEmpty icon={Repeat}>
             No subscriptions yet. Each renewal is logged as an expense on its billing date.
-          </PanelNote>
+          </PanelEmpty>
         )
       ) : (
         <ul className="space-y-2 p-3">
@@ -221,54 +227,68 @@ export function SubscriptionSection({
             return (
               <li
                 key={subscription.id}
-                className={`rounded-lg px-3 py-2.5 ${ended ? 'opacity-60' : ''}`}
+                className={`flex gap-3 rounded-xl px-3 py-2.5 ${ended ? 'opacity-60' : ''}`}
                 style={{ backgroundColor: cardTint(category?.colour) }}
               >
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    {subscription.name}
+                {/* The service's initial, like an app icon on a statement: the
+                    quickest way to find "Netflix" in a list is its shape. */}
+                <span
+                  aria-hidden
+                  className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-semibold"
+                  style={{ backgroundColor: withAlpha(category?.colour ?? NEUTRAL_COLOUR, 0.28) }}
+                >
+                  {initialOf(subscription.name)}
+                </span>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-1">
+                    <p className="min-w-0 flex-1 truncate pt-1 text-sm font-semibold">
+                      {subscription.name}
+                    </p>
+                    <IconButton
+                      label={`Edit ${subscription.name}`}
+                      icon={Pencil}
+                      onClick={() => {
+                        setAdding(false);
+                        setEditingId(subscription.id);
+                      }}
+                    />
+                    <DeleteButton
+                      label={`Delete ${subscription.name}`}
+                      prompt="Delete? Expenses it already logged stay."
+                      busy={busy}
+                      onConfirm={() =>
+                        void run(
+                          () => api.delete(`/finance/subscriptions/${subscription.id}`),
+                          'Could not delete that subscription.'
+                        )
+                      }
+                    />
+                  </div>
+
+                  <p className="text-sm">
+                    <span className="font-medium">
+                      {formatMoney(subscription.amount, subscription.currency)}
+                    </span>
+                    <span className="text-fg-muted">
+                      {' / '}
+                      {formatInterval(subscription.interval_unit, subscription.interval_count)}
+                    </span>
                   </p>
-                  <button
-                    type="button"
-                    className="shrink-0 text-xs underline"
-                    onClick={() => {
-                      setAdding(false);
-                      setEditingId(subscription.id);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <DeleteButton
-                    prompt="Delete this subscription? Expenses it already logged stay."
-                    busy={busy}
-                    onConfirm={() =>
-                      void run(
-                        () => api.delete(`/finance/subscriptions/${subscription.id}`),
-                        'Could not delete that subscription.'
-                      )
-                    }
-                  />
+
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs">
+                    {step.soon && (
+                      <BellRing aria-hidden className="size-3.5 shrink-0 text-negative" />
+                    )}
+                    <span className={step.soon ? 'font-medium text-negative' : 'text-fg-muted'}>
+                      {step.text}
+                    </span>
+                    <span className="truncate text-fg-muted">
+                      {' · '}
+                      {category?.name ?? 'Uncategorised'}
+                    </span>
+                  </p>
                 </div>
-
-                <p className="text-sm">
-                  <span className="font-medium">
-                    {formatMoney(subscription.amount, subscription.currency)}
-                  </span>
-                  <span className="text-fg-muted">
-                    {' / '}
-                    {formatInterval(subscription.interval_unit, subscription.interval_count)}
-                  </span>
-                </p>
-
-                <p className="truncate text-xs">
-                  <span className={step.soon ? 'font-medium text-negative' : 'text-fg-muted'}>
-                    {step.text}
-                  </span>
-                  <span className="text-fg-muted">
-                    {' · '}
-                    {category?.name ?? 'Uncategorised'}
-                  </span>
-                </p>
               </li>
             );
           })}

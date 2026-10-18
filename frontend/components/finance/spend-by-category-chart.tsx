@@ -1,5 +1,6 @@
 'use client';
 
+import { Filter, PieChart as PieChartIcon } from 'lucide-react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 import {
@@ -7,7 +8,7 @@ import {
   isEmptySelection,
   type CategorySelection,
 } from '@/components/finance/category-filter';
-import { Panel, PanelNote } from '@/components/finance/panel';
+import { Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { RangeControls, RangeNav } from '@/components/finance/range-control';
 import { formatRange, shiftRange, type DateRange } from '@/lib/dates';
 import type { Resource } from '@/lib/hooks/use-collection';
@@ -253,7 +254,9 @@ export function SpendByCategoryChart({
     <Panel
       title="Spending categories"
       error={error}
-      className="h-104"
+      // Grows with the legend on a phone, where the legend sits under the pies
+      // instead of beside them; fixed from sm, where it scrolls in place.
+      className="sm:h-104"
       action={<RangeNav range={range} onChange={onRangeChange} />}
       header={
         <RangeControls range={range} onChange={onRangeChange} idPrefix="category">
@@ -269,19 +272,24 @@ export function SpendByCategoryChart({
       {loading ? (
         <PanelNote>Loading…</PanelNote>
       ) : isEmptySelection(selection) ? (
-        <PanelNote>No categories selected.</PanelNote>
+        <PanelEmpty icon={Filter}>No categories selected.</PanelEmpty>
       ) : rows.length === 0 ? (
-        <PanelNote>Nothing spent in either period yet.</PanelNote>
+        <PanelEmpty icon={PieChartIcon}>Nothing spent in either period yet.</PanelEmpty>
       ) : (
-        <div className="flex h-full gap-3 p-3">
-          <PeriodPie
-            slices={previousSlices}
-            currency={currency}
-            caption={formatRange(shiftRange(range, -1))}
-          />
-          <PeriodPie slices={currentSlices} currency={currency} caption={formatRange(range)} />
+        <div className="flex flex-col gap-3 p-3 sm:h-full sm:flex-row">
+          {/* A row of two pies with the legend underneath on a phone. From sm
+              the wrapper dissolves (`contents`), so the pies and the legend
+              become three columns of the one row again. */}
+          <div className="flex h-52 gap-3 sm:contents">
+            <PeriodPie
+              slices={previousSlices}
+              currency={currency}
+              caption={formatRange(shiftRange(range, -1))}
+            />
+            <PeriodPie slices={currentSlices} currency={currency} caption={formatRange(range)} />
+          </div>
 
-          <ul className="min-w-0 flex-[1.1] space-y-2 overflow-y-auto text-xs">
+          <ul className="min-w-0 space-y-2 text-xs sm:flex-[1.1] sm:overflow-y-auto">
             {rows.map((row) => (
               <li key={row.key}>
                 <div className="flex items-center gap-1.5">

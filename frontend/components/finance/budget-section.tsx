@@ -1,10 +1,11 @@
 'use client';
 
+import { Pencil, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 
 import { BudgetForm, type BudgetValues } from '@/components/finance/budget-form';
 import { DeleteButton } from '@/components/finance/delete-button';
-import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
+import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, monthRange } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
@@ -211,13 +212,13 @@ export function BudgetSection({
 
       {loading ? (
         <PanelNote>Loading…</PanelNote>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && error ? null : items.length === 0 ? (
         !adding && (
-          <PanelNote>
+          <PanelEmpty icon={PiggyBank}>
             {blocked
               ? 'Add a category first — a budget caps spending across categories.'
               : 'No budgets yet. A budget caps spending across one or more categories.'}
-          </PanelNote>
+          </PanelEmpty>
         )
       ) : (
         <ul className="space-y-3 p-3">
@@ -250,17 +251,16 @@ export function BudgetSection({
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">{budget.name}</p>
 
-                  <button
-                    type="button"
-                    className="shrink-0 text-xs underline"
+                  <IconButton
+                    label={`Edit ${budget.name}`}
+                    icon={Pencil}
                     onClick={() => {
                       setAdding(false);
                       setEditingId(budget.id);
                     }}
-                  >
-                    Edit
-                  </button>
+                  />
                   <DeleteButton
+                    label={`Delete ${budget.name}`}
                     prompt="Delete this budget?"
                     busy={busy}
                     onConfirm={() =>

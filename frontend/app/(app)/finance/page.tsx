@@ -6,12 +6,12 @@
  */
 
 import { FinanceDashboard } from '@/components/finance/finance-dashboard';
+import { PageHeader } from '@/components/shared/page-header';
 
 export default function FinancePage() {
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold">Finance</h1>
-      <p className="mt-2 text-sm text-fg-muted">Track what you spend against what you planned.</p>
+    <main className="p-4 sm:p-8">
+      <PageHeader title="Finance" description="Track what you spend against what you planned." />
 
       <FinanceDashboard />
     </main>

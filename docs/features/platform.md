@@ -20,7 +20,9 @@ theming, and the pipeline that keeps it deployable.
 - **Profiles** — a local `profiles` table keyed by the Supabase user id, holding app-specific
   fields: `timezone` and `display_currency`. `GET` and `PATCH /api/v1/auth/me`.
 - **Auth guard** — signed-in routes live under `app/(app)/` and are wrapped by `AuthGuard`.
-- **App shell** — sidebar navigation across the domains, plus profile and settings.
+- **App shell** — navigation that adapts to the width: a sidebar on desktops, an icon rail on
+  tablets, and a menu button with a slide-out drawer on phones. Profile, settings and log out
+  live in an account menu behind the avatar, top right, at every width.
 - **Dashboard** — currently a module index rather than per-domain summary widgets.
 - **Theming** — every colour routed through theme tokens, with a picker in Settings and
   system-preference dark mode.

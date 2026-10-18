@@ -147,3 +147,15 @@
     @apply bg-bg text-fg;
   }
 }
+
+/*
+ * One visible focus ring for every interactive element, shown only for
+ * keyboard focus (:focus-visible), so a mouse click does not leave a ring
+ * behind. In `primary`, which every theme keeps dark enough to see.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}

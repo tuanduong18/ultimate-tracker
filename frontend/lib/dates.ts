@@ -149,3 +149,18 @@ export function formatRange(range: DateRange): string {
 export function daysUntil(toIso: string, fromIso: string = todayIso()): number {
   return rangeLength({ start: fromIso, end: toIso }) - 1;
 }
+
+/**
+ * The same stretch of last month that `on`'s month has reached so far:
+ * 18 Oct → 1–18 Sep. Clipped to the shorter month, so 31 Mar → 1–28 Feb.
+ *
+ * What a month-to-date total should be compared against. Setting 18 days of
+ * October against all of September would make every month look thrifty until
+ * its last week.
+ */
+export function sameDaysLastMonth(on: Date = new Date()): DateRange {
+  const start = new Date(on.getFullYear(), on.getMonth() - 1, 1);
+  const lastDay = new Date(on.getFullYear(), on.getMonth(), 0).getDate();
+  const end = new Date(start.getFullYear(), start.getMonth(), Math.min(on.getDate(), lastDay));
+  return { start: toIsoDate(start), end: toIsoDate(end) };
+}

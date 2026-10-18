@@ -5,13 +5,13 @@
  * the profile and travels with the account. What is here is per-device.
  */
 
+import { PageHeader } from '@/components/shared/page-header';
 import { ThemePicker } from '@/components/settings/theme-picker';
 
 export default function SettingsPage() {
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <p className="mt-2 text-sm text-fg-muted">How the app looks on this device.</p>
+    <main className="p-4 sm:p-8">
+      <PageHeader title="Settings" description="How the app looks on this device." />
 
       <div className="mt-8 max-w-3xl">
         <ThemePicker />

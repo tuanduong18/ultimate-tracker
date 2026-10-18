@@ -1,11 +1,12 @@
 'use client';
 
+import { Pencil, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { DeleteButton } from '@/components/finance/delete-button';
 import { ExpenseForm, type ExpenseValues } from '@/components/finance/expense-form';
-import { Panel, PanelButton, PanelNote } from '@/components/finance/panel';
+import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, todayIso } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
@@ -145,8 +146,8 @@ export function ExpenseSection({
 
       {loading ? (
         <PanelNote>Loading…</PanelNote>
-      ) : shown.length === 0 ? (
-        !adding && <PanelNote>Nothing logged yet.</PanelNote>
+      ) : shown.length === 0 && error ? null : shown.length === 0 ? (
+        !adding && <PanelEmpty icon={Receipt}>Nothing logged yet.</PanelEmpty>
       ) : (
         <ul className="space-y-2 p-3">
           {shown.map((expense) =>
@@ -192,17 +193,16 @@ export function ExpenseSection({
                   {formatMoney(expense.amount, expense.currency)}
                 </span>
 
-                <button
-                  type="button"
-                  className="shrink-0 text-xs underline"
+                <IconButton
+                  label={`Edit ${expense.description || 'expense'}`}
+                  icon={Pencil}
                   onClick={() => {
                     setAdding(false);
                     setEditingId(expense.id);
                   }}
-                >
-                  Edit
-                </button>
+                />
                 <DeleteButton
+                  label={`Delete ${expense.description || 'expense'}`}
                   prompt="Delete this expense?"
                   busy={busy}
                   onConfirm={() =>

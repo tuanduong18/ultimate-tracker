@@ -1,0 +1,104 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const { pathname, signOut } = vi.hoisted(() => ({
+  pathname: { current: '/dashboard' },
+  signOut: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname.current,
+}));
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: () =>
+        Promise.resolve({ data: { session: { user: { email: 'tuan@example.com' } } } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signOut,
+    },
+  },
+}));
+
+import { ACCOUNT_LINKS } from '@/components/shared/nav-items';
+import { UserMenu } from '@/components/shared/user-menu';
+
+afterEach(() => {
+  vi.clearAllMocks();
+  pathname.current = '/dashboard';
+});
+
+async function openMenu() {
+  render(<UserMenu />);
+  const button = screen.getByRole('button', { name: 'Account menu' });
+  // Wait for the session, so the avatar and the email have landed.
+  expect(await screen.findByText('T')).toBeInTheDocument();
+  fireEvent.click(button);
+  return button;
+}
+
+describe('UserMenu', () => {
+  it('shows the signed-in user’s initial and starts closed', async () => {
+    render(<UserMenu />);
+
+    expect(await screen.findByText('T')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+  });
+
+  it('opens to who is signed in, every account page, and log out', async () => {
+    const button = await openMenu();
+
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('tuan@example.com')).toBeInTheDocument();
+    for (const link of ACCOUNT_LINKS) {
+      expect(screen.getByRole('link', { name: link.label })).toHaveAttribute('href', link.href);
+    }
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+  });
+
+  it('marks the account page being viewed', async () => {
+    pathname.current = '/settings';
+    await openMenu();
+
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Profile' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('closes on Escape and hands focus back to its button', async () => {
+    const button = await openMenu();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveFocus();
+  });
+
+  it('closes on a click anywhere outside it', async () => {
+    const button = await openMenu();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes once a link is followed', async () => {
+    const button = await openMenu();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Profile' }));
+
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('signs the user out', async () => {
+    await openMenu();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+    expect(signOut).toHaveBeenCalledOnce();
+  });
+});

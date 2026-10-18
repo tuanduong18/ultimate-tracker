@@ -1,8 +1,8 @@
 export default function OnboardingPage() {
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold">Onboarding</h1>
-      <p className="mt-2 text-sm text-fg-muted">Coming soon.</p>
+    <main className="p-4 sm:p-8">
+      <PageHeader title="Onboarding" description="Coming soon." />
     </main>
   );
 }
+import { PageHeader } from '@/components/shared/page-header';
