@@ -1,8 +1,8 @@
 version: 2
 
-# `prefix: chore` keeps Dependabot PR titles passing pr-title.yml. Application
-# ecosystems split majors into their own group so a breaking major can't block
-# routine minor/patch updates.
+# `prefix: chore` keeps Dependabot PR titles passing pr-title.yml. npm splits
+# majors into their own group so a breaking major can't block routine
+# minor/patch updates.
 updates:
   - package-ecosystem: npm
     directory: /frontend
@@ -31,12 +31,12 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # One group, no update-types split: requirements.txt holds ranges with no
+      # lock file, so Dependabot has no resolved version to classify an update
+      # as major/minor/patch. Filtered groups then match nothing and every bump
+      # arrives as its own PR.
       backend:
         patterns: ["*"]
-        update-types: [minor, patch]
-      backend-major:
-        patterns: ["*"]
-        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: /
