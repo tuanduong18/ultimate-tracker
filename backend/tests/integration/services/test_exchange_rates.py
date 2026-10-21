@@ -126,6 +126,20 @@ async def test_second_read_is_served_from_memory(db: AsyncSession) -> None:
     assert "EUR" not in await exchange_rates.get_rates(db)
 
 
+async def test_a_refresh_is_seen_at_once_even_just_after_boot(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Monotonic time starts near zero on a freshly booted machine (a CI runner,
+    # a new container), so invalidation cannot lean on "fetched long ago".
+    monkeypatch.setattr(exchange_rates.time, "monotonic", lambda: 5.0)
+    await exchange_rates.store_rates(db, {"USD": Decimal("1"), "AMD": Decimal("390")})
+    assert "AMD" in await exchange_rates.supported_currencies(db)
+
+    await exchange_rates.store_rates(db, {"USD": Decimal("1")})
+
+    assert await exchange_rates.supported_currencies(db) == {"USD"}
+
+
 # --- Which currencies are supported ---------------------------------------------
 
 

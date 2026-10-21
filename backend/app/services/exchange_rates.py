@@ -113,6 +113,12 @@ class _RateCache:
         self.snapshot = snapshot
         self.fetched_at = time.monotonic()
 
+    def invalidate(self) -> None:
+        # Dropping the snapshot, not zeroing fetched_at: monotonic time starts
+        # near zero on a freshly booted machine, so "fetched at 0" can still
+        # be younger than the TTL there.
+        self.snapshot = None
+
 
 _cache = _RateCache()
 
@@ -182,7 +188,7 @@ async def store_rates(db: AsyncSession, rates: dict[str, Decimal]) -> RefreshRes
     await db.commit()
 
     # The process that ran the job reads the new state on its next call.
-    _cache.fetched_at = 0.0
+    _cache.invalidate()
     if newly_delisted or relisted:
         logger.warning(
             "exchange_rates.listing_changed", delisted=newly_delisted, relisted=sorted(relisted)
