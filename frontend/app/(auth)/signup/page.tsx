@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { MailCheck } from 'lucide-react';
 
 import { AuthShell, Field, SubmitButton } from '@/components/shared/auth-shell';
+import { OAuthButtons, OrDivider } from '@/components/shared/oauth-buttons';
 import { supabase } from '@/lib/supabase';
 
 export default function SignupPage() {
@@ -79,6 +80,9 @@ export default function SignupPage() {
         </>
       }
     >
+      <OAuthButtons next="/dashboard" onError={setError} />
+      <OrDivider />
+
       <form className="space-y-4" onSubmit={handleSubmit}>
         <Field
           id="email"
