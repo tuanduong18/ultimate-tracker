@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { AuthShell, Field, SubmitButton } from '@/components/shared/auth-shell';
+import { OAuthButtons, OrDivider, oauthErrorFrom } from '@/components/shared/oauth-buttons';
 import { useSession } from '@/lib/hooks/use-session';
 import { supabase } from '@/lib/supabase';
 
@@ -21,10 +22,19 @@ function LoginForm() {
   const { session, loading } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  // A Google sign-in that was cancelled or refused comes back with the reason
+  // in the URL. Safe to read while rendering: useSearchParams opts this form
+  // out of prerendering, so it only ever renders in the browser.
+  const [error, setError] = useState(() =>
+    typeof window === 'undefined'
+      ? ''
+      : (oauthErrorFrom(window.location.search, window.location.hash) ?? '')
+  );
   const [submitting, setSubmitting] = useState(false);
 
-  // Someone who is already signed in has no business on the login page.
+  // Someone who is already signed in has no business on the login page. This
+  // is also how a Google sign-in finishes: it returns here with the session in
+  // the URL, and the redirect fires once the client has picked it up.
   useEffect(() => {
     if (!loading && session) router.replace(next);
   }, [loading, session, next, router]);
@@ -60,6 +70,9 @@ function LoginForm() {
         </>
       }
     >
+      <OAuthButtons next={next} onError={setError} />
+      <OrDivider />
+
       <form className="space-y-4" onSubmit={handleSubmit}>
         <Field
           id="email"

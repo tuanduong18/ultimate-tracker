@@ -10,6 +10,13 @@ vi.mock('next/navigation', () => ({
   usePathname: () => pathname.current,
 }));
 
+// The menu reads /auth/me for the name. Leaving it unanswered keeps these
+// tests on the session fallback, which is what they are about.
+vi.mock('@/lib/api-client', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api-client')>('@/lib/api-client');
+  return { ...actual, api: { get: () => new Promise(() => {}) } };
+});
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {

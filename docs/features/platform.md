@@ -18,7 +18,14 @@ theming, and the pipeline that keeps it deployable.
 - **Auth** — Supabase email/password. The backend verifies every JWT against the project's JWKS
   endpoint using ES256; no auth data is duplicated locally.
 - **Profiles** — a local `profiles` table keyed by the Supabase user id, holding app-specific
-  fields: `timezone` and `display_currency`. `GET` and `PATCH /api/v1/auth/me`.
+  fields: `display_name`, `timezone`, `display_currency` (what totals are reported in) and
+  `preferred_currency` (what new entries start in). `GET` and `PATCH /api/v1/auth/me`. The email
+  is deliberately not copied: the frontend reads it from the Supabase session. With no
+  `display_name`, the UI falls back to the name the sign-in provider supplied, then the email.
+- **Sign-in** — email and password, or Google OAuth through Supabase. See
+  [Google sign-in setup](#google-sign-in-setup).
+- **Welcome page** — the public `/`: what the app does today, every module with its release, and
+  sign-up / log-in calls to action (one "Open dashboard" button for a signed-in visitor).
 - **Auth guard** — signed-in routes live under `app/(app)/` and are wrapped by `AuthGuard`.
 - **App shell** — navigation that adapts to the width: a sidebar on desktops, an icon rail on
   tablets, and a menu button with a slide-out drawer on phones. Profile, settings and log out
@@ -32,7 +39,6 @@ theming, and the pipeline that keeps it deployable.
 
 **Not built:**
 
-- Google OAuth sign-in. Email/password only today.
 - Onboarding flow — the page is a placeholder.
 - Dashboard summary widgets — the dashboard lists modules, it does not summarise them.
 - Notification delivery of any kind. This blocks budget alerts, subscription reminders, and the
@@ -61,6 +67,25 @@ Rejections are uniform and deliberate:
 
 All `401`s carry `WWW-Authenticate: Bearer`. The `503` exists because a JWKS outage must not look
 to the client like a bad token — otherwise the frontend logs the user out over an upstream blip.
+
+---
+
+## Google sign-in setup
+
+The code is provider-agnostic; turning Google on is configuration in two consoles.
+
+1. **Google Cloud Console** → APIs & Services → Credentials → *Create OAuth client ID*
+   (type *Web application*). Authorised redirect URI:
+   `https://<project-ref>.supabase.co/auth/v1/callback`. Configure the consent screen
+   (app name, support email) if prompted.
+2. **Supabase** → Authentication → Sign In / Providers → *Google*: enable it and paste the client
+   ID and secret.
+3. **Supabase** → Authentication → URL Configuration → *Redirect URLs*: add
+   `http://localhost:3000/**` and the production origin followed by `/**`. The app sends users
+   back to `/login?next=…`, and Supabase refuses any redirect not on this list.
+
+A Google account whose verified email matches an existing email-and-password account is linked
+to it by Supabase — same user id, so the same profile and data.
 
 ---
 

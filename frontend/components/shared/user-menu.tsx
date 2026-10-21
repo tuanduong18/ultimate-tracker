@@ -6,14 +6,11 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { ACCOUNT_LINKS, isActive } from '@/components/shared/nav-items';
+import { useResource } from '@/lib/hooks/use-collection';
 import { useSession } from '@/lib/hooks/use-session';
+import { PROFILE_CHANGED, displayNameOf, initialOf } from '@/lib/identity';
 import { supabase } from '@/lib/supabase';
-
-/** "tuan@example.com" → "T". One letter reads cleanly at avatar size. */
-function initialOf(email: string | undefined): string {
-  const first = email?.trim().charAt(0);
-  return first ? first.toUpperCase() : '?';
-}
+import type { Profile } from '@/lib/types/profile';
 
 /**
  * The account menu behind the avatar, top right: who is signed in, Profile,
@@ -35,7 +32,20 @@ export function UserMenu() {
   const panelId = useId();
   const pathname = usePathname();
   const { session } = useSession();
+  const profile = useResource<Profile>('/auth/me');
+  const { reload } = profile;
   const email = session?.user.email;
+  // Until the profile lands — or if it fails — the provider's name and then
+  // the email stand in, so the avatar never waits on the API.
+  const name = displayNameOf(profile.data, session?.user);
+
+  // This menu lives in the layout and never remounts, so a name saved on
+  // /profile would otherwise not show here until a full reload.
+  useEffect(() => {
+    const onChange = () => void reload();
+    window.addEventListener(PROFILE_CHANGED, onChange);
+    return () => window.removeEventListener(PROFILE_CHANGED, onChange);
+  }, [reload]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +83,7 @@ export function UserMenu() {
           aria-hidden
           className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-fg"
         >
-          {initialOf(email)}
+          {initialOf(name, email)}
         </span>
         <ChevronDown
           aria-hidden
@@ -89,6 +99,7 @@ export function UserMenu() {
           {email && (
             <p className="truncate border-b border-border px-3 pt-1 pb-3 text-xs text-fg-muted">
               Signed in as
+              {name && <span className="block truncate text-sm font-medium text-fg">{name}</span>}
               <span className="block truncate text-sm text-fg">{email}</span>
             </p>
           )}
