@@ -154,8 +154,9 @@ ultimate-tracker/
 
 Two things to know before reading any of this:
 
-1. **The tables that exist today are Finance, Profiles, and `exchange_rates` — and nothing
-   else.** Everything under [Planned tables](#planned-tables) is specified but unbuilt.
+1. **The tables that exist today are Finance, Profiles, and two platform tables —
+   `notifications` and `exchange_rates` — and nothing else.** Everything under
+   [Planned tables](#planned-tables) is specified but unbuilt.
 2. **`profiles` mirrors Supabase `auth.users` by UUID.** Auth data is never duplicated — the
    local table holds only app-specific fields.
 
@@ -218,10 +219,10 @@ Three properties of this schema are easy to get wrong:
 - **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
   Conversion into the user's `display_currency` happens server-side in `services/finance/summaries.py`.
 
-Not drawn above: `subscriptions` ([finance.md](./docs/features/finance.md#subscriptions)), and
-`exchange_rates`, one USD-based rate per currency, refreshed daily and doubling as the list of
-supported currencies, that no other table references
-([finance.md](./docs/features/finance.md#exchange-rates)).
+Not drawn above: `subscriptions` ([finance.md](./docs/features/finance.md#subscriptions)),
+`exchange_rates`, one USD-based rate per currency, refreshed daily and doubling as the list of supported currencies, that no other table references
+([finance.md](./docs/features/finance.md#exchange-rates)), and `notifications`, one row per in-app
+message, keyed to `profiles` ([platform.md](./docs/features/platform.md#notifications)).
 
 ### Planned tables
 
@@ -233,7 +234,7 @@ defines its columns and behaviour.
 | Fitness | `training_sessions`, `training_set_entries`, `step_logs`, `sleep_logs`, `mood_checkins`, `habits`, `habit_logs` | [fitness.md](./docs/features/fitness.md#data-model) |
 | Time & Calendar | `time_sessions`, `entertainment_allowances`, `events`, `calendar_connections` | [time-and-calendar.md](./docs/features/time-and-calendar.md#data-model) |
 | Insights | `weekly_digests`, `correlations` | [insights.md](./docs/features/insights.md#data-model) |
-| Platform | `notifications`, `notification_preferences` | [platform.md](./docs/features/platform.md#notifications) |
+| Platform | `notification_preferences` | [platform.md](./docs/features/platform.md#notifications) |
 
 Add a table to this list in the same PR that creates its migration. A schema section that lags
 the database is how the previous version of this document ended up describing tables that were
