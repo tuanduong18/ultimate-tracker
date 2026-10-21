@@ -17,6 +17,7 @@ from app.tasks import jobs
 
 JOBS: dict[str, Callable[[AsyncSession], Awaitable[BaseModel]]] = {
     "exchange-rates": jobs.refresh_exchange_rates,
+    "subscriptions": jobs.subscriptions,
 }
 
 

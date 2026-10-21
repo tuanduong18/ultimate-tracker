@@ -8,6 +8,7 @@ from app.models.finance import (
     Expense,
     Subscription,
 )
+from app.models.notification import Notification, NotificationKind
 from app.models.profile import Profile
 
 __all__ = [
@@ -16,6 +17,8 @@ __all__ = [
     "Category",
     "ExchangeRate",
     "Expense",
+    "Notification",
+    "NotificationKind",
     "Profile",
     "Subscription",
 ]

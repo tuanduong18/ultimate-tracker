@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # scheduler can trigger it; callers must send this value in X-Task-Secret.
     # Empty disables the endpoints entirely, which is the safe default.
     task_secret: str = ""
+    # How many days before a subscription charges (or a trial converts) the
+    # reminder goes out. It then stays open until the charge happens or the
+    # user acts on it.
+    subscription_reminder_lead_days: int = 3
 
     # Observability.
     sentry_dsn: str | None = None

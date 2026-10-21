@@ -9,6 +9,7 @@ from app.api.v1 import (
     gaming,
     health,
     insights,
+    notifications,
     tasks,
     time_tracking,
 )
@@ -20,6 +21,7 @@ api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 # Scheduler-facing, authenticated by a shared secret rather than a user's JWT.
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 

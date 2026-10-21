@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.schemas.task import ExchangeRateRefreshRead
+from app.schemas.task import ExchangeRateRefreshRead, SubscriptionJobRead
 from app.services import exchange_rates
 from app.tasks import jobs
 
@@ -59,3 +59,10 @@ async def refresh_exchange_rates(db: AsyncSession = Depends(get_db)) -> Exchange
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={"code": "UPSTREAM_UNAVAILABLE", "message": "Could not fetch exchange rates."},
         ) from exc
+
+
+@router.post("/subscriptions", response_model=SubscriptionJobRead)
+async def run_subscriptions(db: AsyncSession = Depends(get_db)) -> SubscriptionJobRead:
+    """Record charges that have come due as expenses, then update every
+    reminder's countdown. Schedule it every couple of hours."""
+    return await jobs.subscriptions(db)

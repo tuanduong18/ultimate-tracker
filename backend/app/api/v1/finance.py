@@ -1,13 +1,13 @@
 """finance API routes (v1). Keep handlers thin — business logic lives in app/services/."""
 
 import uuid
-from datetime import UTC, date, datetime, tzinfo
+from datetime import date
 from typing import Annotated
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import timezones
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.finance import (
@@ -44,16 +44,8 @@ def _as_http(exc: finance_service.FinanceError) -> HTTPException:
 
 
 def _today_in(timezone: str) -> date:
-    """The current date where the user is, which is what billing dates mean.
-
-    Falls back to UTC for a timezone this machine cannot resolve — the profile
-    stores it unvalidated, and a wrong-by-hours "today" beats a 500.
-    """
-    try:
-        tz: tzinfo = ZoneInfo(timezone)
-    except ZoneInfoNotFoundError, ValueError:
-        tz = UTC
-    return datetime.now(tz).date()
+    """The current date where the user is, which is what billing dates mean."""
+    return timezones.today_in(timezone)
 
 
 # --- Categories ---------------------------------------------------------------
