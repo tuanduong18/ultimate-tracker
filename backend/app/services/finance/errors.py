@@ -42,6 +42,11 @@ class InvalidAmountError(FinanceError):
     code = "INVALID_AMOUNT"
 
 
+class UnsupportedCurrencyError(FinanceError):
+    status_code = 422
+    code = "UNSUPPORTED_CURRENCY"
+
+
 class InvalidDateRangeError(FinanceError):
     status_code = 422
     code = "INVALID_DATE_RANGE"

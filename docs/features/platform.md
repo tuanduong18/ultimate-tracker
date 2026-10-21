@@ -33,6 +33,11 @@ theming, and the pipeline that keeps it deployable.
 - **Dashboard** — currently a module index rather than per-domain summary widgets.
 - **Theming** — every colour routed through theme tokens, with a picker in Settings and
   system-preference dark mode.
+- **In-app notifications** — `notifications` table, `/api/v1/notifications`, a live bell in the
+  header and a `/notifications` page; subscription reminders and renewal notices are the first
+  writers. See [Notifications](#notifications).
+- **Background jobs** — exchange-rate refresh, and subscription renewals and reminders, idempotent and
+  triggerable over HTTP or the command line. See [Background jobs](#background-jobs).
 - **Health check** — `GET /api/v1/health`.
 - **CI/CD** — lint, type-check, test, and build on every PR; auto-deploy on merge.
 - **Error tracking** — Sentry on the backend.
@@ -41,8 +46,7 @@ theming, and the pipeline that keeps it deployable.
 
 - Onboarding flow — the page is a placeholder.
 - Dashboard summary widgets — the dashboard lists modules, it does not summarise them.
-- Notification delivery of any kind. This blocks budget alerts, subscription reminders, and the
-  weekly digest, and is why all three sit in v0.2 or later.
+- Notification delivery beyond in-app: no email yet.
 - Data export and account deletion.
 
 ---
@@ -91,25 +95,74 @@ to it by Supabase — same user id, so the same profile and data.
 
 ## Notifications
 
-Not built, and three features depend on it: budget breach alerts, subscription renewal reminders,
-and the weekly digest.
+Three features depend on it: budget breach alerts, subscription renewal reminders, and the weekly
+digest. Subscription reminders are the first caller and are built.
 
 It is listed here rather than inside any one domain because building it three times, once per
 feature, is the obvious failure mode. One delivery service, one preference surface, three callers.
 
-**Required by v0.2** — subscription reminders are the first thing that needs it.
+| Piece | Status | Notes |
+|---|---|---|
+| In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. |
+| Scheduler | Open | The jobs exist and are idempotent; what triggers them is undecided — see [Background jobs](#background-jobs). |
+| Email | Not built | Resend. Used for the weekly digest and opted-in reminders. |
+| Preferences | Not built | Per-channel, per-category, on the profile. One place the user turns things off. |
 
-| Piece | Notes |
-|---|---|
-| Scheduler | Daily and weekly jobs. APScheduler in-process is likely enough for single-user scale; Celery only if that stops being true. |
-| In-app | A notification record per user, marked read. The baseline every channel falls back to. |
-| Email | Resend. Used for the weekly digest and opted-in reminders. |
-| Preferences | Per-channel, per-category, on the profile. One place the user turns things off. |
+`notifications` holds `user_id`, a `kind` (CHECKed string), `title`, `body`, an optional
+`due_on` (the date the announced thing happens), `read_at`, `snoozed_at`, `archived_at`,
+`alerted_at` (when it last asked for attention; lists are ordered by it), and a `dedupe_key`
+unique per user, which is what makes a doubled or retried job run harmless.
 
-Scheduled jobs on Render's free tier stop when the service spins down. Either the scheduler runs
-somewhere that stays awake, or jobs are triggered by an external pinger and made idempotent so a
-missed or repeated run is harmless. **Design the jobs to be idempotent regardless** — a reminder
-that fires twice is a bug the user sees.
+Two families, with different lives:
+
+| | Kinds | Text | Leaves the bell | Then |
+|---|---|---|---|---|
+| **Reminders** | `subscription_renewal`, `trial_ending` | Live: a daily countdown, rewritten by edits | Snoozed (`snoozed_at`) | Deleted on the charge day |
+| **Notices** | `subscription_renewed`, `currency_delisted` | Fixed once sent | Moved to the history (`archived_at`) | Kept until the user deletes them |
+
+See [Subscriptions → Reminders](./finance.md#reminders) for when reminders are created,
+rewritten and removed.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/notifications` | `?view=inbox` (default): neither snoozed nor archived. `?view=history`: snoozed or archived. Newest first; `?unread_only=true`, `?limit=` (1–100, default 50). |
+| `PATCH` | `/notifications/{id}` | Exactly one of `{"read": bool}`, `{"snoozed": bool}` (reminders only) or `{"archived": true}` (notices only). Otherwise `422 WRONG_NOTIFICATION_KIND`. |
+| `DELETE` | `/notifications/{id}` | Notices only. `204`. |
+
+**Live updates.** The frontend shows the inbox behind a bell in the header, and the inbox and
+history on `/notifications`. Both subscribe to **Supabase Realtime** on `notifications`, so a
+job run, an edit in another tab or another device shows up without a reload. That needs row-level
+security on the table with one policy — a signed-in user may `SELECT` their own rows — and the
+table in the `supabase_realtime` publication; the migration sets up both when it runs on
+Supabase. The backend connects as the table owner, which RLS does not restrict. Refetching on tab
+focus and every five minutes covers a dropped socket.
+
+### Background jobs
+
+| Job | What it does | Cadence |
+|---|---|---|
+| `exchange-rates` | Fetch rates from the upstream into `exchange_rates`, delist currencies it dropped, and notify their users. The table's only writer. | Daily. |
+| `subscriptions` | Record charges that have come due as expenses (the renewal job), then create, re-count and clean up reminders. | Every 2 hours: each user's daily countdown then changes within 2 hours of their midnight. |
+
+The jobs live in [`app/tasks/jobs.py`](../../backend/app/tasks/jobs.py) as plain async functions,
+and every trigger calls the same ones:
+
+- **HTTP** — `POST /api/v1/tasks/<job>` with an `X-Task-Secret` header matching `TASK_SECRET`.
+  For a GitHub Actions cron, Supabase `pg_cron` + `pg_net`, or an external pinger. With
+  `TASK_SECRET` unset the endpoints answer `503 TASKS_DISABLED`.
+- **Command line** — `python -m app.tasks <job>`, for a Render cron job or anything else that
+  runs a command with `DATABASE_URL` set. Exits non-zero on failure.
+- **In-process** — an APScheduler (or similar) can call the functions directly.
+
+**Production uses Supabase `pg_cron` + `pg_net`**, set up by
+[`backend/scripts/schedule_jobs.sql`](../../backend/scripts/schedule_jobs.sql): run it once in the
+Supabase SQL editor after deploying, with the Render URL and `TASK_SECRET` filled in. Both are
+kept in Supabase Vault, not in the job definitions, and the script is safe to re-run. Its last
+section has the queries for checking that runs fire and what the backend answered.
+
+Scheduled jobs on Render's free tier stop when the service spins down, which is why the jobs do not
+assume they run on time. **Keep new jobs idempotent** — a charge recorded twice is a bug the user
+sees.
 
 ---
 

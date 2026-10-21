@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Expense
 from app.schemas.finance import ExpenseCreate, ExpenseUpdate
-from app.services.finance._common import _applied_changes, _check_scale
+from app.services.finance._common import _applied_changes, _check_currency, _check_scale
 from app.services.finance.categories import _require_owned_category_ref
 from app.services.finance.errors import NotFoundError
 
@@ -48,6 +48,7 @@ async def _get_owned_expense(
 
 
 async def create_expense(db: AsyncSession, user_id: uuid.UUID, data: ExpenseCreate) -> Expense:
+    await _check_currency(db, data.currency)
     if data.category_id is not None:
         await _require_owned_category_ref(db, user_id, data.category_id)
     expense = Expense(user_id=user_id, **data.model_dump())
@@ -62,6 +63,7 @@ async def update_expense(
 ) -> Expense:
     expense = await _get_owned_expense(db, user_id, expense_id)
     changes = _applied_changes(data, _NULLABLE_EXPENSE_FIELDS)
+    await _check_currency(db, changes.get("currency"), expense.currency)
     if changes.get("category_id") is not None:
         await _require_owned_category_ref(db, user_id, changes["category_id"])
     # The schema can only cross-check amount against currency when both arrive;

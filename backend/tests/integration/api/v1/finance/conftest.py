@@ -35,7 +35,7 @@ def finance_client(authed_client: AsyncClient) -> AsyncClient:
 def stub_rates(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fixed rates so totals are asserted against arithmetic, not the network."""
 
-    async def _rates() -> dict[str, Decimal]:
+    async def _rates(_db: object) -> dict[str, Decimal]:
         return {"USD": Decimal("1"), "SGD": Decimal("1.28"), "VND": Decimal("25000")}
 
     monkeypatch.setattr(exchange_rates, "get_rates", _rates)

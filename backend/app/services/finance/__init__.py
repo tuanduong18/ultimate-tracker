@@ -7,6 +7,7 @@ so ``from app.services import finance as finance_service`` stays the one import.
 Failures are raised as FinanceError subclasses (see ``errors``).
 """
 
+from app.services.finance.billing import billing_date, next_billing_date
 from app.services.finance.budgets import (
     create_budget,
     delete_budget,
@@ -30,6 +31,7 @@ from app.services.finance.errors import (
     RateUnavailableError,
     UnknownCategoryError,
     UnknownGranularityError,
+    UnsupportedCurrencyError,
 )
 from app.services.finance.expenses import (
     create_expense,
@@ -38,11 +40,9 @@ from app.services.finance.expenses import (
     update_expense,
 )
 from app.services.finance.subscriptions import (
-    billing_date,
     create_subscription,
     delete_subscription,
     list_subscriptions,
-    next_billing_date,
     update_subscription,
 )
 from app.services.finance.summaries import (
@@ -71,6 +71,7 @@ __all__ = [
     "RateUnavailableError",
     "UnknownCategoryError",
     "UnknownGranularityError",
+    "UnsupportedCurrencyError",
     "billing_date",
     "budget_progress",
     "build_default_categories",

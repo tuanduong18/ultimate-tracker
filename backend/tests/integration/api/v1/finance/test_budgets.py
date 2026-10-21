@@ -189,7 +189,7 @@ async def test_budget_progress_is_empty_without_budgets(
 async def test_budget_progress_reports_a_missing_rate_as_our_outage(
     finance_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def _partial() -> dict[str, Decimal]:
+    async def _partial(_db: object) -> dict[str, Decimal]:
         return {"USD": Decimal("1")}
 
     monkeypatch.setattr(exchange_rates, "get_rates", _partial)

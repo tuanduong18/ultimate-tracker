@@ -25,7 +25,9 @@ from app.services.finance.errors import (
 )
 
 
-async def _total_in(rows: Sequence[tuple[Decimal, str]], target: str) -> Decimal:
+def _total_in(
+    rows: Sequence[tuple[Decimal, str]], target: str, rates: dict[str, Decimal]
+) -> Decimal:
     """Sum (amount, currency) pairs into one target-currency total.
 
     Converting per row rather than per currency group keeps this honest about
@@ -34,7 +36,7 @@ async def _total_in(rows: Sequence[tuple[Decimal, str]], target: str) -> Decimal
     """
     total = Decimal(0)
     for amount, currency in rows:
-        total += await exchange_rates.convert(amount, currency, target)
+        total += exchange_rates.convert(amount, currency, target, rates)
     return total
 
 
@@ -73,9 +75,10 @@ async def summarize(
         )
     ).all()
 
+    rates = await exchange_rates.get_rates(db)
     try:
-        spent = await _total_in([(a, c) for a, c in spent_rows], display_currency)
-        budgeted = await _total_in([(a, c) for a, c in budget_rows], display_currency)
+        spent = _total_in([(a, c) for a, c in spent_rows], display_currency, rates)
+        budgeted = _total_in([(a, c) for a, c in budget_rows], display_currency, rates)
     except ValueError as exc:
         # No rate for one of the currencies involved — our problem, not the
         # caller's, and temporary. Answering 0 would be a lie about their money.
@@ -163,6 +166,7 @@ async def summarize_by_category(
         grouped[category_id].append((amount, currency))
 
     known = {category.id: category for category in await list_categories(db, user_id)}
+    rates = await exchange_rates.get_rates(db)
 
     buckets: list[dict[str, Any]] = []
     try:
@@ -173,7 +177,7 @@ async def summarize_by_category(
                     "category_id": category.id if category is not None else None,
                     "name": category.name if category is not None else UNCATEGORIZED_NAME,
                     "colour": category.colour if category is not None else UNCATEGORIZED_COLOUR,
-                    "spent": await _total_in(spends, display_currency),
+                    "spent": _total_in(spends, display_currency, rates),
                 }
             )
     except ValueError as exc:
@@ -257,6 +261,7 @@ async def summarize_by_period(
     if chosen is not None:
         stmt = stmt.where(chosen)
     rows = (await db.execute(stmt)).all()
+    rates = await exchange_rates.get_rates(db)
 
     buckets: list[dict[str, Any]] = []
     try:
@@ -270,7 +275,7 @@ async def summarize_by_period(
                 {
                     "starts_on": bucket_start,
                     "ends_on": bucket_end,
-                    "spent": await _total_in(spends, display_currency),
+                    "spent": _total_in(spends, display_currency, rates),
                 }
             )
     except ValueError as exc:
@@ -329,6 +334,7 @@ async def budget_progress(
             )
         )
     ).all()
+    rates = await exchange_rates.get_rates(db)
 
     progress: list[dict[str, Any]] = []
     for budget, (window_start, window_end) in windowed:
@@ -339,7 +345,7 @@ async def budget_progress(
             if category_id in covered and window_start <= spent_on <= window_end
         ]
         try:
-            spent = await _total_in(spends, budget.currency)
+            spent = _total_in(spends, budget.currency, rates)
         except ValueError as exc:
             raise RateUnavailableError(str(exc)) from exc
         progress.append(

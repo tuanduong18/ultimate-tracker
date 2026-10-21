@@ -1,14 +1,13 @@
 """finance API routes (v1). Keep handlers thin — business logic lives in app/services/."""
 
 import uuid
-from datetime import UTC, date, datetime, tzinfo
+from datetime import date
 from typing import Annotated
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.currencies import CURRENCY_CODES
+from app.core import timezones
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.finance import (
@@ -30,6 +29,7 @@ from app.schemas.finance import (
     SubscriptionUpdate,
     SummaryRead,
 )
+from app.services import exchange_rates
 from app.services import finance as finance_service
 from app.services import profile as profile_service
 
@@ -44,16 +44,8 @@ def _as_http(exc: finance_service.FinanceError) -> HTTPException:
 
 
 def _today_in(timezone: str) -> date:
-    """The current date where the user is, which is what billing dates mean.
-
-    Falls back to UTC for a timezone this machine cannot resolve — the profile
-    stores it unvalidated, and a wrong-by-hours "today" beats a 500.
-    """
-    try:
-        tz: tzinfo = ZoneInfo(timezone)
-    except ZoneInfoNotFoundError, ValueError:
-        tz = UTC
-    return datetime.now(tz).date()
+    """The current date where the user is, which is what billing dates mean."""
+    return timezones.today_in(timezone)
 
 
 # --- Categories ---------------------------------------------------------------
@@ -304,14 +296,15 @@ async def delete_subscription(
 
 
 @router.get("/currencies", response_model=list[str])
-async def list_currencies() -> list[str]:
-    """Currency codes the API will accept.
+async def list_currencies(db: AsyncSession = Depends(get_db)) -> list[str]:
+    """Currency codes new entries may use: those the rate provider still quotes.
 
     Served rather than duplicated in the frontend so the picker cannot drift
-    from what the schemas actually validate against. Unauthenticated on
-    purpose: it is a static list, identical for everyone.
+    from what the services actually validate against. A delisted currency is
+    left out; the picker still shows it on a row already stored in it.
+    Unauthenticated on purpose: it is identical for everyone.
     """
-    return list(CURRENCY_CODES)
+    return sorted(await exchange_rates.supported_currencies(db))
 
 
 # --- Summary ------------------------------------------------------------------
