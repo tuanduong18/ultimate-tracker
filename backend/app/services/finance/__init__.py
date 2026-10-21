@@ -30,6 +30,7 @@ from app.services.finance.errors import (
     RateUnavailableError,
     UnknownCategoryError,
     UnknownGranularityError,
+    UnsupportedCurrencyError,
 )
 from app.services.finance.expenses import (
     create_expense,
@@ -71,6 +72,7 @@ __all__ = [
     "RateUnavailableError",
     "UnknownCategoryError",
     "UnknownGranularityError",
+    "UnsupportedCurrencyError",
     "billing_date",
     "budget_progress",
     "build_default_categories",

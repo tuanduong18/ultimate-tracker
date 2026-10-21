@@ -6,16 +6,16 @@ from pydantic import ValidationError
 from app.schemas.profile import ProfileUpdate
 
 
-async def test_display_currency_is_normalised_and_validated() -> None:
+async def test_display_currency_is_normalised_and_shape_checked() -> None:
     assert ProfileUpdate(display_currency="usd").display_currency == "USD"
     with pytest.raises(ValidationError):
-        ProfileUpdate(display_currency="XYZ")
+        ProfileUpdate(display_currency="US")
 
 
-async def test_preferred_currency_is_normalised_and_validated() -> None:
+async def test_preferred_currency_is_normalised_and_shape_checked() -> None:
     assert ProfileUpdate(preferred_currency="vnd").preferred_currency == "VND"
     with pytest.raises(ValidationError):
-        ProfileUpdate(preferred_currency="XYZ")
+        ProfileUpdate(preferred_currency="XDR")
 
 
 @pytest.mark.parametrize(("sent", "stored"), [("  Tuan  ", "Tuan"), ("   ", None), (None, None)])

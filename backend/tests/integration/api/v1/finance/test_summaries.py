@@ -79,7 +79,7 @@ async def test_summary_reports_a_missing_rate_as_our_outage(
 ) -> None:
     """A rate we cannot fetch is 503, not a total that quietly omits money."""
 
-    async def _partial() -> dict[str, Decimal]:
+    async def _partial(_db: object) -> dict[str, Decimal]:
         return {"USD": Decimal("1")}
 
     monkeypatch.setattr(exchange_rates, "get_rates", _partial)

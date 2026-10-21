@@ -22,7 +22,9 @@ This is the first domain built and the most complete.
   (many-to-many), of one of two kinds: **monthly**, which starts fresh every calendar month, or
   **custom**, over one fixed date range. See [Budgets](#budgets).
 - Multi-currency — every expense and budget stores its own currency. Totals convert into the
-  user's display currency server-side, using rates from open.er-api.com cached for 6 hours.
+  user's display currency server-side, using rates stored in the `exchange_rates` table by a
+  daily scheduled job; requests never call open.er-api.com. The same table decides which
+  currencies can be picked. See [Exchange rates](#exchange-rates).
 - Budget progress — spend-to-date against each cap, converted.
 - Breakdowns — spend by category and spend by period (day or week buckets), both filterable by
   category and comparable across two date ranges.
@@ -190,6 +192,48 @@ alerts must use the same mechanism; the two are not built twice.
 - Which scheduler triggers the job — Supabase `pg_cron`, a GitHub Actions cron hitting a
   protected endpoint, or an in-process scheduler?
 - Which email provider?
+
+## Exchange rates
+
+Rates live in `exchange_rates`, one row per currency (about 160 rows):
+
+| Column | Type | Notes |
+|---|---|---|
+| `currency` | varchar(3), PK | |
+| `rate_per_usd` | numeric(18, 6) | units of `currency` per 1 USD |
+| `updated_at` | timestamptz | when the provider last quoted this rate |
+| `delisted_at` | timestamptz, nullable | set when the provider stopped quoting it |
+
+**The refresh job is the only writer.** Run daily by a scheduler —
+`POST /api/v1/tasks/exchange-rates` or `python -m app.tasks exchange-rates`, see
+[Background jobs](./platform.md#background-jobs) — it fetches open.er-api.com and, in one
+transaction, updates or adds every currency it quotes. A failed run raises and leaves the table
+as it was.
+
+**The table is the list of supported currencies.** There is no hardcoded list: a currency is
+supported while the provider quotes it. `GET /api/v1/finance/currencies` (the dropdowns) returns
+the supported ones, and new expenses, budgets, subscriptions and profile currencies must use one
+(`422 UNSUPPORTED_CURRENCY` otherwise).
+
+**A currency the provider drops is delisted, not deleted.** The refresh sets `delisted_at` and
+keeps the last rate, so:
+
+- entries already recorded in it keep converting, at that last rate;
+- it leaves the dropdowns, and new entries can't use it;
+- a row already in it stays editable as long as its currency is left alone;
+- if the provider quotes it again, the next refresh clears `delisted_at`.
+
+A refresh that would delist more than 5 currencies at once is refused as a broken response
+(`EXCHANGE_RATES_MAX_DELISTED_PER_REFRESH`).
+
+**Reads never call the API.** They serve the table, cached in memory for an hour, however old
+it is — stale real rates beat the hardcoded fallback — and log `exchange_rates.stale` once the
+rows are more than 48 hours old, which means the scheduler has stopped. Before the job's first
+run the table is empty: reads use the hardcoded fallback rates, and only those 10 currencies can
+be picked. Run the job once right after deploying.
+
+Only the latest rates are kept: totals convert at today's rate, so last January's total moves a
+little as rates move. That is an accepted trade-off for a personal tracker.
 
 ---
 

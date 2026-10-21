@@ -154,8 +154,8 @@ ultimate-tracker/
 
 Two things to know before reading any of this:
 
-1. **The tables that exist today are Finance and Profiles, and nothing else.** Everything
-   under [Planned tables](#planned-tables) is specified but unbuilt.
+1. **The tables that exist today are Finance, Profiles, and `exchange_rates` — and nothing
+   else.** Everything under [Planned tables](#planned-tables) is specified but unbuilt.
 2. **`profiles` mirrors Supabase `auth.users` by UUID.** Auth data is never duplicated — the
    local table holds only app-specific fields.
 
@@ -218,6 +218,11 @@ Three properties of this schema are easy to get wrong:
 - **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
   Conversion into the user's `display_currency` happens server-side in `services/finance/summaries.py`.
 
+Not drawn above: `subscriptions` ([finance.md](./docs/features/finance.md#subscriptions)), and
+`exchange_rates`, one USD-based rate per currency, refreshed daily and doubling as the list of
+supported currencies, that no other table references
+([finance.md](./docs/features/finance.md#exchange-rates)).
+
 ### Planned tables
 
 Specified in [`docs/features/`](./docs/features/), not yet built. Each links to the document that
@@ -225,7 +230,6 @@ defines its columns and behaviour.
 
 | Domain | Tables | Spec |
 |---|---|---|
-| Finance | `subscriptions` | [finance.md](./docs/features/finance.md#subscriptions) |
 | Fitness | `training_sessions`, `training_set_entries`, `step_logs`, `sleep_logs`, `mood_checkins`, `habits`, `habit_logs` | [fitness.md](./docs/features/fitness.md#data-model) |
 | Time & Calendar | `time_sessions`, `entertainment_allowances`, `events`, `calendar_connections` | [time-and-calendar.md](./docs/features/time-and-calendar.md#data-model) |
 | Insights | `weekly_digests`, `correlations` | [insights.md](./docs/features/insights.md#data-model) |

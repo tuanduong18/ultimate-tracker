@@ -9,6 +9,7 @@ from app.api.v1 import (
     gaming,
     health,
     insights,
+    tasks,
     time_tracking,
 )
 
@@ -19,6 +20,8 @@ api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+# Scheduler-facing, authenticated by a shared secret rather than a user's JWT.
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 
 # Domains, in the order they appear in the app. Gaming is last by design.
 api_router.include_router(finance.router, prefix="/finance", tags=["finance"])

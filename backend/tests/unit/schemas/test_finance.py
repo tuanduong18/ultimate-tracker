@@ -53,9 +53,12 @@ def test_currency_is_normalised_to_upper_case() -> None:
     assert make_expense(currency="usd").currency == "USD"
 
 
-def test_unknown_currency_is_rejected() -> None:
+@pytest.mark.parametrize("code", ["US", "USDT", "U5D", "XDR"])
+def test_malformed_currency_code_is_rejected(code: str) -> None:
+    # Whether a well-formed code is *supported* needs the rates table, so the
+    # service checks that; see tests/integration/api/v1/finance/test_currencies.py.
     with pytest.raises(ValidationError):
-        make_expense(currency="XYZ")
+        make_expense(currency=code)
 
 
 def test_zero_decimal_currency_rejects_cents() -> None:

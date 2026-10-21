@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.profile import Profile
 from app.schemas.profile import ProfileUpdate
+from app.services import exchange_rates
 from app.services import finance as finance_service
 
 
@@ -61,9 +62,18 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
     ``exclude_unset`` matters: every field on ProfileUpdate is optional, so a
     PATCH carrying only a timezone must leave display_currency alone rather
     than resetting it to the field default.
+
+    Raises exchange_rates.UnsupportedCurrencyError for a currency new data may
+    not use; keeping a since-delisted one that is already set is allowed.
     """
     profile = await get_or_create_profile(db, user_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    for field in ("display_currency", "preferred_currency"):
+        if changes.get(field) is not None:
+            await exchange_rates.require_supported(
+                db, changes[field], current=getattr(profile, field)
+            )
+    for field, value in changes.items():
         if value is not None or field in _NULLABLE_FIELDS:
             setattr(profile, field, value)
     await db.commit()

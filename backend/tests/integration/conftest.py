@@ -1,6 +1,6 @@
 """Fixtures for tests that touch a database or the ASGI app."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 from typing import Any
 
 import pytest
@@ -14,6 +14,16 @@ from app.core.security import get_current_user_id
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.services import exchange_rates
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_cache() -> Iterator[None]:
+    """Every test gets its own database, so none may see rates another cached —
+    they decide which currencies a request accepts."""
+    exchange_rates.reset_cache()
+    yield
+    exchange_rates.reset_cache()
 
 
 @pytest.fixture

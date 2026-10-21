@@ -1,5 +1,6 @@
 """ORM models. Import each model here so Alembic autogenerate can see it."""
 
+from app.models.exchange_rate import ExchangeRate
 from app.models.finance import (
     Budget,
     BudgetCategory,
@@ -9,4 +10,12 @@ from app.models.finance import (
 )
 from app.models.profile import Profile
 
-__all__ = ["Budget", "BudgetCategory", "Category", "Expense", "Profile", "Subscription"]
+__all__ = [
+    "Budget",
+    "BudgetCategory",
+    "Category",
+    "ExchangeRate",
+    "Expense",
+    "Profile",
+    "Subscription",
+]

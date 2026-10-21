@@ -33,6 +33,8 @@ theming, and the pipeline that keeps it deployable.
 - **Dashboard** — currently a module index rather than per-domain summary widgets.
 - **Theming** — every colour routed through theme tokens, with a picker in Settings and
   system-preference dark mode.
+- **Background jobs** — the exchange-rate refresh, idempotent and triggerable over HTTP or the
+  command line. See [Background jobs](#background-jobs).
 - **Health check** — `GET /api/v1/health`.
 - **CI/CD** — lint, type-check, test, and build on every PR; auto-deploy on merge.
 - **Error tracking** — Sentry on the backend.
@@ -110,6 +112,27 @@ Scheduled jobs on Render's free tier stop when the service spins down. Either th
 somewhere that stays awake, or jobs are triggered by an external pinger and made idempotent so a
 missed or repeated run is harmless. **Design the jobs to be idempotent regardless** — a reminder
 that fires twice is a bug the user sees.
+
+---
+
+## Background jobs
+
+| Job | What it does | Cadence |
+|---|---|---|
+| `exchange-rates` | Fetch rates from the upstream into `exchange_rates` and delist currencies it dropped. The table's only writer. | Daily. |
+
+The jobs live in [`app/tasks/jobs.py`](../../backend/app/tasks/jobs.py) as plain async functions,
+and every trigger calls the same ones:
+
+- **HTTP** — `POST /api/v1/tasks/<job>` with an `X-Task-Secret` header matching `TASK_SECRET`.
+  For a GitHub Actions cron, Supabase `pg_cron` + `pg_net`, or an external pinger. With
+  `TASK_SECRET` unset the endpoints answer `503 TASKS_DISABLED`.
+- **Command line** — `python -m app.tasks <job>`, for a Render cron job or anything else that
+  runs a command with `DATABASE_URL` set. Exits non-zero on failure.
+- **In-process** — an APScheduler (or similar) can call the functions directly.
+
+Requests never do a job's work themselves: if a job has not run, reads degrade (stale data, a
+fallback, a logged warning) rather than fetching or generating on the fly.
 
 ---
 

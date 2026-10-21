@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import BillingInterval, Subscription
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
-from app.services.finance._common import _applied_changes, _check_scale
+from app.services.finance._common import _applied_changes, _check_currency, _check_scale
 from app.services.finance.categories import _require_owned_category_ref
 from app.services.finance.errors import InvalidDateRangeError, NotFoundError
 
@@ -114,6 +114,7 @@ async def create_subscription(
     A subscription started in the past does not log its past charges: the user
     has most likely recorded those already, and guessing would double-count.
     """
+    await _check_currency(db, data.currency)
     if data.category_id is not None:
         await _require_owned_category_ref(db, user_id, data.category_id)
 
@@ -135,6 +136,7 @@ async def update_subscription(
 ) -> Subscription:
     subscription = await _get_owned_subscription(db, user_id, subscription_id)
     changes = _applied_changes(data, _NULLABLE_SUBSCRIPTION_FIELDS)
+    await _check_currency(db, changes.get("currency"), subscription.currency)
     if changes.get("category_id") is not None:
         await _require_owned_category_ref(db, user_id, changes["category_id"])
     _check_scale(

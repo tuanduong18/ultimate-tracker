@@ -6,12 +6,13 @@ profile in the database. Business logic lives in app/services/profile.py.
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user_id
 from app.db.session import get_db
 from app.schemas.profile import ProfileRead, ProfileUpdate
+from app.services import exchange_rates
 from app.services import profile as profile_service
 
 router = APIRouter()
@@ -34,5 +35,11 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ) -> ProfileRead:
     """Update the authenticated user's preferences."""
-    profile = await profile_service.update_profile(db, user_id, payload)
+    try:
+        profile = await profile_service.update_profile(db, user_id, payload)
+    except exchange_rates.UnsupportedCurrencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "UNSUPPORTED_CURRENCY", "message": str(exc)},
+        ) from exc
     return ProfileRead.model_validate(profile)

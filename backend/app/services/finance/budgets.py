@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Budget, BudgetPeriod
 from app.schemas.finance import BudgetCreate, BudgetUpdate
-from app.services.finance._common import _applied_changes, _check_scale
+from app.services.finance._common import _applied_changes, _check_currency, _check_scale
 from app.services.finance.categories import _owned_categories
 from app.services.finance.errors import InvalidDateRangeError, NotFoundError
 
@@ -90,6 +90,7 @@ async def _get_owned_budget(db: AsyncSession, user_id: uuid.UUID, budget_id: uui
 
 
 async def create_budget(db: AsyncSession, user_id: uuid.UUID, data: BudgetCreate) -> Budget:
+    await _check_currency(db, data.currency)
     categories = await _owned_categories(db, user_id, data.category_ids)
     starts_on, ends_on = _normalised(data.period, data.starts_on, data.ends_on)
     budget = Budget(
@@ -114,6 +115,7 @@ async def update_budget(
     budget = await _get_owned_budget(db, user_id, budget_id)
     # ends_on may be sent as null: that is how a monthly budget becomes ongoing.
     changes: dict[str, Any] = _applied_changes(data, frozenset({"ends_on"}))
+    await _check_currency(db, changes.get("currency"), budget.currency)
     category_ids = changes.pop("category_ids", None)
     if category_ids is not None:
         # Replaces the covered set outright, per the schema's contract.
