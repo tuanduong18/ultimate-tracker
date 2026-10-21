@@ -50,6 +50,11 @@ async def get_or_create_profile(db: AsyncSession, user_id: uuid.UUID) -> Profile
     return profile
 
 
+# Columns a PATCH may set to null. Every other null is "leave it alone", since
+# the rest are NOT NULL and a null there would be a 500, not a clear.
+_NULLABLE_FIELDS = frozenset({"display_name"})
+
+
 async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpdate) -> Profile:
     """Apply the fields the caller actually sent, creating the profile if needed.
 
@@ -59,7 +64,7 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
     """
     profile = await get_or_create_profile(db, user_id)
     for field, value in data.model_dump(exclude_unset=True).items():
-        if value is not None:
+        if value is not None or field in _NULLABLE_FIELDS:
             setattr(profile, field, value)
     await db.commit()
     await db.refresh(profile)
