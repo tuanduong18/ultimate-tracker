@@ -12,7 +12,14 @@ import { TimezoneSync, browserTimezone } from '@/components/shared/timezone-sync
 import type { Profile } from '@/lib/types/profile';
 
 function profile(timezone: string): Profile {
-  return { id: 'u1', timezone, display_currency: 'SGD', created_at: '2026-08-01T00:00:00Z' };
+  return {
+    id: 'u1',
+    display_name: null,
+    timezone,
+    display_currency: 'SGD',
+    preferred_currency: 'SGD',
+    created_at: '2026-08-01T00:00:00Z',
+  };
 }
 
 /** Pretend the browser is in `zone`. */

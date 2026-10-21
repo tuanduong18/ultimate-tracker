@@ -29,7 +29,7 @@ export function AllExpenses() {
       expenses={expenses}
       categories={categories.items}
       currencies={currencies.items}
-      defaultCurrency={profile.data?.display_currency ?? 'USD'}
+      defaultCurrency={profile.data?.preferred_currency ?? 'USD'}
       onChange={onChange}
       title="All expenses"
     />

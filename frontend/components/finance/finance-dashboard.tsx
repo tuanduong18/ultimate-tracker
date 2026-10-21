@@ -170,8 +170,9 @@ export function FinanceDashboard() {
     onExpensesChanged();
   }, [reloadExpenses, reloadSubscriptions, onExpensesChanged]);
 
-  // USD only until /auth/me lands; the picker on /profile is what changes it.
-  const defaultCurrency = profile.data?.display_currency ?? 'USD';
+  // What new entries start in — the preferred currency, not the one totals are
+  // reported in. USD only until /auth/me lands; /profile is what changes it.
+  const defaultCurrency = profile.data?.preferred_currency ?? 'USD';
 
   return (
     <div className="mt-6 space-y-4">
