@@ -15,6 +15,7 @@ import { daysUntil, formatDate, todayIso } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { NEUTRAL_COLOUR, cardTint, withAlpha } from '@/lib/tint';
 import { formatInterval, formatMoney, type Category, type Subscription } from '@/lib/types/finance';
+import { announceNotificationsChange } from '@/lib/types/notification';
 
 /**
  * Days before a charge that a subscription counts as "renewing soon" — the same
@@ -91,6 +92,9 @@ export function SubscriptionSection({
     setError(null);
     try {
       await action();
+      // The backend rewrote this subscription's reminder in the same request;
+      // the bell refetches so it shows the new one at once.
+      announceNotificationsChange();
       await reload();
       onChange();
       return true;

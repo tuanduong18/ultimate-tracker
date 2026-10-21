@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Wordmark } from '@/components/shared/brand';
 import { NavDrawer } from '@/components/shared/nav-drawer';
 import { UserMenu } from '@/components/shared/user-menu';
@@ -13,7 +14,8 @@ import { UserMenu } from '@/components/shared/user-menu';
  *
  * On a phone it carries the menu button and the app name, since there is no
  * sidebar to hold them. From md up the sidebar has both, and the bar keeps
- * only the account menu — top right, where people look for it.
+ * only the notification bell and the account menu — top right, where people
+ * look for them.
  *
  * Sticky, so navigation is one tap away however far down a long page goes.
  */
@@ -37,7 +39,8 @@ export function AppHeader() {
         <Wordmark nameClassName="truncate" />
       </Link>
 
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-1">
+        <NotificationBell />
         <UserMenu />
       </div>
 

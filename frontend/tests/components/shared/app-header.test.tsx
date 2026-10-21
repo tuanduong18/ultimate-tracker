@@ -12,8 +12,20 @@ vi.mock('@/lib/supabase', () => ({
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signOut: vi.fn(),
     },
+    channel: () => {
+      const channel = { on: () => channel, subscribe: () => channel };
+      return channel;
+    },
+    removeChannel: vi.fn(),
   },
 }));
+
+// The bell and the account menu both load from the API; these tests are about
+// the drawer, so leave those requests unanswered.
+vi.mock('@/lib/api-client', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api-client')>('@/lib/api-client');
+  return { ...actual, api: { get: () => new Promise(() => {}) } };
+});
 
 import { AppHeader } from '@/components/shared/app-header';
 import { MODULES } from '@/components/shared/nav-items';
