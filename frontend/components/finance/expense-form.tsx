@@ -13,6 +13,20 @@ export interface ExpenseValues {
   spent_on: string;
 }
 
+/**
+ * The request body for a create or update. An empty field means "not filled
+ * in", which the API spells as null.
+ */
+export function expensePayload(values: ExpenseValues) {
+  return {
+    amount: values.amount.trim(),
+    currency: values.currency,
+    category_id: values.category_id || null,
+    description: values.description.trim() || null,
+    spent_on: values.spent_on,
+  };
+}
+
 interface ExpenseFormProps {
   /** Unique per rendered form — two forms sharing label ids break both. */
   idPrefix: string;
@@ -22,6 +36,13 @@ interface ExpenseFormProps {
   busy: boolean;
   onSubmit: (values: ExpenseValues) => void;
   onCancel: () => void;
+  /**
+   * The form's frame. Defaults to the recessed strip it wears inside a list;
+   * the Add expense dialog passes its own, having a frame already.
+   */
+  className?: string;
+  /** The submit button's word — "Add" where Save would be ambiguous. */
+  submitLabel?: string;
 }
 
 /**
@@ -39,6 +60,8 @@ export function ExpenseForm({
   busy,
   onSubmit,
   onCancel,
+  className = 'space-y-3 border-b border-border bg-surface-muted p-4',
+  submitLabel = 'Save',
 }: ExpenseFormProps) {
   const [values, setValues] = useState<ExpenseValues>(initial);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -49,7 +72,7 @@ export function ExpenseForm({
 
   return (
     <form
-      className="space-y-3 border-b border-border bg-surface-muted p-4"
+      className={className}
       onSubmit={(event) => {
         event.preventDefault();
         const problem = amountProblem(values.amount);
@@ -63,6 +86,9 @@ export function ExpenseForm({
             Amount
           </label>
           <input
+            // Opening the form replaces whatever held focus (the row, or nothing);
+            // start where the typing starts.
+            autoFocus
             id={`${idPrefix}-amount`}
             className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
             // Text, not number: a number input hands back a float, and the trailing
@@ -137,11 +163,15 @@ export function ExpenseForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-sm bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90 disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-4"
         >
-          Save
+          {submitLabel}
         </button>
-        <button type="button" className="text-sm underline" onClick={onCancel}>
+        <button
+          type="button"
+          className="rounded-md px-1 text-sm underline pointer-coarse:min-h-11 pointer-coarse:px-3"
+          onClick={onCancel}
+        >
           Cancel
         </button>
       </div>

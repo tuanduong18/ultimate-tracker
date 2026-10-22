@@ -12,67 +12,103 @@ import { Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { RangeControls, RangeNav } from '@/components/finance/range-control';
 import { formatRange, shiftRange, type DateRange } from '@/lib/dates';
 import type { Resource } from '@/lib/hooks/use-collection';
+import { useThemeColours } from '@/lib/hooks/use-theme-colours';
 import { sumAmounts } from '@/lib/money';
 import { NEUTRAL_COLOUR } from '@/lib/tint';
 import { formatMoney, type Category, type CategoryBreakdown } from '@/lib/types/finance';
 
 /**
- * Categories listed in full before the rest are gathered into "Others".
+ * Categories named in full before the rest are gathered into "Others".
  *
- * Four because the legend has to fit beside two pies without scrolling in the
- * common case, and because a list long enough to need scrolling stops being a
- * summary. The gathered row still carries its own totals, so nothing is hidden
- * — only named.
+ * Past five slices a ring stops being readable — the small ones become slivers
+ * nobody can see or label. Four named plus Others keeps it at five.
  */
 const NAMED_ROWS = 4;
 
 /**
- * A slice, ready for recharts.
- *
- * `value` is the only number here and it exists to size an arc; `spent` carries
- * the API's string alongside it so every figure a person actually reads comes
- * from the server rather than from a float round trip.
+ * The grey for spend with no category. The API sends a near-white for it,
+ * which on a dark surface glows like the most important slice; having no
+ * category should look like it, not like a highlight.
  */
+const UNCATEGORISED_COLOUR = NEUTRAL_COLOUR;
+
+/** A lighter grey for "Others", so it is not mistaken for Uncategorised. */
+const OTHERS_COLOUR = '#cbd5e1';
+
+/** One category in both periods. Strings for every figure a person reads. */
+interface Row {
+  key: string;
+  name: string;
+  colour: string;
+  previousSpent: string;
+  currentSpent: string;
+}
+
+/**
+ * Line up both periods' categories, rank them, and gather the tail.
+ *
+ * The union, with zero standing in for absent: a category new this period, or
+ * gone since last, is exactly the change the comparison exists to show. Both
+ * rings are drawn from these same rows, so a category has one colour and one
+ * name in both — and "Others" stands for the same categories in each.
+ */
+function toRows(previous: CategoryBreakdown | null, current: CategoryBreakdown | null): Row[] {
+  const rows = new Map<string, Row>();
+  const add = (breakdown: CategoryBreakdown | null, side: 'previousSpent' | 'currentSpent') => {
+    for (const entry of breakdown?.categories ?? []) {
+      const key = entry.category_id ?? 'uncategorised';
+      const existing = rows.get(key) ?? {
+        key,
+        name: entry.name,
+        colour: entry.category_id === null ? UNCATEGORISED_COLOUR : entry.colour,
+        previousSpent: '0',
+        currentSpent: '0',
+      };
+      rows.set(key, { ...existing, [side]: entry.spent });
+    }
+  };
+  add(previous, 'previousSpent');
+  add(current, 'currentSpent');
+
+  const ranked = [...rows.values()]
+    .filter((row) => Number(row.previousSpent) > 0 || Number(row.currentSpent) > 0)
+    .sort(
+      (a, b) =>
+        Number(b.currentSpent) - Number(a.currentSpent) ||
+        Number(b.previousSpent) - Number(a.previousSpent) ||
+        a.name.localeCompare(b.name)
+    );
+
+  // Gather only when the tail is more than one category: folding a single row
+  // into "Others" hides its name and saves nothing.
+  if (ranked.length <= NAMED_ROWS + 1) return ranked;
+  const rest = ranked.slice(NAMED_ROWS);
+  return [
+    ...ranked.slice(0, NAMED_ROWS),
+    {
+      key: 'others',
+      name: `Others (${rest.length})`,
+      colour: OTHERS_COLOUR,
+      previousSpent: sumAmounts(rest.map((row) => row.previousSpent)),
+      currentSpent: sumAmounts(rest.map((row) => row.currentSpent)),
+    },
+  ];
+}
+
+/** Whole percent of `total`; shares are about one period, so each ring has its own. */
+function share(spent: string, total: string): number {
+  const all = Number(total);
+  return all > 0 ? Math.round((Number(spent) / all) * 100) : 0;
+}
+
+/** A slice, ready for recharts: `value` sizes the arc, `spent` is what is read. */
 interface Slice {
   key: string;
   name: string;
   colour: string;
   value: number;
   spent: string;
-  /** Whole percent of this pie's total. Sizing a legend row, not money. */
   share: number;
-}
-
-/** One row of the shared legend: the same category in both periods. */
-interface Comparison {
-  key: string;
-  name: string;
-  colour: string;
-  previousShare: number;
-  currentShare: number;
-  previousSpent: string;
-  currentSpent: string;
-}
-
-/** The uncategorized bucket has no id, so it needs a key of its own. */
-function sliceKey(categoryId: string | null): string {
-  return categoryId ?? 'uncategorised';
-}
-
-function toSlices(breakdown: CategoryBreakdown | null): Slice[] {
-  const rows = breakdown?.categories ?? [];
-  const total = rows.reduce((sum, row) => sum + Number(row.spent), 0);
-  return rows.map((row) => {
-    const value = Number(row.spent);
-    return {
-      key: sliceKey(row.category_id),
-      name: row.name,
-      colour: row.colour,
-      value,
-      spent: row.spent,
-      share: total > 0 ? Math.round((value / total) * 100) : 0,
-    };
-  });
 }
 
 function SliceTooltip({
@@ -89,32 +125,50 @@ function SliceTooltip({
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-xs">
       <p className="font-medium">{slice.name}</p>
-      <p className="text-fg-muted">
+      <p className="text-fg-muted tabular-nums">
         {formatMoney(slice.spent, currency)} · {slice.share}%
       </p>
     </div>
   );
 }
 
-/** One pie, with what it adds up to underneath. */
-function PeriodPie({
-  slices,
+/**
+ * One period's ring, with its total in the hole and its window underneath.
+ *
+ * A period with nothing spent still gets a ring — an empty track — so the pair
+ * keeps its shape and "nothing" reads as a value rather than a gap.
+ */
+function Ring({
+  rows,
+  side,
   currency,
   caption,
+  className,
 }: {
-  slices: Slice[];
+  rows: Row[];
+  side: 'previousSpent' | 'currentSpent';
   currency: string;
   caption: string;
+  className: string;
 }) {
-  const total = sumAmounts(slices.map((slice) => slice.spent));
+  const theme = useThemeColours();
+  const total = sumAmounts(rows.map((row) => row[side]));
+  const slices: Slice[] = rows
+    .filter((row) => Number(row[side]) > 0)
+    .map((row) => ({
+      key: row.key,
+      name: row.name,
+      colour: row.colour,
+      value: Number(row[side]),
+      spent: row[side],
+      share: share(row[side], total),
+    }));
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1">
+    <figure className={`flex-col items-center gap-2 ${className}`}>
+      <div className="relative aspect-square w-full">
         {slices.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-xs text-fg-subtle">Nothing spent</p>
-          </div>
+          <div aria-hidden className="absolute inset-0 rounded-full border-[12px] border-fg/10" />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -122,13 +176,14 @@ function PeriodPie({
                 data={slices}
                 dataKey="value"
                 nameKey="name"
-                // A solid circle, not a ring: nothing sits in the middle worth
-                // cutting a hole for, and slices are easier to compare by area
-                // when each runs all the way to the centre.
-                innerRadius={0}
-                outerRadius="98%"
-                label={false}
-                stroke="none"
+                innerRadius="64%"
+                outerRadius="100%"
+                // A 2px gap in the surface colour between slices, so two similar
+                // category colours still read as two slices.
+                stroke={theme.surface}
+                strokeWidth={2}
+                startAngle={90}
+                endAngle={-270}
                 isAnimationActive={false}
               >
                 {slices.map((slice) => (
@@ -139,79 +194,18 @@ function PeriodPie({
             </PieChart>
           </ResponsiveContainer>
         )}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-base font-semibold tracking-tight tabular-nums">
+            {formatMoney(total, currency)}
+          </span>
+          <span className="text-[11px] text-fg-muted">
+            {slices.length === 0 ? 'nothing yet' : 'spent'}
+          </span>
+        </div>
       </div>
-
-      <p className="mt-1 truncate text-center text-sm font-semibold">
-        {formatMoney(total, currency)}
-      </p>
-      <p className="truncate text-center text-[11px] text-fg-muted">{caption}</p>
-    </div>
+      <figcaption className="text-center text-xs text-fg-muted">{caption}</figcaption>
+    </figure>
   );
-}
-
-/**
- * Line up the two pies' categories so one legend can serve both.
- *
- * A category can be missing from either side — new this period, or nothing
- * spent on it last period — so the rows are the union, with a zero standing in
- * for absent. Dropping either side's extras would hide exactly the changes the
- * comparison exists to show.
- */
-function compare(previous: Slice[], current: Slice[]): Comparison[] {
-  const rows = new Map<string, Comparison>();
-  const blank = (slice: Slice): Comparison => ({
-    key: slice.key,
-    name: slice.name,
-    colour: slice.colour,
-    previousShare: 0,
-    currentShare: 0,
-    previousSpent: '0',
-    currentSpent: '0',
-  });
-
-  for (const slice of previous) {
-    const row = rows.get(slice.key) ?? blank(slice);
-    rows.set(slice.key, { ...row, previousShare: slice.share, previousSpent: slice.spent });
-  }
-  for (const slice of current) {
-    const row = rows.get(slice.key) ?? blank(slice);
-    rows.set(slice.key, { ...row, currentShare: slice.share, currentSpent: slice.spent });
-  }
-
-  return [...rows.values()].sort(
-    (a, b) =>
-      b.currentShare - a.currentShare ||
-      b.previousShare - a.previousShare ||
-      a.name.localeCompare(b.name)
-  );
-}
-
-/**
- * Keep the biggest few and gather the tail into one row.
- *
- * Only worth doing when the tail is more than a single category: collapsing one
- * row into "Others" hides its name and saves nothing.
- */
-function collapse(rows: Comparison[]): Comparison[] {
-  if (rows.length <= NAMED_ROWS + 1) return rows;
-
-  const named = rows.slice(0, NAMED_ROWS);
-  const rest = rows.slice(NAMED_ROWS);
-  return [
-    ...named,
-    {
-      key: 'others',
-      name: `Others (${rest.length})`,
-      colour: NEUTRAL_COLOUR,
-      // Shares are whole percents already rounded per category, so these can
-      // land a point off the true total. The money either side is exact, and
-      // that is the figure worth trusting.
-      previousShare: rest.reduce((sum, row) => sum + row.previousShare, 0),
-      currentShare: rest.reduce((sum, row) => sum + row.currentShare, 0),
-      previousSpent: sumAmounts(rest.map((row) => row.previousSpent)),
-      currentSpent: sumAmounts(rest.map((row) => row.currentSpent)),
-    },
-  ];
 }
 
 interface SpendByCategoryChartProps {
@@ -225,13 +219,21 @@ interface SpendByCategoryChartProps {
 }
 
 /**
- * Where the money went, this period against the one before it.
+ * Where the money went — the share each category took — and how that mix
+ * moved since the period before.
  *
- * Two pies rather than one because a single share is hard to judge — 24% on
- * food is only high or low next to what it was. They share a legend, set beside
- * them rather than beneath so the circles get the panel's full height: one row
- * per category carrying both figures, so the comparison is a line of text
- * rather than an eye flicking between two circles.
+ * Rings, because the question is part of a whole: budgets already hold
+ * spending against a plan, so this panel is about proportions. Two rings when
+ * the panel is wide enough — last period on the left, this one on the right —
+ * and one ring, this period's, when it is not. The decision is the panel's
+ * own width (a container query), not the screen's: the panel is half-width
+ * beside the other chart on a large screen and full-width on a medium one.
+ *
+ * The legend is the same either way and carries the comparison in text — each
+ * row's share last period and this, then this period's amount — so the narrow
+ * layout loses a picture, not a fact, and nobody has to compare angles across
+ * two circles by eye. Every row is named, so the user-chosen category colours
+ * never have to be told apart alone.
  */
 export function SpendByCategoryChart({
   current,
@@ -245,17 +247,16 @@ export function SpendByCategoryChart({
   const currency = current.data?.currency ?? 'USD';
   const error = current.error ?? previous.error;
   const loading = current.loading || previous.loading;
-
-  const currentSlices = toSlices(current.data);
-  const previousSlices = toSlices(previous.data);
-  const rows = collapse(compare(previousSlices, currentSlices));
+  const rows = toRows(previous.data, current.data);
+  const previousTotal = sumAmounts(rows.map((row) => row.previousSpent));
+  const currentTotal = sumAmounts(rows.map((row) => row.currentSpent));
+  const previousRange = shiftRange(range, -1);
 
   return (
     <Panel
-      title="Spending categories"
+      title="Spending by category"
       error={error}
-      // Grows with the legend on a phone, where the legend sits under the pies
-      // instead of beside them; fixed from sm, where it scrolls in place.
+      // Grows with its list on a phone; fixed from sm, where it scrolls in place.
       className="sm:h-104"
       action={<RangeNav range={range} onChange={onRangeChange} />}
       header={
@@ -274,44 +275,70 @@ export function SpendByCategoryChart({
       ) : isEmptySelection(selection) ? (
         <PanelEmpty icon={Filter}>No categories selected.</PanelEmpty>
       ) : rows.length === 0 ? (
-        <PanelEmpty icon={PieChartIcon}>Nothing spent in either period yet.</PanelEmpty>
+        <PanelEmpty icon={PieChartIcon}>
+          Nothing spent in {formatRange(range)} or the period before.
+        </PanelEmpty>
       ) : (
-        <div className="flex flex-col gap-3 p-3 sm:h-full sm:flex-row">
-          {/* A row of two pies with the legend underneath on a phone. From sm
-              the wrapper dissolves (`contents`), so the pies and the legend
-              become three columns of the one row again. */}
-          <div className="flex h-52 gap-3 sm:contents">
-            <PeriodPie
-              slices={previousSlices}
-              currency={currency}
-              caption={formatRange(shiftRange(range, -1))}
-            />
-            <PeriodPie slices={currentSlices} currency={currency} caption={formatRange(range)} />
-          </div>
+        // The container the ring count is decided by: two rings from 38rem of
+        // panel width (2 × 9rem rings + a 15rem legend + gaps), one below.
+        <div className="@container h-full">
+          <div className="flex flex-col items-center gap-5 p-4 @min-[38rem]:h-full @min-[38rem]:flex-row">
+            <div className="flex shrink-0 gap-4">
+              <Ring
+                rows={rows}
+                side="previousSpent"
+                currency={currency}
+                caption={formatRange(previousRange)}
+                className="hidden w-36 @min-[38rem]:flex"
+              />
+              <Ring
+                rows={rows}
+                side="currentSpent"
+                currency={currency}
+                caption={formatRange(range)}
+                className="flex w-44 @min-[38rem]:w-36"
+              />
+            </div>
 
-          <ul className="min-w-0 space-y-2 text-xs sm:flex-[1.1] sm:overflow-y-auto">
-            {rows.map((row) => (
-              <li key={row.key}>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: row.colour }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                  <span className="shrink-0 tabular-nums text-fg-muted">{row.previousShare}%</span>
-                  <span aria-hidden className="shrink-0 text-fg-subtle">
-                    →
-                  </span>
-                  <span className="shrink-0 font-semibold tabular-nums">{row.currentShare}%</span>
-                </div>
-                <p className="truncate pl-4 text-[11px] tabular-nums text-fg-muted">
-                  {formatMoney(row.previousSpent, currency)} →{' '}
-                  {formatMoney(row.currentSpent, currency)}
-                </p>
-              </li>
-            ))}
-          </ul>
+            <div className="w-full min-w-0 @min-[38rem]:flex-1 @min-[38rem]:self-stretch @min-[38rem]:overflow-y-auto">
+              {/* Column heads, so "24% → 40%" says which share is which. */}
+              <p className="mb-2 flex items-center gap-2.5 text-[11px] text-fg-muted">
+                <span className="w-2.5 shrink-0" />
+                <span className="flex-1">Category</span>
+                <span className="shrink-0">Share, last → this</span>
+                <span className="min-w-20 shrink-0 text-right">This period</span>
+              </p>
+              <ul className="space-y-2.5">
+                {rows.map((row) => {
+                  const before = share(row.previousSpent, previousTotal);
+                  const now = share(row.currentSpent, currentTotal);
+                  return (
+                    <li key={row.key} className="flex items-center gap-2.5 text-sm">
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.colour }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                      <span className="shrink-0 tabular-nums">
+                        <span className="sr-only">
+                          {before}% of last period, {now}% of this period
+                        </span>
+                        <span aria-hidden>
+                          <span className="text-fg-muted">{before}%</span>
+                          <span className="px-1 text-fg-subtle">→</span>
+                          <span className="font-semibold">{now}%</span>
+                        </span>
+                      </span>
+                      <span className="min-w-20 shrink-0 text-right text-fg-muted tabular-nums">
+                        {formatMoney(row.currentSpent, currency)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </Panel>

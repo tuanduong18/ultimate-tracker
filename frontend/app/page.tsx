@@ -86,7 +86,7 @@ export default function HomePage() {
               <HomeActions />
             </div>
           </div>
-          <div className="relative rounded-3xl bg-primary-soft p-6 sm:p-10">
+          <div className="relative rounded-3xl border border-border bg-surface-muted p-6 sm:p-10">
             <TrackerIllustration className="mx-auto max-w-md" />
           </div>
         </section>
@@ -173,15 +173,16 @@ export default function HomePage() {
           </ol>
         </section>
 
-        {/* Closing call to action */}
+        {/* Closing call to action. A neutral panel with the accent on the button
+            alone: a whole block of accent drowns the one thing in it to press. */}
         <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-          <div className="flex flex-col items-start gap-6 rounded-3xl bg-primary px-6 py-10 text-primary-fg sm:px-10 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col items-start gap-6 rounded-3xl border border-border bg-surface-muted px-6 py-10 sm:px-10 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">Start with this month.</h2>
-              <ul className="mt-3 space-y-1.5 text-sm opacity-90">
+              <ul className="mt-3 space-y-1.5 text-sm text-fg-muted">
                 {CLOSING_POINTS.map((line) => (
                   <li key={line} className="flex items-center gap-2">
-                    <CircleCheck aria-hidden className="size-4" />
+                    <CircleCheck aria-hidden className="size-4 text-primary" />
                     {line}
                   </li>
                 ))}
@@ -189,17 +190,17 @@ export default function HomePage() {
             </div>
             <Link
               href="/signup"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-surface px-5 text-sm font-medium text-fg shadow-xs transition-opacity hover:opacity-90"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-fg shadow-xs transition-opacity hover:opacity-90"
             >
               Create your account
-              <ArrowRight aria-hidden className="size-4 text-primary" />
+              <ArrowRight aria-hidden className="size-4" />
             </Link>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-fg-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Wordmark nameClassName="text-sm" />
           <p>Money, body and time, in one place.</p>
         </div>

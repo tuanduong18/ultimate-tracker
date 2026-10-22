@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { SummaryTiles } from '@/components/finance/summary-tiles';
 import { monthRange, sameDaysLastMonth, todayIso } from '@/lib/dates';
+import { useExpensesChanged } from '@/lib/finance-events';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import type { Subscription, Summary } from '@/lib/types/finance';
 
@@ -26,6 +27,14 @@ export function FinanceSnapshot() {
     `/finance/summary?start_date=${lastMonthSoFar.start}&end_date=${lastMonthSoFar.end}`
   );
   const subscriptions = useCollection<Subscription>('/finance/subscriptions');
+
+  // An expense logged from the header moves "Spent this month".
+  const reloadSummary = summary.reload;
+  const reloadSummaryBefore = summaryBefore.reload;
+  useExpensesChanged(() => {
+    void reloadSummary();
+    void reloadSummaryBefore();
+  });
 
   return (
     <SummaryTiles

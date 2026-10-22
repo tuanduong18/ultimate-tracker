@@ -63,12 +63,30 @@ export interface Summary {
   remaining: string;
 }
 
+/**
+ * One formatter per currency, made on first use.
+ *
+ * Building an Intl.NumberFormat is far slower than using one, and a list of
+ * expenses asks for the same handful of currencies on every row and every
+ * render. Keyed by currency alone because the locale is always the browser's.
+ */
+const moneyFormats = new Map<string, Intl.NumberFormat>();
+
+function moneyFormat(currency: string): Intl.NumberFormat {
+  let format = moneyFormats.get(currency);
+  if (!format) {
+    format = new Intl.NumberFormat(undefined, { style: 'currency', currency });
+    moneyFormats.set(currency, format);
+  }
+  return format;
+}
+
 /** Render a backend money string in its own currency. */
 export function formatMoney(amount: string, currency: string): string {
   const value = Number(amount);
   if (!Number.isFinite(value)) return `${amount} ${currency}`;
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value);
+    return moneyFormat(currency).format(value);
   } catch {
     // Intl throws on codes it does not know; the raw figure still beats nothing.
     return `${amount} ${currency}`;

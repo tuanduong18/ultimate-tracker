@@ -13,7 +13,6 @@ vi.mock('@/lib/api-client', async () => {
   return { ...actual, api: { get, post, patch, delete: del } };
 });
 
-import { ApiError } from '@/lib/api-client';
 import { useCollection } from '@/lib/hooks/use-collection';
 import type { Category, Expense } from '@/lib/types/finance';
 import { ExpenseSection } from '@/components/finance/expense-section';
@@ -58,7 +57,6 @@ function Harness({
       expenses={expenses}
       categories={[FOOD]}
       currencies={['USD', 'VND']}
-      defaultCurrency="USD"
       onChange={onChange}
       limit={limit}
       seeAllHref={seeAllHref}
@@ -78,68 +76,6 @@ describe('ExpenseSection', () => {
     // category_id: null is a real state — a deleted category leaves it behind.
     expect(screen.getByText('Uncategorised')).toBeInTheDocument();
     expect(screen.getByText('No description')).toBeInTheDocument();
-  });
-
-  it('posts the amount as a string and a blank category as null', async () => {
-    get.mockResolvedValueOnce([]).mockResolvedValueOnce([LUNCH]);
-    post.mockResolvedValue(LUNCH);
-    const onChange = vi.fn();
-    render(<Harness onChange={onChange} />);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }));
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '12.50' } });
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-08-12' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith('/finance/expenses', {
-        // A string, not 12.5: the trailing zero is the currency's scale.
-        amount: '12.50',
-        currency: 'USD',
-        category_id: null,
-        description: null,
-        spent_on: '2026-08-12',
-      })
-    );
-    // The totals above are stale until the parent is told.
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-  });
-
-  it('rejects a malformed amount without spending a round trip', async () => {
-    get.mockResolvedValue([]);
-    render(<Harness />);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }));
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '12.5.5' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/enter an amount like/i);
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  it('surfaces the field reason from a 422 rather than "Request validation failed."', async () => {
-    get.mockResolvedValue([]);
-    post.mockRejectedValue(
-      new ApiError(422, {
-        code: 'VALIDATION_ERROR',
-        message: 'Request validation failed.',
-        details: [
-          {
-            loc: ['body', 'amount'],
-            msg: 'Value error, VND amounts take at most 0 decimal place(s), got 1000.50',
-          },
-        ],
-      })
-    );
-    render(<Harness />);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }));
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '1000.50' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/amount: VND amounts take at most 0 decimal place/i);
-    expect(alert).not.toHaveTextContent(/Request validation failed/i);
   });
 
   it('prefills the edit form from the row and patches it', async () => {
@@ -193,5 +129,79 @@ describe('ExpenseSection', () => {
     unmount();
     render(<Harness />);
     await waitFor(() => expect(screen.queryByRole('link', { name: 'See all' })).toBeNull());
+  });
+
+  describe('keeps focus beside the work, never on <body>', () => {
+    const DINNER: Expense = { ...LUNCH, id: 'e3', description: 'Dinner' };
+
+    it('offers "Keep" first, and backs out to the trash icon', async () => {
+      get.mockResolvedValue([LUNCH]);
+      render(<Harness />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete Lunch' }));
+      expect(screen.getByRole('button', { name: 'Keep' })).toHaveFocus();
+
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Keep' }), { key: 'Escape' });
+      expect(screen.getByRole('button', { name: 'Delete Lunch' })).toHaveFocus();
+      expect(del).not.toHaveBeenCalled();
+    });
+
+    it('moves to the next row once a deleted one is gone', async () => {
+      get.mockResolvedValueOnce([LUNCH, DINNER]).mockResolvedValueOnce([DINNER]);
+      del.mockResolvedValue(undefined);
+      render(<Harness />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete Lunch' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Edit Dinner' })).toHaveFocus()
+      );
+    });
+
+    it('falls back to the panel heading when the last row goes', async () => {
+      get.mockResolvedValueOnce([LUNCH]).mockResolvedValueOnce([]);
+      del.mockResolvedValue(undefined);
+      render(<Harness />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete Lunch' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+      // No button in this panel's header (adding lives in the app header), so
+      // focus lands on the panel's own heading rather than on <body>.
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: 'Latest expenses' })).toHaveFocus()
+      );
+    });
+
+    it('starts an edit in its first field, and returns to the row after', async () => {
+      get.mockResolvedValue([LUNCH]);
+      render(<Harness />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Edit Lunch' }));
+      expect(screen.getByLabelText('Amount')).toHaveFocus();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Lunch' })).toHaveFocus());
+    });
+  });
+
+  it('keeps the list on screen while a write reloads it', async () => {
+    let finish: (rows: Expense[]) => void = () => {};
+    get
+      .mockResolvedValueOnce([LUNCH])
+      .mockReturnValueOnce(new Promise<Expense[]>((resolve) => (finish = resolve)));
+    patch.mockResolvedValue(LUNCH);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Lunch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The reload is in flight: the panel still shows what it had, not "Loading…".
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Loading…')).toBeNull();
+
+    finish([LUNCH]);
+    await waitFor(() => expect(screen.getByText('Lunch')).toBeInTheDocument());
   });
 });

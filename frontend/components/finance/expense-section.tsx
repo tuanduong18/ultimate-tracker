@@ -4,21 +4,20 @@ import { Pencil, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { CategoryEdge } from '@/components/finance/category-edge';
 import { DeleteButton } from '@/components/finance/delete-button';
-import { ExpenseForm, type ExpenseValues } from '@/components/finance/expense-form';
-import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
+import { ExpenseForm, expensePayload, type ExpenseValues } from '@/components/finance/expense-form';
+import { IconButton, Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
-import { formatDate, todayIso } from '@/lib/dates';
+import { formatDate } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { cardTint } from '@/lib/tint';
+import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import { formatMoney, type Category, type Expense } from '@/lib/types/finance';
 
 interface ExpenseSectionProps {
   expenses: Collection<Expense>;
   categories: Category[];
   currencies: string[];
-  /** The profile's display currency — the one they most likely spend in. */
-  defaultCurrency: string;
   /** Money moved, so the totals and charts around this are stale. */
   onChange: () => void;
   title?: string;
@@ -38,21 +37,24 @@ interface ExpenseSectionProps {
  * swatch, amount, and edit/delete on the same line — is the part that has to
  * stay identical between them, and that is exactly the part that drifts when
  * the same markup is written twice.
+ *
+ * It edits and deletes but does not add: adding is the Add expense beside the
+ * Finance title, on every tab. A second "Add expense" here would put two
+ * buttons with one name on the same screen, opening two different forms.
  */
 export function ExpenseSection({
   expenses,
   categories,
   currencies,
-  defaultCurrency,
   onChange,
   title = 'Latest expenses',
   limit,
   seeAllHref,
 }: ExpenseSectionProps) {
   const { items, loading, error, reload, setError } = expenses;
-  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { panelRef, ...focus } = useRowFocus(items);
 
   const byId = new Map(categories.map((category) => [category.id, category]));
   const shown = limit === undefined ? items : items.slice(0, limit);
@@ -73,81 +75,49 @@ export function ExpenseSection({
     }
   }
 
-  /** An empty field means "not filled in", which the API spells as null. */
-  function payload(values: ExpenseValues) {
-    return {
-      amount: values.amount.trim(),
-      currency: values.currency,
-      category_id: values.category_id || null,
-      description: values.description.trim() || null,
-      spent_on: values.spent_on,
-    };
-  }
-
-  async function handleCreate(values: ExpenseValues) {
-    const created = await run(
-      () => api.post('/finance/expenses', payload(values)),
-      'Could not save that expense.'
-    );
-    if (created) setAdding(false);
-  }
-
   async function handleUpdate(id: string, values: ExpenseValues) {
     const updated = await run(
-      () => api.patch(`/finance/expenses/${id}`, payload(values)),
+      () => api.patch(`/finance/expenses/${id}`, expensePayload(values)),
       'Could not update that expense.'
     );
-    if (updated) setEditingId(null);
+    if (updated) {
+      focus.returnToRow(id);
+      setEditingId(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    focus.removing(id);
+    const deleted = await run(
+      () => api.delete(`/finance/expenses/${id}`),
+      'Could not delete that expense.'
+    );
+    if (!deleted) focus.cancel();
   }
 
   return (
     <Panel
+      ref={panelRef}
       title={title}
       error={error}
       className="h-full"
       action={
-        <>
-          <PanelButton
-            onClick={() => {
-              setEditingId(null);
-              setAdding((open) => !open);
-            }}
+        seeAllHref && (
+          <Link
+            href={seeAllHref}
+            className="inline-flex items-center rounded-sm border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
           >
-            {adding ? 'Cancel' : 'Add expense'}
-          </PanelButton>
-          {seeAllHref && (
-            <Link
-              href={seeAllHref}
-              className="rounded-sm border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft"
-            >
-              See all
-            </Link>
-          )}
-        </>
+            See all
+          </Link>
+        )
       }
     >
-      {adding && (
-        <ExpenseForm
-          idPrefix="new-expense"
-          initial={{
-            amount: '',
-            currency: defaultCurrency,
-            category_id: '',
-            description: '',
-            spent_on: todayIso(),
-          }}
-          categories={categories}
-          currencies={currencies}
-          busy={busy}
-          onSubmit={(values) => void handleCreate(values)}
-          onCancel={() => setAdding(false)}
-        />
-      )}
-
       {loading ? (
         <PanelNote>Loading…</PanelNote>
       ) : shown.length === 0 && error ? null : shown.length === 0 ? (
-        !adding && <PanelEmpty icon={Receipt}>Nothing logged yet.</PanelEmpty>
+        <PanelEmpty icon={Receipt}>
+          Nothing logged yet. Use Add expense at the top of the page to log one.
+        </PanelEmpty>
       ) : (
         <ul className="space-y-2 p-3">
           {shown.map((expense) =>
@@ -166,21 +136,24 @@ export function ExpenseSection({
                   currencies={currencies}
                   busy={busy}
                   onSubmit={(values) => void handleUpdate(expense.id, values)}
-                  onCancel={() => setEditingId(null)}
+                  onCancel={() => {
+                    focus.returnToRow(expense.id);
+                    setEditingId(null);
+                  }}
                 />
               </li>
             ) : (
               <li
                 key={expense.id}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                style={{ backgroundColor: cardTint(byId.get(expense.category_id ?? '')?.colour) }}
+                data-row-id={expense.id}
+                className="relative flex items-center gap-3 overflow-hidden rounded-lg bg-surface-muted py-2.5 pr-3 pl-4"
               >
+                <CategoryEdge colour={byId.get(expense.category_id ?? '')?.colour} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">
-                    {expense.description || <span className="text-fg-subtle">No description</span>}
+                    {expense.description || <span className="text-fg-muted">No description</span>}
                   </p>
                   <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-                    {/* No swatch: the card is already wearing this colour. */}
                     <span className="truncate">
                       {byId.get(expense.category_id ?? '')?.name ?? 'Uncategorised'}
                     </span>
@@ -196,21 +169,13 @@ export function ExpenseSection({
                 <IconButton
                   label={`Edit ${expense.description || 'expense'}`}
                   icon={Pencil}
-                  onClick={() => {
-                    setAdding(false);
-                    setEditingId(expense.id);
-                  }}
+                  onClick={() => setEditingId(expense.id)}
                 />
                 <DeleteButton
                   label={`Delete ${expense.description || 'expense'}`}
                   prompt="Delete this expense?"
                   busy={busy}
-                  onConfirm={() =>
-                    void run(
-                      () => api.delete(`/finance/expenses/${expense.id}`),
-                      'Could not delete that expense.'
-                    )
-                  }
+                  onConfirm={() => void handleDelete(expense.id)}
                 />
               </li>
             )

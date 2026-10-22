@@ -33,7 +33,7 @@ export function AuthShell({
 }) {
   return (
     <div className="flex min-h-dvh">
-      <aside className="hidden w-1/2 max-w-xl flex-col justify-between bg-primary-soft p-12 lg:flex">
+      <aside className="hidden w-1/2 max-w-xl flex-col justify-between border-r border-border bg-surface-muted p-12 lg:flex">
         <Wordmark nameClassName="text-lg" />
         <div>
           <TrackerIllustration className="mx-auto max-w-sm" />
@@ -51,7 +51,7 @@ export function AuthShell({
             ))}
           </ul>
         </div>
-        <p className="text-xs text-fg-subtle">Money, body and time, in one place.</p>
+        <p className="text-xs text-fg-muted">Money, body and time, in one place.</p>
       </aside>
 
       <main className="flex flex-1 flex-col items-center justify-center px-5 py-10">

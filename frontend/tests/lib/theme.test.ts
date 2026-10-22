@@ -1,9 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_THEME, THEMES, THEME_STORAGE_KEY, isThemeId, readStoredTheme } from '@/lib/theme';
+import {
+  DEFAULT_MODE,
+  DEFAULT_THEME,
+  MODE_STORAGE_KEY,
+  THEMES,
+  THEME_STORAGE_KEY,
+  isThemeId,
+  readStoredMode,
+  readStoredTheme,
+  resolveMode,
+} from '@/lib/theme';
 
 afterEach(() => {
   window.localStorage.clear();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -31,6 +42,39 @@ describe('theme storage', () => {
   it('accepts every id the picker can produce', () => {
     for (const theme of THEMES) {
       expect(isThemeId(theme.id)).toBe(true);
+    }
+  });
+});
+
+describe('mode', () => {
+  it('follows the system until someone chooses', () => {
+    expect(readStoredMode()).toBe(DEFAULT_MODE);
+    expect(DEFAULT_MODE).toBe('system');
+  });
+
+  it('ignores a stored value that is not a mode', () => {
+    window.localStorage.setItem(MODE_STORAGE_KEY, 'dusk');
+    expect(readStoredMode()).toBe(DEFAULT_MODE);
+  });
+
+  it('resolves "system" through the OS setting, and nothing else', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true }))
+    );
+    expect(resolveMode('system')).toBe('dark');
+    expect(resolveMode('light')).toBe('light');
+  });
+
+  it('treats a browser without matchMedia as light', () => {
+    vi.stubGlobal('matchMedia', undefined);
+    expect(resolveMode('system')).toBe('light');
+  });
+
+  it('has a light and a dark swatch for every scheme', () => {
+    for (const theme of THEMES) {
+      expect(theme.swatch.light).toHaveLength(2);
+      expect(theme.swatch.dark).toHaveLength(2);
     }
   });
 });

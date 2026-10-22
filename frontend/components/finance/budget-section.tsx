@@ -9,6 +9,7 @@ import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/compone
 import { api } from '@/lib/api-client';
 import { formatDate, formatMonth, formatMonthShort, monthStart, shiftMonth } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
+import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import { budgetTint } from '@/lib/tint';
 import { formatMoney, type BudgetProgress, type Category } from '@/lib/types/finance';
 
@@ -180,6 +181,7 @@ export function BudgetSection({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { panelRef, ...focus } = useRowFocus(items);
 
   // BudgetCreate requires at least one category id, so there is nothing to
   // create until one exists. Better to say so than to offer a form that 422s.
@@ -220,7 +222,10 @@ export function BudgetSection({
       () => api.post('/finance/budgets', payload(values)),
       'Could not save that budget.'
     );
-    if (created) setAdding(false);
+    if (created) {
+      focus.returnToAction();
+      setAdding(false);
+    }
   }
 
   async function handleUpdate(id: string, values: BudgetValues) {
@@ -228,11 +233,24 @@ export function BudgetSection({
       () => api.patch(`/finance/budgets/${id}`, payload(values)),
       'Could not update that budget.'
     );
-    if (updated) setEditingId(null);
+    if (updated) {
+      focus.returnToRow(id);
+      setEditingId(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    focus.removing(id);
+    const deleted = await run(
+      () => api.delete(`/finance/budgets/${id}`),
+      'Could not delete that budget.'
+    );
+    if (!deleted) focus.cancel();
   }
 
   return (
     <Panel
+      ref={panelRef}
       title="Budgets"
       error={error}
       className="h-full"
@@ -267,7 +285,10 @@ export function BudgetSection({
           currencies={currencies}
           busy={busy}
           onSubmit={(values) => void handleCreate(values)}
-          onCancel={() => setAdding(false)}
+          onCancel={() => {
+            focus.returnToAction();
+            setAdding(false);
+          }}
         />
       )}
 
@@ -301,14 +322,17 @@ export function BudgetSection({
                   currencies={currencies}
                   busy={busy}
                   onSubmit={(values) => void handleUpdate(budget.id, values)}
-                  onCancel={() => setEditingId(null)}
+                  onCancel={() => {
+                    focus.returnToRow(budget.id);
+                    setEditingId(null);
+                  }}
                 />
               </li>
             ) : (
               <li
                 key={budget.id}
-                className="rounded-lg p-4"
-                style={{ backgroundColor: tints.get(budget.id) }}
+                data-row-id={budget.id}
+                className={`rounded-lg p-4 ${tints.get(budget.id) ?? ''}`}
               >
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">{budget.name}</p>
@@ -325,12 +349,7 @@ export function BudgetSection({
                     label={`Delete ${budget.name}`}
                     prompt="Delete this budget?"
                     busy={busy}
-                    onConfirm={() =>
-                      void run(
-                        () => api.delete(`/finance/budgets/${budget.id}`),
-                        'Could not delete that budget.'
-                      )
-                    }
+                    onConfirm={() => void handleDelete(budget.id)}
                   />
                 </div>
 

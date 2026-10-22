@@ -1,5 +1,9 @@
+import type { Metadata } from 'next';
+
 import { NotificationList } from '@/components/notifications/notification-list';
 import { PageHeader } from '@/components/shared/page-header';
+
+export const metadata: Metadata = { title: 'Notifications' };
 
 export default function NotificationsPage() {
   return (

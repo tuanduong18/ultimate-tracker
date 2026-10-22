@@ -74,33 +74,31 @@ export function useCollection<T>(path: string): Collection<T> {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (showSpinner: boolean) => {
-      // The mount load skips this — `loading` already starts true, so setting
-      // it again would only risk a spinner flash. Later reloads do want it.
-      // (react-hooks/set-state-in-effect still warns here; it fires on any
-      // setState reachable from an effect, which is every data-fetching hook.
-      // The rule is relaxed to a warning in eslint.config.mjs for that reason.)
-      if (showSpinner) setLoading(true);
-      try {
-        setItems(await api.get<T[]>(path));
-        setError(null);
-      } catch (err: unknown) {
-        setError(describeError(err, 'Could not load this list.'));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [path]
-  );
-
-  const reload = useCallback(() => load(true), [load]);
+  // `loading` is true until the first answer and never again. A reload keeps
+  // the list it already has on screen and swaps in the new one when it lands:
+  // blanking a panel to "Loading…" after every save threw away its scroll
+  // position and the row the user was looking at, to announce a wait that
+  // usually lasts less than the blink it caused. The button that started the
+  // write already says it is busy.
+  // (react-hooks/set-state-in-effect still warns on the setters below; it fires
+  // on any setState reachable from an effect, which is every data-fetching hook.
+  // The rule is relaxed to a warning in eslint.config.mjs for that reason.)
+  const load = useCallback(async () => {
+    try {
+      setItems(await api.get<T[]>(path));
+      setError(null);
+    } catch (err: unknown) {
+      setError(describeError(err, 'Could not load this list.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [path]);
 
   useEffect(() => {
-    void load(false);
+    void load();
   }, [load]);
 
-  return { items, loading, error, reload, setError };
+  return { items, loading, error, reload: load, setError };
 }
 
 export interface Resource<T> {
@@ -124,26 +122,22 @@ export function useResource<T>(path: string): Resource<T> {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (showSpinner: boolean) => {
-      if (showSpinner) setLoading(true);
-      try {
-        setData(await api.get<T>(path));
-        setError(null);
-      } catch (err: unknown) {
-        setError(describeError(err, 'Could not load this.'));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [path]
-  );
-
-  const reload = useCallback(() => load(true), [load]);
+  // Same contract as useCollection: `loading` means "nothing to show yet",
+  // and a reload leaves the last answer up until the next one arrives.
+  const load = useCallback(async () => {
+    try {
+      setData(await api.get<T>(path));
+      setError(null);
+    } catch (err: unknown) {
+      setError(describeError(err, 'Could not load this.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [path]);
 
   useEffect(() => {
-    void load(false);
+    void load();
   }, [load]);
 
-  return { data, loading, error, reload, setError };
+  return { data, loading, error, reload: load, setError };
 }

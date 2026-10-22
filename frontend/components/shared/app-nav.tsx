@@ -79,7 +79,7 @@ export function AppSidebar() {
         <ModuleLinks variant="persistent" />
       </div>
 
-      <p className="hidden px-3 pt-4 text-xs text-fg-subtle lg:block">
+      <p className="hidden px-3 pt-4 text-xs text-fg-muted lg:block">
         One app for money, body and time.
       </p>
     </nav>

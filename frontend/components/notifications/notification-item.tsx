@@ -78,7 +78,9 @@ export function NotificationItem({
 
   return (
     <article
-      className={clsx('flex gap-3 px-4 py-3', (snoozed || archived) && 'opacity-80')}
+      // Snoozed and archived say so in words; the row is not faded, because
+      // fading it fades its text below a readable contrast.
+      className="flex gap-3 px-4 py-3"
       aria-label={notification.title}
     >
       <span

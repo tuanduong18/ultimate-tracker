@@ -30,14 +30,17 @@ vi.mock('@/lib/supabase', () => ({
 
 import { ACCOUNT_LINKS } from '@/components/shared/nav-items';
 import { UserMenu } from '@/components/shared/user-menu';
+import { ThemeProvider } from '@/components/shared/theme-provider';
 
 afterEach(() => {
   vi.clearAllMocks();
   pathname.current = '/dashboard';
+  window.localStorage.clear();
+  delete document.documentElement.dataset.mode;
 });
 
 async function openMenu() {
-  render(<UserMenu />);
+  render(<UserMenu />, { wrapper: ThemeProvider });
   const button = screen.getByRole('button', { name: 'Account menu' });
   // Wait for the session, so the avatar and the email have landed.
   expect(await screen.findByText('T')).toBeInTheDocument();
@@ -47,7 +50,7 @@ async function openMenu() {
 
 describe('UserMenu', () => {
   it('shows the signed-in user’s initial and starts closed', async () => {
-    render(<UserMenu />);
+    render(<UserMenu />, { wrapper: ThemeProvider });
 
     expect(await screen.findByText('T')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
@@ -107,5 +110,38 @@ describe('UserMenu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
 
     expect(signOut).toHaveBeenCalledOnce();
+  });
+
+  describe('dark mode switch', () => {
+    it('says it is following the device until it is flipped', async () => {
+      await openMenu();
+      const toggle = screen.getByRole('switch', { name: /Dark mode/ });
+
+      // jsdom has no matchMedia, so "system" resolves to light.
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+      expect(toggle).toHaveTextContent('Following your device');
+
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-checked', 'true');
+      expect(toggle).not.toHaveTextContent('Following your device');
+      expect(document.documentElement.dataset.mode).toBe('dark');
+      expect(window.localStorage.getItem('ultimate-tracker:mode')).toBe('dark');
+    });
+
+    it('flips back to light and keeps the menu open to show it', async () => {
+      window.localStorage.setItem('ultimate-tracker:mode', 'dark');
+      await openMenu();
+      const toggle = await screen.findByRole('switch', { name: /Dark mode/, checked: true });
+
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+      expect(document.documentElement.dataset.mode).toBe('light');
+      expect(screen.getByRole('button', { name: 'Account menu' })).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      );
+    });
   });
 });

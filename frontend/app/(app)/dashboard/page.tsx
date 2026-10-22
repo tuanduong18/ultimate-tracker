@@ -1,9 +1,12 @@
+import type { Metadata } from 'next';
 import { ArrowRight, CircleDashed } from 'lucide-react';
 import Link from 'next/link';
 
 import { FinanceSnapshot } from '@/components/finance/finance-snapshot';
 import { TrackerIllustration } from '@/components/shared/illustrations';
 import { MODULES } from '@/components/shared/nav-items';
+
+export const metadata: Metadata = { title: 'Dashboard' };
 
 /**
  * The landing page after sign-in: a greeting, this month's money at a glance,
@@ -18,7 +21,7 @@ export default function DashboardPage() {
 
   return (
     <main className="space-y-10 p-4 sm:p-8">
-      <section className="relative flex items-center gap-6 overflow-hidden rounded-3xl bg-primary-soft px-6 py-8 sm:px-10">
+      <section className="relative flex items-center gap-6 overflow-hidden rounded-3xl border border-border bg-surface-muted px-6 py-8 sm:px-10">
         <div className="relative z-10 max-w-xl">
           <p className="text-sm font-medium text-primary">Welcome back</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -39,10 +42,10 @@ export default function DashboardPage() {
         <TrackerIllustration className="ml-auto hidden max-w-72 md:block" />
       </section>
 
-      <section aria-labelledby="this-month">
-        <div className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 id="this-month" className="text-lg font-semibold">
-            This month
+      <section aria-labelledby="money-this-month">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h2 id="money-this-month" className="text-lg font-semibold">
+            Money this month
           </h2>
           <Link href="/finance" className="text-sm font-medium text-primary hover:underline">
             See all finance

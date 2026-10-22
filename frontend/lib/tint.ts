@@ -1,9 +1,10 @@
 /**
- * Category colours, washed out enough to sit behind text.
+ * Data colours: what a category or a budget looks like.
  *
- * Expenses, budgets and categories are all drawn as cards tinted by the
- * category behind them, so the same spend is the same colour wherever it
- * appears — a slice in the pie, a row in the list, a bar's worth of budget.
+ * A category's colour follows its spend everywhere — a slice in the ring, the
+ * edge of a row in the list (CategoryEdge), a dot in the filter — so the same
+ * spend is the same colour wherever it appears. Rows are no longer washed in
+ * it: see CategoryEdge for why.
  */
 
 /** The neutral used when nothing has a colour, matching the API's own default. */
@@ -23,17 +24,6 @@ export function withAlpha(hex: string, alpha: number): string {
 }
 
 /**
- * The wash behind a card.
- *
- * Light enough that `fg` text over it keeps its contrast — the palettes are
- * checked at full strength, and a 14% tint moves them by less than the margin
- * they pass with.
- */
-export function cardTint(colour: string | null | undefined): string {
-  return withAlpha(colour ?? NEUTRAL_COLOUR, 0.14);
-}
-
-/**
  * The pastels budget cards are drawn from, in the order they are handed out.
  *
  * Budgets have no colour of their own and nothing about them implies one — a
@@ -42,24 +32,29 @@ export function cardTint(colour: string | null | undefined): string {
  * mechanism: the nth budget takes the nth pastel and no two repeat until the
  * list wraps.
  *
- * Light enough to put `fg` text on directly, so unlike category tints these
- * need no alpha. They are also fixed across themes: their whole job is to
- * differ from each other, which a palette derived from one theme's hue could
- * not do.
+ * Each is a utility class over a `--channel-budget-n` token, so the stylesheet
+ * can give dark mode its own set: a pale pastel under light-mode text turns into
+ * a glaring block under dark-mode text. `fg` sits on either set directly, so
+ * unlike category tints these need no alpha. They are fixed across colour
+ * schemes: their whole job is to differ from each other, which a palette
+ * derived from one scheme's hue could not do.
+ *
+ * Written out in full rather than built from the index, because Tailwind only
+ * generates classes it can find spelled out in the source.
  */
 export const BUDGET_TINTS = [
-  '#e3effd', // blue
-  '#fde8e8', // rose
-  '#e6f4ea', // green
-  '#f3e9fc', // lilac
-  '#fdf0e0', // peach
-  '#e0f4f4', // teal
-  '#fdf6da', // butter
-  '#fce9f3', // pink
+  'bg-budget-1', // blue
+  'bg-budget-2', // rose
+  'bg-budget-3', // green
+  'bg-budget-4', // lilac
+  'bg-budget-5', // peach
+  'bg-budget-6', // teal
+  'bg-budget-7', // butter
+  'bg-budget-8', // pink
 ] as const;
 
 /**
- * The colour for the nth budget ever made.
+ * The background class for the nth budget ever made.
  *
  * Wraps once there are more budgets than pastels; at that point two cards share
  * a colour, which is worse than it sounds only if they are adjacent, and better

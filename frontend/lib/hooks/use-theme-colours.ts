@@ -7,27 +7,28 @@ import { useEffect, useState } from 'react';
  *
  * Charts are the one place Tailwind classes do not reach: recharts draws its
  * grid, axes and bars from props it passes to SVG attributes, so it needs
- * `rgb(45 108 185)` and not `text-primary`. This reads the live values of the
+ * `rgb(43 103 176)` and not `text-primary`. This reads the live values of the
  * CSS variables the theme sets, so the charts recolour with everything else
  * instead of keeping a second copy of the palette in TypeScript.
  */
-const TOKENS = ['primary', 'border', 'fg-muted', 'surface-muted'] as const;
+const TOKENS = ['primary', 'border', 'fg-muted', 'surface', 'surface-muted'] as const;
 
 type Token = (typeof TOKENS)[number];
 export type ThemeColours = Record<Token, string>;
 
 /**
- * Pastel blue, matching the `:root` block in globals.css.
+ * The default (Blue, light), matching the `:root` block in globals.css.
  *
  * Used on the server, before the first effect runs, and anywhere the variables
  * cannot be resolved — jsdom, for one, which loads no stylesheet. The charts
  * then render in the default palette rather than with `undefined` for a fill.
  */
 const FALLBACK: ThemeColours = {
-  primary: 'rgb(45 108 185)',
-  border: 'rgb(213 229 246)',
-  'fg-muted': 'rgb(88 114 145)',
-  'surface-muted': 'rgb(237 244 253)',
+  primary: 'rgb(34 107 192)',
+  border: 'rgb(229 226 223)',
+  'fg-muted': 'rgb(115 110 105)',
+  surface: 'rgb(255 255 255)',
+  'surface-muted': 'rgb(247 245 242)',
 };
 
 function readColours(root: HTMLElement): ThemeColours {
@@ -51,7 +52,7 @@ export function useThemeColours(): ThemeColours {
     // this usable in isolation — a chart rendered in a test has no provider
     // above it, and should still pick a colour rather than throw.
     const observer = new MutationObserver(sync);
-    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-mode'] });
     return () => observer.disconnect();
   }, []);
 

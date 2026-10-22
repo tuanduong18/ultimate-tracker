@@ -63,7 +63,7 @@ export function NavDrawer({ open, onClose }: { open: boolean; onClose: () => voi
             </button>
           </div>
 
-          <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto">
+          <nav aria-label="All modules" className="min-h-0 flex-1 overflow-y-auto">
             <ModuleLinks variant="drawer" onNavigate={onClose} />
           </nav>
         </div>

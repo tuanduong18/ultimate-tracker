@@ -1,19 +1,16 @@
 /**
- * Personal budgeting.
+ * Finance overview: how this month is going, at a glance.
  *
- * Everything below the heading is client-side and lives in FinanceDashboard,
- * which owns the fetches so the sections stay in step after a write.
+ * Everything below the tabs is client-side and lives in FinanceDashboard,
+ * which owns the fetches so the panels stay in step after a write.
  */
 
+import type { Metadata } from 'next';
+
 import { FinanceDashboard } from '@/components/finance/finance-dashboard';
-import { PageHeader } from '@/components/shared/page-header';
+
+export const metadata: Metadata = { title: 'Finance' };
 
 export default function FinancePage() {
-  return (
-    <main className="p-4 sm:p-8">
-      <PageHeader title="Finance" description="Track what you spend against what you planned." />
-
-      <FinanceDashboard />
-    </main>
-  );
+  return <FinanceDashboard />;
 }

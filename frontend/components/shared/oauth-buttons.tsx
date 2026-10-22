@@ -74,7 +74,7 @@ export function OAuthButtons({ next, onError }: { next: string; onError: (msg: s
 /** The "or" rule between the provider buttons and the email form. */
 export function OrDivider() {
   return (
-    <div className="my-6 flex items-center gap-3 text-xs text-fg-subtle" role="separator">
+    <div className="my-6 flex items-center gap-3 text-xs text-fg-muted" role="separator">
       <span className="h-px flex-1 bg-border" />
       or with email
       <span className="h-px flex-1 bg-border" />
