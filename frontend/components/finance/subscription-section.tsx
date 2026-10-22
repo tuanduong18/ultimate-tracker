@@ -13,7 +13,8 @@ import {
 import { api } from '@/lib/api-client';
 import { daysUntil, formatDate, todayIso } from '@/lib/dates';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { NEUTRAL_COLOUR, cardTint, withAlpha } from '@/lib/tint';
+import { useRowFocus } from '@/lib/hooks/use-row-focus';
+import { NEUTRAL_COLOUR, withAlpha } from '@/lib/tint';
 import { formatInterval, formatMoney, type Category, type Subscription } from '@/lib/types/finance';
 import { announceNotificationsChange } from '@/lib/types/notification';
 
@@ -83,6 +84,7 @@ export function SubscriptionSection({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { panelRef, ...focus } = useRowFocus(items);
 
   const byId = new Map(categories.map((category) => [category.id, category]));
   const today = todayIso();
@@ -130,7 +132,10 @@ export function SubscriptionSection({
       () => api.post('/finance/subscriptions', payload(values, false)),
       'Could not save that subscription.'
     );
-    if (created) setAdding(false);
+    if (created) {
+      focus.returnToAction();
+      setAdding(false);
+    }
   }
 
   async function handleUpdate(id: string, values: SubscriptionValues) {
@@ -138,11 +143,24 @@ export function SubscriptionSection({
       () => api.patch(`/finance/subscriptions/${id}`, payload(values, true)),
       'Could not update that subscription.'
     );
-    if (updated) setEditingId(null);
+    if (updated) {
+      focus.returnToRow(id);
+      setEditingId(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    focus.removing(id);
+    const deleted = await run(
+      () => api.delete(`/finance/subscriptions/${id}`),
+      'Could not delete that subscription.'
+    );
+    if (!deleted) focus.cancel();
   }
 
   return (
     <Panel
+      ref={panelRef}
       title="Subscriptions"
       error={error}
       className="h-full"
@@ -177,7 +195,10 @@ export function SubscriptionSection({
           editing={false}
           busy={busy}
           onSubmit={(values) => void handleCreate(values)}
-          onCancel={() => setAdding(false)}
+          onCancel={() => {
+            focus.returnToAction();
+            setAdding(false);
+          }}
         />
       )}
 
@@ -216,7 +237,10 @@ export function SubscriptionSection({
                     editing
                     busy={busy}
                     onSubmit={(values) => void handleUpdate(subscription.id, values)}
-                    onCancel={() => setEditingId(null)}
+                    onCancel={() => {
+                      focus.returnToRow(subscription.id);
+                      setEditingId(null);
+                    }}
                   />
                 </li>
               );
@@ -231,8 +255,13 @@ export function SubscriptionSection({
             return (
               <li
                 key={subscription.id}
-                className={`flex gap-3 rounded-xl px-3 py-2.5 ${ended ? 'opacity-60' : ''}`}
-                style={{ backgroundColor: cardTint(category?.colour) }}
+                data-row-id={subscription.id}
+                // Ended is told in words (the next-step line) and by a dashed outline
+                // on a bare background — not by fading the row, which faded the
+                // text with it, to under 3:1.
+                className={`flex gap-3 rounded-xl px-3 py-2.5 ${
+                  ended ? 'border border-dashed border-border-control' : 'bg-surface-muted'
+                }`}
               >
                 {/* The service's initial, like an app icon on a statement: the
                     quickest way to find "Netflix" in a list is its shape. */}
@@ -261,12 +290,7 @@ export function SubscriptionSection({
                       label={`Delete ${subscription.name}`}
                       prompt="Delete? Expenses it already logged stay."
                       busy={busy}
-                      onConfirm={() =>
-                        void run(
-                          () => api.delete(`/finance/subscriptions/${subscription.id}`),
-                          'Could not delete that subscription.'
-                        )
-                      }
+                      onConfirm={() => void handleDelete(subscription.id)}
                     />
                   </div>
 

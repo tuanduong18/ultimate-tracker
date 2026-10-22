@@ -292,8 +292,8 @@ describe('BudgetSection', () => {
     const older = (await screen.findByText('Groceries')).closest('li');
     const newer = screen.getByText('Travel').closest('li');
 
-    expect(older).toHaveStyle({ backgroundColor: BUDGET_TINTS[0] });
-    expect(newer).toHaveStyle({ backgroundColor: BUDGET_TINTS[1] });
+    expect(older).toHaveClass(BUDGET_TINTS[0]);
+    expect(newer).toHaveClass(BUDGET_TINTS[1]);
   });
 
   it('does not take its colour from the categories it covers', async () => {
@@ -302,6 +302,6 @@ describe('BudgetSection', () => {
 
     // Food is #22c55e; a budget over it is still the first pastel in the rota.
     const card = (await screen.findByText('Groceries')).closest('li');
-    expect(card).toHaveStyle({ backgroundColor: BUDGET_TINTS[0] });
+    expect(card).toHaveClass(BUDGET_TINTS[0]);
   });
 });

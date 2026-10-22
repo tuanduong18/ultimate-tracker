@@ -3,11 +3,12 @@
 import { Pencil, Tags } from 'lucide-react';
 import { useState } from 'react';
 
+import { CategoryEdge } from '@/components/finance/category-edge';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
-import { cardTint } from '@/lib/tint';
+import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import type { Category } from '@/lib/types/finance';
 
 const DEFAULT_COLOUR = '#94a3b8';
@@ -38,6 +39,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColour, setEditColour] = useState(DEFAULT_COLOUR);
+  const { panelRef, ...focus } = useRowFocus(items);
 
   async function run(action: () => Promise<unknown>, fallback: string) {
     setBusy(true);
@@ -64,6 +66,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
     if (created) {
       setName('');
       setColour(DEFAULT_COLOUR);
+      focus.returnToAction();
       setAdding(false);
     }
   }
@@ -80,15 +83,24 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
       () => api.patch(`/finance/categories/${id}`, { name: editName, colour: editColour }),
       'Could not update that category.'
     );
-    if (saved) setEditing(null);
+    if (saved) {
+      focus.returnToRow(id);
+      setEditing(null);
+    }
   }
 
   async function handleDelete(id: string) {
-    await run(() => api.delete(`/finance/categories/${id}`), 'Could not delete that category.');
+    focus.removing(id);
+    const deleted = await run(
+      () => api.delete(`/finance/categories/${id}`),
+      'Could not delete that category.'
+    );
+    if (!deleted) focus.cancel();
   }
 
   return (
     <Panel
+      ref={panelRef}
       title="Categories"
       error={error}
       className="h-full"
@@ -112,6 +124,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             </label>
             <input
               id="category-name"
+              autoFocus
               className="mt-1 w-full rounded-sm border px-2 py-1.5 text-sm"
               required
               maxLength={50}
@@ -135,7 +148,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             <button
               type="submit"
               disabled={busy}
-              className="rounded-sm bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+              className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90 disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-4"
             >
               Add
             </button>
@@ -171,6 +184,9 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                     onChange={(e) => setEditColour(e.target.value)}
                   />
                   <input
+                    // Opening the editor replaces the row the focus was in;
+                    // this is the field the click was asking for.
+                    autoFocus
                     aria-label={`Rename ${category.name}`}
                     className="min-w-0 flex-1 rounded-sm border px-2 py-1 text-sm"
                     value={editName}
@@ -189,8 +205,11 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                   </button>
                   <button
                     type="button"
-                    className="text-xs text-fg-muted underline"
-                    onClick={() => setEditing(null)}
+                    className="inline-flex items-center text-xs text-fg-muted underline pointer-coarse:min-h-11 pointer-coarse:px-1.5"
+                    onClick={() => {
+                      focus.returnToRow(category.id);
+                      setEditing(null);
+                    }}
                   >
                     Cancel
                   </button>
@@ -199,10 +218,10 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             ) : (
               <li
                 key={category.id}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5"
-                style={{ backgroundColor: cardTint(category.colour) }}
+                data-row-id={category.id}
+                className="relative flex items-center gap-2 overflow-hidden rounded-lg bg-surface-muted py-2.5 pr-3 pl-4"
               >
-                {/* No swatch: the card is already wearing this colour. */}
+                <CategoryEdge colour={category.colour} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
 
                 <IconButton

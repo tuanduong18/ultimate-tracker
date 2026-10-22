@@ -1,31 +1,16 @@
-/**
- * Every expense, not just the newest few the dashboard panel shows.
- *
- * Deliberately thin for now — the dashboard's "See all" needs somewhere to go,
- * and filters and paging belong to a later pass.
- */
-
-import { PageHeader } from '@/components/shared/page-header';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
+import type { Metadata } from 'next';
 
 import { AllExpenses } from '@/components/finance/all-expenses';
 
-export default function AllExpensesPage() {
-  return (
-    <main className="p-4 sm:p-8">
-      <Link
-        href="/finance"
-        className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-fg-muted hover:text-primary"
-      >
-        <ArrowLeft aria-hidden className="size-4" />
-        Finance
-      </Link>
-      <PageHeader title="Expenses" description="Everything you have logged, newest first." />
+export const metadata: Metadata = { title: 'Transactions' };
 
-      <div className="mt-6">
-        <AllExpenses />
-      </div>
-    </main>
+/** Every expense, not just the newest few the overview shows. */
+export default function TransactionsPage() {
+  return (
+    // A list read row by row: past ~48rem the eye loses the line between the
+    // description on the left and the amount on the right.
+    <div className="max-w-3xl">
+      <AllExpenses />
+    </div>
   );
 }

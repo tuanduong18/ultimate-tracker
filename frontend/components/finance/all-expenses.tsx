@@ -3,33 +3,29 @@
 import { useCallback } from 'react';
 
 import { ExpenseSection } from '@/components/finance/expense-section';
-import { useCollection, useResource } from '@/lib/hooks/use-collection';
-import type { Category, Expense } from '@/lib/types/finance';
-import type { Profile } from '@/lib/types/profile';
+import { useExpensesChanged } from '@/lib/finance-events';
+import { useCollection } from '@/lib/hooks/use-collection';
+import { useFinanceBasics } from '@/lib/hooks/use-finance-basics';
+import type { Expense } from '@/lib/types/finance';
 
 /**
- * The full expense list, on its own page.
+ * The Transactions tab: every expense, newest first.
  *
- * Fetches its own copies rather than sharing the dashboard's: this is a separate
- * route, so there is no shared parent to hold them. Nothing on this page shows
- * a total, which is why no summary or breakdown is fetched here — the lists are
- * the whole page.
+ * Nothing on this page is an aggregate, so its own writes leave nothing else
+ * stale; an expense added from the header does, and is picked up here.
  */
 export function AllExpenses() {
   const expenses = useCollection<Expense>('/finance/expenses');
-  const categories = useCollection<Category>('/finance/categories');
-  const currencies = useCollection<string>('/finance/currencies');
-  const profile = useResource<Profile>('/auth/me');
+  const { categories, currencies } = useFinanceBasics();
 
-  // Nothing on this page is an aggregate, so a write leaves nothing else stale.
+  useExpensesChanged(expenses.reload);
   const onChange = useCallback(() => {}, []);
 
   return (
     <ExpenseSection
       expenses={expenses}
       categories={categories.items}
-      currencies={currencies.items}
-      defaultCurrency={profile.data?.preferred_currency ?? 'USD'}
+      currencies={currencies}
       onChange={onChange}
       title="All expenses"
     />
