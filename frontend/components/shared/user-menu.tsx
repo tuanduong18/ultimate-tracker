@@ -1,11 +1,12 @@
 'use client';
 
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, LogOut, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { ACCOUNT_LINKS, isActive } from '@/components/shared/nav-items';
+import { useTheme } from '@/components/shared/theme-provider';
 import { useResource } from '@/lib/hooks/use-collection';
 import { useSession } from '@/lib/hooks/use-session';
 import { PROFILE_CHANGED, displayNameOf, initialOf } from '@/lib/identity';
@@ -24,6 +25,10 @@ import type { Profile } from '@/lib/types/profile';
  *
  * Log out stays one click from the open menu rather than being buried a level
  * deeper, for anyone on a shared computer who needs it quickly.
+ *
+ * Dark mode sits here too, as the one appearance setting worth a shortcut: it
+ * is the one people change with the room — the lights go down, the screen
+ * should too. See DarkModeSwitch.
  */
 export function UserMenu() {
   const [open, setOpen] = useState(false);
@@ -120,6 +125,10 @@ export function UserMenu() {
             ))}
           </ul>
 
+          <div className="border-t border-border py-1">
+            <DarkModeSwitch />
+          </div>
+
           <div className="border-t border-border pt-1">
             <button
               type="button"
@@ -133,5 +142,52 @@ export function UserMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A labelled switch rather than a bare sun/moon button.
+ *
+ * An icon alone cannot say whether the sun means "it is light now" or "make it
+ * light", and people guess both ways; a switch called "Dark mode" that is on or
+ * off has one reading. Flipping it chooses light or dark outright, ending any
+ * "match system" — the person is overriding the device on purpose. Going back
+ * to following the device lives on /settings with the colour schemes. The menu
+ * stays open so the change can be seen, and undone, in place.
+ */
+function DarkModeSwitch() {
+  const { mode, setMode, resolvedMode } = useTheme();
+  const dark = resolvedMode === 'dark';
+  const Icon = dark ? Moon : Sun;
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={dark}
+      onClick={() => setMode(dark ? 'light' : 'dark')}
+      className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm hover:bg-primary-soft"
+    >
+      <Icon aria-hidden className="size-4 text-fg-muted" />
+      <span className="flex-1">
+        Dark mode
+        {mode === 'system' && (
+          <span className="block text-xs text-fg-muted">Following your device</span>
+        )}
+      </span>
+      {/* The track: a shape that moves, so on and off differ by more than colour. */}
+      <span
+        aria-hidden
+        className={`flex h-5 w-9 shrink-0 items-center rounded-full border-2 transition-colors motion-reduce:transition-none ${
+          dark ? 'border-primary bg-primary' : 'border-border-control bg-surface-muted'
+        }`}
+      >
+        <span
+          className={`size-3.5 rounded-full transition-transform motion-reduce:transition-none ${
+            dark ? 'translate-x-4 bg-primary-fg' : 'translate-x-0.5 bg-fg-muted'
+          }`}
+        />
+      </span>
+    </button>
   );
 }
