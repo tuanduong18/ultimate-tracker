@@ -33,7 +33,7 @@ export function RangeNav({ range, onChange }: RangeProps) {
       <button
         type="button"
         aria-label="Previous period"
-        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         onClick={() => onChange(shiftRange(range, -1))}
       >
         ‹
@@ -44,7 +44,7 @@ export function RangeNav({ range, onChange }: RangeProps) {
       <button
         type="button"
         aria-label="Next period"
-        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft"
+        className="rounded-sm px-1.5 text-lg leading-none text-primary hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         onClick={() => onChange(shiftRange(range, 1))}
       >
         ›
@@ -82,7 +82,7 @@ export function RangeControls({
           key={preset.label}
           type="button"
           aria-pressed={preset.matches(range)}
-          className={`rounded-full px-2.5 py-1 ${
+          className={`rounded-full px-2.5 py-1 pointer-coarse:min-h-11 pointer-coarse:px-4 ${
             preset.matches(range)
               ? 'bg-primary text-primary-fg'
               : 'bg-primary-soft text-fg hover:opacity-80'
@@ -102,7 +102,7 @@ export function RangeControls({
         <input
           id={`${idPrefix}-start`}
           type="date"
-          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5"
+          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5 pointer-coarse:min-h-11"
           value={range.start}
           max={range.end}
           onChange={(e) => e.target.value && onChange({ ...range, start: e.target.value })}
@@ -118,7 +118,7 @@ export function RangeControls({
         <input
           id={`${idPrefix}-end`}
           type="date"
-          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5"
+          className="min-w-0 rounded-md border bg-surface px-1.5 py-0.5 pointer-coarse:min-h-11"
           value={range.end}
           min={range.start}
           onChange={(e) => e.target.value && onChange({ ...range, end: e.target.value })}

@@ -34,9 +34,17 @@ function Tile({
       </header>
       {loading ? (
         // Shapes rather than a spinner, so the row does not jump when it lands.
-        <div aria-hidden className="mt-4 space-y-2">
-          <div className="h-7 w-32 animate-pulse rounded-md bg-fg/10" />
-          <div className="h-4 w-44 animate-pulse rounded-md bg-fg/10" />
+        // The shapes mean nothing to a screen reader, so it gets the word.
+        <div className="mt-4 space-y-2">
+          <span className="sr-only">Loading…</span>
+          <div
+            aria-hidden
+            className="h-7 w-32 animate-pulse rounded-md bg-fg/10 motion-reduce:animate-none"
+          />
+          <div
+            aria-hidden
+            className="h-4 w-44 animate-pulse rounded-md bg-fg/10 motion-reduce:animate-none"
+          />
         </div>
       ) : (
         <div className="mt-3">{children}</div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { IconButton } from '@/components/finance/panel';
 
@@ -21,13 +21,35 @@ interface DeleteButtonProps {
  * so the second click would go untested. Both branches are exercised in tests.
  * The first step is a quiet trash icon; the second spells the cost out in a
  * tinted strip, so the dangerous click is never the one a stray tap lands on.
+ *
+ * Each step replaces the other, so each hands focus on rather than letting it
+ * fall to the page: opening the strip focuses "Keep" — the safe answer, and the
+ * one an absent-minded Enter should hit — and closing it, either way, returns
+ * focus to the trash icon. Escape backs out like "Keep" does.
  */
 export function DeleteButton({ prompt, label, busy = false, onConfirm }: DeleteButtonProps) {
   const [confirming, setConfirming] = useState(false);
+  const keep = useRef<HTMLButtonElement>(null);
+  const trash = useRef<HTMLButtonElement>(null);
+  // Only a strip that was open hands focus back: on first render the trash icon
+  // must not grab focus for itself.
+  const wasConfirming = useRef(false);
+
+  useEffect(() => {
+    if (confirming) keep.current?.focus();
+    else if (wasConfirming.current) trash.current?.focus();
+    wasConfirming.current = confirming;
+  }, [confirming]);
 
   if (!confirming) {
     return (
-      <IconButton label={label} icon={Trash2} tone="danger" onClick={() => setConfirming(true)} />
+      <IconButton
+        ref={trash}
+        label={label}
+        icon={Trash2}
+        tone="danger"
+        onClick={() => setConfirming(true)}
+      />
     );
   }
 
@@ -36,12 +58,15 @@ export function DeleteButton({ prompt, label, busy = false, onConfirm }: DeleteB
       role="group"
       aria-label="Confirm delete"
       className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-negative-soft px-2 py-1 text-xs"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setConfirming(false);
+      }}
     >
       <span className="text-negative">{prompt}</span>
       <button
         type="button"
         disabled={busy}
-        className="inline-flex items-center rounded-md bg-negative px-2 py-1 font-medium text-white disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3"
+        className="inline-flex items-center rounded-md bg-negative px-2 py-1 font-medium text-negative-fg disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3"
         onClick={() => {
           setConfirming(false);
           onConfirm();
@@ -50,6 +75,7 @@ export function DeleteButton({ prompt, label, busy = false, onConfirm }: DeleteB
         Yes, delete
       </button>
       <button
+        ref={keep}
         type="button"
         className="inline-flex items-center rounded-md px-2 py-1 text-fg-muted hover:bg-surface pointer-coarse:min-h-11"
         onClick={() => setConfirming(false)}

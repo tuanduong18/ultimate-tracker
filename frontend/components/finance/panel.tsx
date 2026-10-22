@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { IconBadge } from '@/components/shared/illustrations';
 
@@ -27,11 +27,14 @@ interface PanelProps {
   error?: string | null;
   children: ReactNode;
   className?: string;
+  /** For `useRowFocus`, which looks inside the panel for where focus should go. */
+  ref?: Ref<HTMLElement>;
 }
 
-export function Panel({ title, action, header, error, children, className }: PanelProps) {
+export function Panel({ title, action, header, error, children, className, ref }: PanelProps) {
   return (
     <section
+      ref={ref}
       className={clsx(
         'flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xs',
         className
@@ -39,7 +42,11 @@ export function Panel({ title, action, header, error, children, className }: Pan
     >
       <div className="shrink-0 border-b border-border">
         <header className="flex items-center justify-between gap-2 px-4 py-3">
-          <h2 className="truncate text-sm font-semibold">{title}</h2>
+          {/* Focusable by script only (tabIndex -1): where focus lands when the
+              last row of a list is deleted and the header has no button. */}
+          <h2 tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">
+            {title}
+          </h2>
           {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
         </header>
         {header && <div className="px-4 pb-3">{header}</div>}
@@ -118,15 +125,18 @@ export function IconButton({
   onClick,
   tone = 'default',
   disabled,
+  ref,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
   onClick: () => void;
   tone?: 'default' | 'danger';
   disabled?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-label={label}
       title={label}

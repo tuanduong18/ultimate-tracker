@@ -86,7 +86,7 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
         type="button"
         aria-expanded={open}
         aria-haspopup="true"
-        className="rounded-full border px-2.5 py-1 text-xs hover:bg-primary-soft"
+        className="rounded-full border px-2.5 py-1 text-xs hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-4"
         onClick={() => setOpen((was) => !was)}
       >
         {hidden > 0 ? `Categories · ${hidden} hidden` : 'All categories'}
@@ -99,12 +99,16 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
           className="absolute right-0 z-10 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-lg"
         >
           <div className="flex gap-2 border-b border-border pb-2 text-xs">
-            <button type="button" className="underline" onClick={() => onChange(ALL_CATEGORIES)}>
+            <button
+              type="button"
+              className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
+              onClick={() => onChange(ALL_CATEGORIES)}
+            >
               Select all
             </button>
             <button
               type="button"
-              className="underline"
+              className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
               onClick={() => onChange({ ids: [], uncategorized: false })}
             >
               Clear
@@ -114,7 +118,7 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
           <ul className="mt-2 space-y-1">
             {categories.map((category) => (
               <li key={category.id}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted">
+                <label className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11">
                   <input
                     type="checkbox"
                     checked={chosen.includes(category.id)}
@@ -132,7 +136,7 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
 
             <li>
               <label
-                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted"
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11"
                 htmlFor={`${idPrefix}-uncategorised`}
               >
                 <input

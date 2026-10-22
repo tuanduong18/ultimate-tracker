@@ -5,8 +5,12 @@
  * the profile and travels with the account. What is here is per-device.
  */
 
+import type { Metadata } from 'next';
+
 import { PageHeader } from '@/components/shared/page-header';
 import { ThemePicker } from '@/components/settings/theme-picker';
+
+export const metadata: Metadata = { title: 'Settings' };
 
 export default function SettingsPage() {
   return (

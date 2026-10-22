@@ -129,6 +129,9 @@ export function BudgetForm({
           Name
         </label>
         <input
+          // Opening the form replaces whatever held focus (the row, or nothing);
+          // start where the typing starts.
+          autoFocus
           id={`${idPrefix}-name`}
           className="mt-1 w-full rounded-md border bg-surface px-2 py-1.5 text-sm"
           required
@@ -182,7 +185,7 @@ export function BudgetForm({
             </div>
             <div>
               <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-ends`}>
-                Last month <span className="text-fg-subtle">(optional)</span>
+                Last month <span className="text-fg-muted">(optional)</span>
               </label>
               <input
                 id={`${idPrefix}-ends`}
@@ -246,11 +249,15 @@ export function BudgetForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg disabled:opacity-50"
+          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-fg hover:opacity-90 disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-4"
         >
           Save
         </button>
-        <button type="button" className="text-sm underline" onClick={onCancel}>
+        <button
+          type="button"
+          className="rounded-md px-1 text-sm underline pointer-coarse:min-h-11 pointer-coarse:px-3"
+          onClick={onCancel}
+        >
           Cancel
         </button>
       </div>
