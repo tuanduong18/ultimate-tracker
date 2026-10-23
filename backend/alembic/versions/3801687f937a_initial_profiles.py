@@ -1,7 +1,7 @@
 """initial profiles
 
 Revision ID: 3801687f937a
-Revises: 
+Revises:
 Create Date: 2026-06-30 15:28:38.190290
 """
 from collections.abc import Sequence

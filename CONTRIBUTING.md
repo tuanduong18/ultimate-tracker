@@ -15,15 +15,19 @@ See [`README.md`](./README.md#getting-started) for first-time setup. Once runnin
 git hooks so lint and format failures surface before CI does:
 
 ```bash
-pip install pre-commit
-pre-commit install
+python -m pip install pre-commit      # into backend/.venv, like every other Python tool
+python -m pre_commit install
 ```
 
-Hooks run `ruff`, `ruff-format`, `prettier`, and a few safety checks (including
+The prettier hook runs the frontend's own copy from `frontend/node_modules`, so install the
+frontend first (`npm ci` in `frontend/`). That way the hook formats with exactly the version in
+`package-lock.json`, the same one `npm run format:check` uses in CI.
+
+Hooks run `ruff check`, `ruff format`, `prettier`, and a few safety checks (including
 `detect-private-key`) on staged files only. To run them across the whole repo:
 
 ```bash
-pre-commit run --all-files
+python -m pre_commit run --all-files
 ```
 
 ---
@@ -173,11 +177,9 @@ disabled so that every issue carries a domain, and every feature carries a targe
 
 ### Labels
 
-> **Not set up yet.** The repository still has GitHub's default labels and no milestones, so
-> the issue forms' `feature` / `chore` labels are skipped when an issue is filed. Create the
-> labels and milestones below before relying on them.
-
-Three families, combined freely:
+Three families, combined freely. The issue forms apply the type label; add domain and release
+by hand. GitHub's default labels (`enhancement`, `dependencies`, …) are left in place —
+Dependabot applies some of them.
 
 | Family | Labels |
 |---|---|
@@ -186,8 +188,9 @@ Three families, combined freely:
 | **Release** | `v0.1` · `v0.2` · `v0.3` · `v0.4` |
 
 Milestones mirror the release plan in
-[`DeveloperGuide.md` § 14](./DeveloperGuide.md#14-release-plan), so progress toward a release
-is visible in the tracker rather than only in a markdown table.
+[`DeveloperGuide.md` § 14](./DeveloperGuide.md#14-release-plan) — `v0.1` (closed: done),
+`v0.2`, `v0.3`, `v0.4` and `Last` — so progress toward a release is visible in the tracker
+rather than only in a markdown table.
 
 ---
 
@@ -222,8 +225,10 @@ That is not hypothetical: a declared `mypy>=1.10` was silently resolving to **my
   allowed to break
 
 Dependabot proposes range widenings as ordinary PRs, so a major shows up as a decision rather
-than a surprise. Keep the `ruff` pin in sync with the rev in `.pre-commit-config.yaml`, or the
-hook and CI can disagree about formatting.
+than a surprise. Keep the ruff hook's `rev` in `.pre-commit-config.yaml` equal to the ruff CI
+installs (the newest release inside the `requirements.txt` range), or the hook and CI can
+disagree about formatting — when a Dependabot PR widens the ruff range, bump the `rev` in it.
+Prettier needs no such care: the hook uses the frontend's locked copy.
 
 Adding a new **major** dependency by hand means noting it in `README.md`'s tech stack table.
 
