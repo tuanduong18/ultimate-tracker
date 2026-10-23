@@ -68,8 +68,14 @@ export interface Collection<T> {
  * reflects what the server actually stored, rather than what we guessed it
  * would store. With three small collections that round trip is cheaper than
  * the bugs optimistic updates would invite.
+ *
+ * `fetchList` is how the list is fetched — one request by default, or
+ * `fetchEveryPage` for an endpoint that pages. Pass a stable function.
  */
-export function useCollection<T>(path: string): Collection<T> {
+export function useCollection<T>(
+  path: string,
+  fetchList: (path: string) => Promise<T[]> = api.get
+): Collection<T> {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,20 +91,42 @@ export function useCollection<T>(path: string): Collection<T> {
   // The rule is relaxed to a warning in eslint.config.mjs for that reason.)
   const load = useCallback(async () => {
     try {
-      setItems(await api.get<T[]>(path));
+      setItems(await fetchList(path));
       setError(null);
     } catch (err: unknown) {
       setError(describeError(err, 'Could not load this list.'));
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, fetchList]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   return { items, loading, error, reload: load, setError };
+}
+
+/** The most rows GET /finance/expenses returns per request (`le=500`). */
+const API_PAGE_LIMIT = 500;
+
+/**
+ * Every row of a paged list endpoint, one full page after another until a
+ * short page says there are no more.
+ *
+ * For a list the browser filters itself (Transactions): it needs all of it.
+ * One user's expenses stay small enough for that — a few a day is a few
+ * thousand rows a year. Sequential, because each page's length decides
+ * whether there is a next one.
+ */
+export async function fetchEveryPage<T>(path: string): Promise<T[]> {
+  const rows: T[] = [];
+  const join = path.includes('?') ? '&' : '?';
+  for (;;) {
+    const page = await api.get<T[]>(`${path}${join}limit=${API_PAGE_LIMIT}&offset=${rows.length}`);
+    rows.push(...page);
+    if (page.length < API_PAGE_LIMIT) return rows;
+  }
 }
 
 export interface Resource<T> {
