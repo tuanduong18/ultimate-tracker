@@ -458,9 +458,10 @@ Minimum bar: every new service function and API endpoint needs at least one test
 - Strict TypeScript (`strict: true` in `tsconfig.json`)
 - Naming: `camelCase` for variables/functions, `PascalCase` for components, files match component names
 
-**Both languages:** `.pre-commit-config.yaml` runs ruff, ruff-format, and prettier on staged
-files, plus `detect-private-key` and friends. Install with `pre-commit install` — optional, but
-it catches these before CI does.
+**Both languages:** `.pre-commit-config.yaml` runs ruff check, ruff format, and prettier on
+staged files, plus `detect-private-key` and friends — ruff at the version CI installs, prettier
+from `frontend/node_modules`. Install with `python -m pre_commit install` (setup in
+[CONTRIBUTING.md](./CONTRIBUTING.md#local-setup)) — optional, but it catches these before CI does.
 
 **General:**
 - No `any` types without a comment explaining why
