@@ -71,8 +71,8 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs / Sentry link
-      description: Relevant console output, API response, or Sentry issue.
+      label: Logs
+      description: Relevant browser console output, API response, or Render log lines.
       render: shell
     validations:
       required: false

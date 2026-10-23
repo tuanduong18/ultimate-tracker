@@ -34,13 +34,12 @@ graph TD
     B -->|Auth SDK| E[Supabase Auth]
     C -->|Verify JWT| E
     F[Supabase pg_cron + pg_net] -->|POST /api/v1/tasks/*| C
-    C -.->|Errors, planned| G[Sentry]
     C -.->|Email digest, planned| H[Resend]
 ```
 
 Solid lines exist today; dotted ones are planned. The scheduler is the database's own cron
 calling the backend's job endpoints (see [platform.md](./docs/features/platform.md#background-jobs)).
-Sentry is installed but not initialised yet, and there is no email channel.
+There is no error-reporting service, by choice (see [§12](#12-observability--monitoring)), and no email channel yet.
 
 **Why decoupled instead of Next.js full-stack (API routes)?**
 Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a clean place to put the correlation engine and scheduled jobs — logic that doesn't belong wedged into Next.js API routes. It also mirrors how most real backend teams are structured, which matters for a portfolio piece.
@@ -70,7 +69,7 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 | **Render (backend)** | Free tier supports Docker deploys; spins down after inactivity but wakes on request — acceptable for a personal project |
 | **Vercel (frontend)** | Zero-config Next.js deploys, generous free tier, preview deployments per PR |
 | **GitHub Actions** | Free for public repos, native PR integration |
-| **Sentry** (planned, v0.4) | Free tier (5k errors/month) is enough for a personal project. The SDK is in `requirements.txt` and `SENTRY_DSN` is read, but `sentry_sdk.init` is not called yet |
+| **structlog** | Log calls carry named fields; deployments render them as one JSON object per line, so Render's log search can filter by them. No error-reporting service on top: the users are the author and a few friends |
 | **Supabase pg_cron + pg_net** | The scheduler: the database's cron POSTs to idempotent job endpoints, so there is no worker process to host |
 
 ---
@@ -471,15 +470,21 @@ it catches these before CI does.
 
 ## 12. Observability & Monitoring
 
-What exists today, and what is still a plan — the plan items are v0.4's "full observability":
+Logging is set up in [`app/core/observability.py`](./backend/app/core/observability.py) when the
+app starts, and follows `ENVIRONMENT`: `development` (the default) and `test` are local;
+anything else, `production` on Render, is a deployment.
 
-- **Logging** *(partly built)*: the backend logs through `structlog`, with event names and
-  key-value fields (`exchange_rates.stale`, `jwks_unreachable`). It is not configured yet, so it
-  prints structlog's default console format, not JSON. **Planned:** `structlog.configure` with a
-  JSON renderer in production.
-- **Sentry** *(planned)*: `sentry-sdk` is installed and `SENTRY_DSN` is read into settings, but
-  nothing calls `sentry_sdk.init`, and the frontend has no SDK. Unhandled errors are only in
-  Render's logs today.
+- **Logging** *(built)*: the backend logs through `structlog` with event names and key-value
+  fields (`logger.warning("exchange_rates.stale", age_hours=50)`). Deployments print one JSON
+  object per line — `event`, `level`, an ISO `timestamp` in UTC, the fields, and `exception`
+  with the traceback — so Render's log search can filter on any field. Locally the same
+  lines print as coloured text. Debug lines are dropped. Uvicorn's own access log is
+  unchanged.
+- **No error-reporting service** *(by choice)*: no Sentry or similar. The users are the
+  author and a few friends, who see a failure on screen when it happens. What nobody
+  watches is the scheduled jobs; a failed run is a `level: error` line in Render's logs,
+  and pg_cron's own history (`cron.job_run_details`, `net._http_response`) shows what
+  each call answered. Revisit only if the app gains users who would not report a bug.
 - **Health check** *(built)*: `GET /api/v1/health` returns `{"status": "ok", "db": "connected"}`
   — used by Render and an uptime monitor. It answers 200 with `"db": "disconnected"` when the
   database is down, so a monitor has to read the body, not just the status code.
@@ -492,7 +497,7 @@ What exists today, and what is still a plan — the plan items are v0.4's "full 
 
 - Never commit `.env` files — `.gitignore` already excludes them, verify before every commit
 - JWT verification happens on every protected backend route using Supabase's public JWKS endpoint — never trust a JWT without verifying its signature
-- Secrets live in Render/Vercel environment settings (and Supabase Vault for the scheduler) — never in code. Today that is `DATABASE_URL` and `TASK_SECRET` on Render; `SENTRY_DSN` and a Resend API key join them when those land. GitHub Actions secrets hold only the public `NEXT_PUBLIC_*` values for CI builds, with placeholders when they are absent. No Supabase service role key is used anywhere
+- Secrets live in Render/Vercel environment settings (and Supabase Vault for the scheduler) — never in code. Today that is `DATABASE_URL` and `TASK_SECRET` on Render; `ENVIRONMENT=production` is set there too, though it is not a secret; a Resend API key joins them when email lands. GitHub Actions secrets hold only the public `NEXT_PUBLIC_*` values for CI builds, with placeholders when they are absent. No Supabase service role key is used anywhere
 - Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit
 - `/api/v1/tasks/*` is not behind a user JWT: it compares `X-Task-Secret` to `TASK_SECRET` in constant time, and answers `503` with every job disabled while `TASK_SECRET` is unset
 - CORS: backend only accepts requests from the deployed frontend origin and `localhost` in dev
@@ -515,7 +520,7 @@ before it is stable.
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD | Deployed to Vercel and Render; an expense can be logged and shows up converted in the dashboard; CI green on every PR |
 | **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts, Fitness training and steps, focus timer and entertainment budgets | A subscription reminds three days out and renews itself into a real expense; a budget breach notifies; a workout and a step count can be logged |
 | **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest sends |
-| **v0.4** | Polish, performance pass, full observability, public launch | Sentry clean across a full week of real use; onboarding under three minutes for someone new |
+| **v0.4** | Polish, performance pass, full observability, public launch | No `level: error` lines in the logs across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |
 
 **Where it stands:** v0.1 is done. Ahead of v0.2, subscriptions with reminders, in-app

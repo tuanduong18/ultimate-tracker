@@ -1,6 +1,6 @@
 """FastAPI application entrypoint.
 
-Wires CORS, the standard error envelope, and the versioned API router.
+Wires logging, CORS, the standard error envelope, and the versioned API router.
 """
 
 from typing import Any
@@ -14,6 +14,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1 import api_router
 from app.core.config import settings
+from app.core.observability import configure_logging
+
+# Before anything logs, so even the first line comes out in the right format.
+configure_logging(settings)
 
 app = FastAPI(title=settings.project_name)
 
