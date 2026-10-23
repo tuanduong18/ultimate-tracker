@@ -135,7 +135,7 @@ ultimate-tracker/
 │   │   └── versions/
 │   ├── scripts/
 │   │   └── schedule_jobs.sql   # pg_cron + pg_net setup, run once in Supabase
-│   ├── tests/                  # unit/ and integration/ (in-memory SQLite)
+│   ├── tests/                  # unit/ and integration/ (Postgres, via TEST_DATABASE_URL)
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── pyproject.toml          # ruff + mypy config
@@ -435,7 +435,7 @@ Every PR also gets a Vercel preview deployment automatically — useful for visu
 | Layer | Tool | Target |
 |---|---|---|
 | Backend unit tests | Pytest | Service layer logic (budget calculations, correlation thresholds, overload detection) |
-| Backend integration tests | Pytest + httpx AsyncClient | Full API request/response cycles against an in-memory SQLite database (CI's Postgres service is used for the migration checks only) |
+| Backend integration tests | Pytest + httpx AsyncClient | Full API request/response cycles against Postgres (`TEST_DATABASE_URL`): the schema is built once per run by `alembic upgrade head` and every table is emptied before each test. Postgres rather than SQLite because the guarantees that matter — a renewal charged once under overlapping runs (`SKIP LOCKED`), exact decimals — only exist there |
 | Frontend unit tests | Vitest + React Testing Library | Components and hooks |
 | Frontend E2E (from v0.3) | Playwright | Critical flows: signup → onboarding → log a transaction → see it on dashboard |
 

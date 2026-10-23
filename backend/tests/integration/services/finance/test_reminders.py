@@ -1,4 +1,4 @@
-"""Subscription reminders against SQLite: the daily countdown, re-alerting,
+"""Subscription reminders against Postgres: the daily countdown, re-alerting,
 snoozing, and how edits rewrite them."""
 
 import uuid

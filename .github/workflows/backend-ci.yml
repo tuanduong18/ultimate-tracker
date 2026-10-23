@@ -60,6 +60,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+      # The integration tests rebuild this same database from the migrations at
+      # the start of the run, after the migration checks below have used it.
+      TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
 
     steps:
       - name: Checkout code

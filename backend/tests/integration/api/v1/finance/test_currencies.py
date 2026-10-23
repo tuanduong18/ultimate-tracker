@@ -1,6 +1,6 @@
 """Which currencies new data may use: the ones the rate provider still quotes.
 
-Full route -> service -> DB path against SQLite.
+Full route -> service -> DB path against Postgres.
 """
 
 from collections.abc import Awaitable, Callable

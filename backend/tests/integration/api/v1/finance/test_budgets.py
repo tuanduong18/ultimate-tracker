@@ -1,6 +1,6 @@
 """Budget routes, including progress against each cap.
 
-Full route -> service -> DB path against SQLite.
+Full route -> service -> DB path against Postgres.
 """
 
 import uuid

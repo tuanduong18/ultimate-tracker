@@ -178,12 +178,17 @@ timer are what remain of it.
 ## Testing
 
 ```bash
-# Backend
+# Backend — integration tests need a throwaway Postgres database (see below)
 cd backend && python -m pytest
 
 # Frontend
 cd frontend && npm run test -- --run   # without --run, vitest stays in watch mode
 ```
+
+The backend's integration tests run against Postgres, like production. Create an empty
+database whose name contains `test` (`createdb test_db`) and set `TEST_DATABASE_URL` in
+`backend/.env` — every run wipes it and rebuilds it from the migrations, so never point it at
+Supabase. `python -m pytest -m unit` runs the unit tests without a database.
 
 CI runs both suites on every pull request — see [`DeveloperGuide.md`](./DeveloperGuide.md#9-cicd-pipeline) for the full pipeline.
 

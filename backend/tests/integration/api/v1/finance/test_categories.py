@@ -1,6 +1,6 @@
 """Category routes.
 
-Full route -> service -> DB path against SQLite.
+Full route -> service -> DB path against Postgres.
 """
 
 from httpx import AsyncClient

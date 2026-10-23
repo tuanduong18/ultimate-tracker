@@ -1,4 +1,4 @@
-"""Service-level tests for subscription CRUD against SQLite."""
+"""Service-level tests for subscription CRUD against Postgres."""
 
 import uuid
 from collections.abc import AsyncGenerator

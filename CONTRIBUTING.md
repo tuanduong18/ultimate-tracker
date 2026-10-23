@@ -162,6 +162,11 @@ cd backend  && python -m ruff check . && python -m ruff format --check . && pyth
 cd frontend && npm run lint && npm run format:check && npx tsc --noEmit && npm run test -- --run && npm run build
 ```
 
+`pytest` needs `TEST_DATABASE_URL` pointing at a throwaway Postgres database whose name contains
+`test` — each run drops its schema and rebuilds it from the migrations, then empties every table
+before each test. A local Postgres works; you don't need the service running permanently, and
+CI provides its own. Unit tests alone run without one: `python -m pytest -m unit`.
+
 Full strategy: [`DeveloperGuide.md` § 10](./DeveloperGuide.md#10-testing-strategy).
 
 ---
