@@ -1,4 +1,4 @@
-"""Currency notices against SQLite: who is told a currency was dropped, and only once."""
+"""Currency notices against Postgres: who is told a currency was dropped, and only once."""
 
 import uuid
 from collections.abc import AsyncGenerator

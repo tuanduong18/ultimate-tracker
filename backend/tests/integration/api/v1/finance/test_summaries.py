@@ -1,6 +1,6 @@
 """The range summary and the category and period breakdowns.
 
-Full route -> service -> DB path against SQLite.
+Full route -> service -> DB path against Postgres.
 """
 
 from decimal import Decimal

@@ -1,6 +1,7 @@
-"""The renewal job against SQLite: each charge becomes an expense once, the
+"""The renewal job against Postgres: each charge becomes an expense once, the
 reminder makes way for a renewal notice, and missed days are caught up."""
 
+import asyncio
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
@@ -178,3 +179,44 @@ async def test_a_trial_ending_says_the_trial_ended(db: AsyncSession) -> None:
     [notice] = await notices(db)
     assert notice.title == "Your Streaming trial ended on 22 Oct"
     assert notice.body == "The first charge of USD 12.99 was logged as an expense."
+
+
+# --- Overlapping runs ---------------------------------------------------------
+#
+# The scheduler can fire a run while the last is still going (a slow cold start
+# on Render, a manual trigger). Each charge must still be recorded once. These
+# need two real connections and Postgres row locks, which is why they could not
+# run on SQLite.
+
+
+async def test_a_run_skips_a_subscription_another_run_is_holding(
+    db: AsyncSession, db_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    subscription_id = await add(db)
+
+    async with db_factory() as holder, db_factory() as other:
+        # Stands in for a run that has locked the row and is mid-charge.
+        await holder.execute(
+            select(Subscription).where(Subscription.id == subscription_id).with_for_update()
+        )
+        # Skipped, not waited on: without SKIP LOCKED this would block, and the
+        # timeout turns that into a failure instead of a hung test run.
+        assert await asyncio.wait_for(renew(other, at(22)), timeout=5) == 0
+
+        await holder.rollback()
+        assert await renew(other, at(22)) == 1
+
+    assert len(await expenses(db)) == 1
+
+
+async def test_two_runs_at_once_record_each_charge_once(
+    db: AsyncSession, db_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    for _ in range(20):
+        await add(db, id=uuid.uuid4())
+
+    async with db_factory() as first, db_factory() as second:
+        counts = await asyncio.gather(renew(first, at(22)), renew(second, at(22)))
+
+    assert sum(counts) == 20
+    assert len(await expenses(db)) == 20
