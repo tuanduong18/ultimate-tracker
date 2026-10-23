@@ -33,10 +33,14 @@ graph TD
     C -->|SQL| D[(Postgres - Supabase)]
     B -->|Auth SDK| E[Supabase Auth]
     C -->|Verify JWT| E
-    F[Scheduled Jobs] -->|Weekly digest, correlation engine| C
-    C -->|Errors| G[Sentry]
-    C -->|Email digest| H[Resend]
+    F[Supabase pg_cron + pg_net] -->|POST /api/v1/tasks/*| C
+    C -.->|Errors, planned| G[Sentry]
+    C -.->|Email digest, planned| H[Resend]
 ```
+
+Solid lines exist today; dotted ones are planned. The scheduler is the database's own cron
+calling the backend's job endpoints (see [platform.md](./docs/features/platform.md#background-jobs)).
+Sentry is installed but not initialised yet, and there is no email channel.
 
 **Why decoupled instead of Next.js full-stack (API routes)?**
 Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a clean place to put the correlation engine and scheduled jobs — logic that doesn't belong wedged into Next.js API routes. It also mirrors how most real backend teams are structured, which matters for a portfolio piece.
@@ -59,14 +63,15 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 |---|---|
 | **Next.js 16 (App Router)** | Server components reduce client JS, good defaults for SEO and load speed |
 | **TypeScript** everywhere on frontend | Catches schema mismatches with the API at compile time |
-| **Tailwind + shadcn/ui** | No time wasted on a design system; shadcn components are copy-in, not a dependency lock-in |
+| **Tailwind CSS 4 + theme tokens** | Every colour is a CSS variable in `app/globals.css`, so eight colour schemes and dark mode share one set of hand-written components; no component library |
 | **FastAPI** (Python 3.14) | Async-first, Pydantic validation built in, auto-generated OpenAPI docs at `/docs` |
 | **SQLAlchemy 2.0 (async) + Alembic** | Explicit migrations, no magic — important when the schema spans five domains |
 | **Supabase (Postgres + Auth)** | Free tier is generous (500MB DB, 50k monthly active users), removes the need to build auth from scratch |
 | **Render (backend)** | Free tier supports Docker deploys; spins down after inactivity but wakes on request — acceptable for a personal project |
 | **Vercel (frontend)** | Zero-config Next.js deploys, generous free tier, preview deployments per PR |
 | **GitHub Actions** | Free for public repos, native PR integration |
-| **Sentry** | Free tier (5k errors/month) is enough for a personal project, catches real bugs before you notice |
+| **Sentry** (planned, v0.4) | Free tier (5k errors/month) is enough for a personal project. The SDK is in `requirements.txt` and `SENTRY_DSN` is read, but `sentry_sdk.init` is not called yet |
+| **Supabase pg_cron + pg_net** | The scheduler: the database's cron POSTs to idempotent job endpoints, so there is no worker process to host |
 
 ---
 
@@ -80,20 +85,27 @@ ultimate-tracker/
 │   │   ├── (auth)/signup/
 │   │   ├── (app)/           # signed-in routes; layout.tsx wraps them in AuthGuard
 │   │   │   ├── dashboard/
-│   │   │   ├── finance/
-│   │   │   ├── fitness/
+│   │   │   ├── finance/     # Overview, expenses/ (Transactions), budgets/, subscriptions/, categories/
+│   │   │   ├── fitness/     # ComingSoon placeholders until each domain ships
 │   │   │   ├── time/
 │   │   │   ├── insights/
 │   │   │   ├── gaming/
+│   │   │   ├── notifications/
+│   │   │   ├── profile/
 │   │   │   ├── settings/
-│   │   │   └── onboarding/
+│   │   │   └── onboarding/  # placeholder
+│   │   ├── page.tsx         # public welcome page
+│   │   └── globals.css      # theme tokens (generated) + Tailwind 4 config
 │   ├── components/
-│   │   ├── ui/              # shadcn primitives
-│   │   ├── charts/
-│   │   └── shared/
+│   │   ├── finance/         # one folder per domain
+│   │   ├── home/  notifications/  profile/  settings/
+│   │   ├── shared/          # app shell, nav, auth guard, Log menu
+│   │   ├── charts/          # empty for now; charts live with their domain
+│   │   └── ui/              # empty for now; no component library is used
 │   ├── lib/
 │   │   ├── api-client.ts    # typed fetch wrapper for FastAPI
 │   │   ├── supabase.ts
+│   │   ├── types/           # API response shapes
 │   │   └── hooks/
 │   ├── tests/
 │   ├── package.json
@@ -103,22 +115,27 @@ ultimate-tracker/
 │   ├── app/
 │   │   ├── api/
 │   │   │   └── v1/
-│   │   │       ├── auth.py
+│   │   │       ├── health.py         # liveness check, not a domain
+│   │   │       ├── auth.py           # /auth/me profile
+│   │   │       ├── notifications.py
+│   │   │       ├── tasks.py          # job triggers, X-Task-Secret instead of a JWT
 │   │   │       ├── finance.py
-│   │   │       ├── fitness.py
+│   │   │       ├── fitness.py        # empty stubs until their domains ship
 │   │   │       ├── time_tracking.py
 │   │   │       ├── insights.py
 │   │   │       └── gaming.py
-│   │   ├── core/             # config, security, JWT verification
+│   │   ├── core/             # config, JWT verification, currencies, timezones
 │   │   ├── db/                # session, base model
 │   │   ├── models/             # SQLAlchemy ORM models
 │   │   ├── schemas/            # Pydantic request/response schemas
-│   │   ├── services/           # business logic per domain
-│   │   ├── tasks/               # scheduled jobs (digest, correlation engine)
+│   │   ├── services/           # business logic; services/finance/ is split per resource
+│   │   ├── tasks/               # the background jobs (exchange rates, subscriptions) + CLI runner
 │   │   └── main.py
 │   ├── alembic/
 │   │   └── versions/
-│   ├── tests/
+│   ├── scripts/
+│   │   └── schedule_jobs.sql   # pg_cron + pg_net setup, run once in Supabase
+│   ├── tests/                  # unit/ and integration/ (in-memory SQLite)
 │   ├── requirements.txt
 │   ├── Dockerfile
 │   └── pyproject.toml          # ruff + mypy config
@@ -136,12 +153,13 @@ ultimate-tracker/
 │   └── dependabot.yml
 ├── docker-compose.yml
 ├── .pre-commit-config.yaml
-├── .env.example
 ├── README.md
 ├── CONTRIBUTING.md
-├── DeveloperGuide.md
-└── CLAUDE.md
+└── DeveloperGuide.md
 ```
+
+Env files are per app — `backend/.env` and `frontend/.env.local`, each copied from the
+`.env.example` beside it. There is no root `.env`.
 
 > There is no `deploy.yml` — Render and Vercel deploy natively on push to `main`. Don't re-add one.
 
@@ -173,8 +191,10 @@ erDiagram
 
     PROFILES {
         uuid id PK "= auth.users.id"
+        string display_name "nullable"
         string timezone
-        string display_currency
+        string display_currency "totals are reported in it"
+        string preferred_currency "new entries start in it"
         timestamp created_at
     }
     CATEGORIES {
@@ -200,8 +220,9 @@ erDiagram
         string name
         decimal amount
         string currency
+        string period "monthly | custom"
         date starts_on
-        date ends_on
+        date ends_on "nullable: an ongoing monthly budget"
         timestamp created_at
     }
     BUDGET_CATEGORIES {
@@ -214,8 +235,11 @@ Three properties of this schema are easy to get wrong:
 
 - **Expenses, not transactions.** The domain is expense-only. There is no `type` column with
   `income|expense`, and no `payment_method`.
-- **Budgets span an explicit date range**, not a `weekly|monthly` period enum, and they apply to
-  **many categories** through `budget_categories`. Code that assumes one category per budget is wrong.
+- **Budgets come in two kinds** (`period`): **monthly**, a fresh cap each calendar month from
+  `starts_on`'s month until `ends_on`'s (or for good), and **custom**, one cap over a fixed
+  range. Monthly ones reset by calculation, not by a job — see
+  [finance.md](./docs/features/finance.md#budgets). Either kind applies to **many categories**
+  through `budget_categories`; code that assumes one category per budget is wrong.
 - **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
   Conversion into the user's `display_currency` happens server-side in `services/finance/summaries.py`.
 
@@ -246,9 +270,10 @@ never built.
 ## 5. API Design Conventions
 
 - All routes are versioned: `/api/v1/...`
-- Resource-based REST naming: `GET /api/v1/finance/transactions`, `POST /api/v1/finance/transactions`, `PATCH /api/v1/finance/transactions/{id}`
-- Auth: every protected route requires `Authorization: Bearer <supabase_jwt>`
-- Pagination: cursor-based via `?limit=20&cursor=<id>` for list endpoints expected to grow large (transactions, sessions)
+- Resource-based REST naming: `GET /api/v1/finance/expenses`, `POST /api/v1/finance/expenses`, `PATCH /api/v1/finance/expenses/{id}`
+- Auth: every protected route requires `Authorization: Bearer <supabase_jwt>`. The exceptions are `/health`, `/finance/currencies` (identical for everyone), and `/tasks/*`, which take an `X-Task-Secret` header instead
+- Pagination: offset-based, `?limit=&offset=`, on lists that grow — today `GET /finance/expenses` (default 100, max 500), with a total order (`spent_on`, `created_at`, `id`) so pages never repeat or skip a row. `GET /notifications` takes `?limit=` only
+- An action that is not plain CRUD, or that needs a large body, is a `POST` on a sub-path: `POST /finance/expenses/export` takes the ids to export and returns an `.xlsx`
 - Standard error shape:
 
 ```json
@@ -315,16 +340,33 @@ instead of the budget CRUD. See [gaming.md](./docs/features/gaming.md#why-this-o
 ## 7. Local Development Setup
 
 1. Create a free Supabase project at [supabase.com](https://supabase.com).
-2. Copy `.env.example` to `.env` in both `frontend/` and `backend/`, filling in:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (frontend)
-   - `DATABASE_URL`, `SUPABASE_JWKS_URL` (backend)
-3. Run database migrations: `cd backend && alembic upgrade head`
-4. Seed local dev data (optional): `python -m app.scripts.seed`
-5. Start backend: `uvicorn app.main:app --reload`
-6. Start frontend: `npm run dev`
-7. Visit `http://localhost:3000`, sign up, and you're in.
+2. Copy each app's example env file — note the frontend's is `.env.local`:
+   - `backend/.env.example` → `backend/.env`: `DATABASE_URL` (Supabase connection string with the
+     `postgresql+asyncpg://` scheme) and `SUPABASE_JWKS_URL`; `TASK_SECRET` if you want to call
+     the job endpoints
+   - `frontend/.env.example` → `frontend/.env.local`: `NEXT_PUBLIC_SUPABASE_URL`,
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Install dependencies: a virtualenv plus `pip install -r requirements.txt` in `backend/`, and
+   `npm install` in `frontend/` — the exact commands are in the
+   [README](./README.md#getting-started).
+4. In `backend/`, run the migrations, then start the API (it keeps this terminal):
+   `python -m alembic upgrade head`, then `python -m uvicorn app.main:app --reload`
+5. In a second terminal, in `frontend/`: `npm run dev`
+6. Visit `http://localhost:3000` and sign up. Your profile and a starter set of categories are
+   created on first sign-in — there is no seed script.
+7. Optional, in `backend/`: load real exchange rates once, or the currency pickers offer only
+   the 10 fallback currencies: `python -m app.tasks exchange-rates`.
 
-Or run `docker compose up --build` from the repo root to start everything at once.
+Use `python -m` for every Python tool: Windows Smart App Control blocks the unsigned
+`uvicorn.exe` / `alembic.exe` / `pytest.exe` shims in `.venv/Scripts/` (see the README).
+
+Or run `docker compose up --build` from the repo root to start both. Compose reads the same two
+env files and has no database of its own, so `DATABASE_URL` must point somewhere the container
+can reach — `localhost` there is the container.
+
+**Scheduling the jobs in production** is a one-off: run
+[`backend/scripts/schedule_jobs.sql`](./backend/scripts/schedule_jobs.sql) in the Supabase SQL
+editor with the Render URL and `TASK_SECRET` filled in.
 
 ---
 
@@ -371,7 +413,7 @@ that does the filtering via `dorny/paths-filter`, gating the real job with an `i
 `backend-ci-ok` / `frontend-ci-ok` job that always runs and reports the outcome. **Those gate
 jobs are the required status checks.**
 
-**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker — minor and patch bundled per ecosystem, majors separate.
+**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker. npm splits majors into their own group; pip is one group, because `requirements.txt` holds ranges with no lock file and Dependabot cannot classify a bump as major or minor. Security alerts are separate from these PRs; GitHub's preset auto-triage rule (on by default for public repositories) dismisses low-impact alerts on development-only dependencies as soon as they are raised.
 
 **Deployment (no workflow needed):**
 - **Backend** — Render auto-deploys on push to `main`: it rebuilds the Docker image and restarts the service.
@@ -393,7 +435,7 @@ Every PR also gets a Vercel preview deployment automatically — useful for visu
 | Layer | Tool | Target |
 |---|---|---|
 | Backend unit tests | Pytest | Service layer logic (budget calculations, correlation thresholds, overload detection) |
-| Backend integration tests | Pytest + httpx AsyncClient | Full API request/response cycles against a test database |
+| Backend integration tests | Pytest + httpx AsyncClient | Full API request/response cycles against an in-memory SQLite database (CI's Postgres service is used for the migration checks only) |
 | Frontend unit tests | Vitest + React Testing Library | Components and hooks |
 | Frontend E2E (from v0.3) | Playwright | Critical flows: signup → onboarding → log a transaction → see it on dashboard |
 
@@ -405,7 +447,7 @@ Minimum bar: every new service function and API endpoint needs at least one test
 
 **Backend (Python):**
 - `ruff check` for linting and `ruff format` for formatting (replaces Black + Flake8 + isort) — both enforced in CI
-- `mypy --strict` for static type checking — all functions require type hints
+- `mypy` in strict mode (`pyproject.toml`) — all functions require type hints. CI checks `app/` only; `tests/` is not type-checked
 - Line length 100 (`pyproject.toml`)
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes/Pydantic models
 
@@ -429,9 +471,18 @@ it catches these before CI does.
 
 ## 12. Observability & Monitoring
 
-- **Structured logging**: backend logs as JSON (via `structlog` or similar) — easier to query later if you add a log aggregator
-- **Sentry**: catches unhandled exceptions on both frontend and backend, free tier is sufficient
-- **Health check**: `GET /api/v1/health` returns `{"status": "ok", "db": "connected"}` — used by Render and an uptime monitor
+What exists today, and what is still a plan — the plan items are v0.4's "full observability":
+
+- **Logging** *(partly built)*: the backend logs through `structlog`, with event names and
+  key-value fields (`exchange_rates.stale`, `jwks_unreachable`). It is not configured yet, so it
+  prints structlog's default console format, not JSON. **Planned:** `structlog.configure` with a
+  JSON renderer in production.
+- **Sentry** *(planned)*: `sentry-sdk` is installed and `SENTRY_DSN` is read into settings, but
+  nothing calls `sentry_sdk.init`, and the frontend has no SDK. Unhandled errors are only in
+  Render's logs today.
+- **Health check** *(built)*: `GET /api/v1/health` returns `{"status": "ok", "db": "connected"}`
+  — used by Render and an uptime monitor. It answers 200 with `"db": "disconnected"` when the
+  database is down, so a monitor has to read the body, not just the status code.
 - **Uptime monitoring**: UptimeRobot (free tier) pings the health check every 5 minutes, alerts via email if down
 - **Metrics** (optional, v0.4+): basic request latency logging per endpoint, reviewed manually rather than a full Prometheus/Grafana stack — overkill for a personal project's scale
 
@@ -441,8 +492,9 @@ it catches these before CI does.
 
 - Never commit `.env` files — `.gitignore` already excludes them, verify before every commit
 - JWT verification happens on every protected backend route using Supabase's public JWKS endpoint — never trust a JWT without verifying its signature
-- Secrets (Supabase service role key, Sentry DSN, Resend API key) live in GitHub Actions secrets and Render/Vercel environment variable settings — never in code
-- Rate limit auth endpoints (signup/login) to prevent brute force — FastAPI middleware or Supabase's built-in protections
+- Secrets live in Render/Vercel environment settings (and Supabase Vault for the scheduler) — never in code. Today that is `DATABASE_URL` and `TASK_SECRET` on Render; `SENTRY_DSN` and a Resend API key join them when those land. GitHub Actions secrets hold only the public `NEXT_PUBLIC_*` values for CI builds, with placeholders when they are absent. No Supabase service role key is used anywhere
+- Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit
+- `/api/v1/tasks/*` is not behind a user JWT: it compares `X-Task-Secret` to `TASK_SECRET` in constant time, and answers `503` with every job disabled while `TASK_SECRET` is unset
 - CORS: backend only accepts requests from the deployed frontend origin and `localhost` in dev
 
 ---
@@ -465,6 +517,10 @@ before it is stable.
 | **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest sends |
 | **v0.4** | Polish, performance pass, full observability, public launch | Sentry clean across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |
+
+**Where it stands:** v0.1 is done. Ahead of v0.2, subscriptions with reminders, in-app
+notifications and the scheduler (pg_cron) have shipped as well; budget breach alerts, Fitness
+training and steps, and the focus timer are what remain of v0.2.
 
 **The scheduler moved from v0.3 to v0.2.** Subscription reminders are the first feature that
 cannot work without it, and budget alerts and the weekly digest then reuse the same service

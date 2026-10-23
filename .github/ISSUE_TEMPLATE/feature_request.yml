@@ -28,10 +28,8 @@ body:
       description: Which part of the app? See DeveloperGuide.md section 6.
       options:
         - Finance & Budgeting
-        - Steps & Walking
-        - Fitness
-        - Time Tracking
-        - Wellness
+        - Fitness (training, steps, sleep, mood, habits)
+        - Time Tracking & Calendar
         - Cross-Domain Insights
         - Gaming Performance
         - Platform / Auth / Dashboard
@@ -47,10 +45,11 @@ body:
         See DeveloperGuide.md section 14. Scope creep across releases is the
         biggest risk to this project shipping on time — be honest here.
       options:
-        - v0.1 — Auth, Finance, Steps, dashboard skeleton, CI/CD
-        - v0.2 — Focus timer, entertainment budgets, fitness, dashboard charts
-        - v0.3 — Sleep/mood, habits, correlation engine, weekly digest
+        - v0.1 — Auth, Finance core, app shell, theming, CI/CD
+        - v0.2 — Budget breach alerts, Fitness training and steps, focus timer, entertainment budgets
+        - v0.3 — Google Calendar sync, sleep/mood/habits, correlation engine, weekly digest, onboarding
         - v0.4 — Polish, performance, observability, launch
+        - Last — Gaming Performance
         - Later / unscoped
     validations:
       required: true

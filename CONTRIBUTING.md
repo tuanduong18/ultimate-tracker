@@ -58,7 +58,7 @@ Both follow [Conventional Commits](https://www.conventionalcommits.org/).
 [`docs/features/`](./docs/features/), enforced by
 [`pr-title.yml`](./.github/workflows/pr-title.yml):
 `finance` · `fitness` · `time` · `insights` · `gaming` · `auth` ·
-`dashboard` · `api` · `db` · `ci` · `deps`
+`dashboard` · `api` · `db` · `ci` · `deps` · `deps-dev` (Dependabot's dev-dependency PRs)
 
 > `steps` and `wellness` were retired when those domains merged into **Fitness**.
 > Use `fitness`. CI rejects the old names.
@@ -128,13 +128,13 @@ safely otherwise.
 ```bash
 cd backend
 # 1. edit the model
-alembic revision --autogenerate -m "add budget breach threshold"
+python -m alembic revision --autogenerate -m "add budget breach threshold"
 # 2. READ the generated file — autogenerate misses type changes, server defaults,
 #    and index/constraint renames. Fix it by hand.
-alembic upgrade head          # apply locally
-alembic downgrade -1          # prove the downgrade works
-alembic upgrade head
-pytest
+python -m alembic upgrade head          # apply locally
+python -m alembic downgrade -1          # prove the downgrade works
+python -m alembic upgrade head
+python -m pytest
 ```
 
 Then apply to production (`alembic upgrade head` against the prod `DATABASE_URL`) and merge.
@@ -158,7 +158,7 @@ matters most for the code that looks trivial — budget math, correlation thresh
 detection — because that's exactly what breaks silently.
 
 ```bash
-cd backend  && ruff check . && ruff format --check . && mypy app/ && pytest
+cd backend  && python -m ruff check . && python -m ruff format --check . && python -m mypy app/ && python -m pytest
 cd frontend && npm run lint && npm run format:check && npx tsc --noEmit && npm run test -- --run && npm run build
 ```
 
@@ -172,6 +172,10 @@ Use the [issue forms](./.github/ISSUE_TEMPLATE) — bug, feature, or chore. Blan
 disabled so that every issue carries a domain, and every feature carries a target release.
 
 ### Labels
+
+> **Not set up yet.** The repository still has GitHub's default labels and no milestones, so
+> the issue forms' `feature` / `chore` labels are skipped when an issue is filed. Create the
+> labels and milestones below before relying on them.
 
 Three families, combined freely:
 
@@ -189,11 +193,18 @@ is visible in the tracker rather than only in a markdown table.
 
 ## Dependencies
 
-Dependabot opens **one grouped PR per ecosystem per week** — minor and patch bundled — for
-pip, npm, GitHub Actions, and Docker. Majors that need a deliberate migration (React, Next,
-Tailwind, eslint, recharts, the python base image) are listed under `ignore` in
-[`.github/dependabot.yml`](./.github/dependabot.yml) with the reason inline. Taking one of
-those is a normal PR with the migration work included, minus its `ignore` entry.
+Dependabot opens **grouped weekly PRs** for pip, npm, GitHub Actions, and Docker
+([`.github/dependabot.yml`](./.github/dependabot.yml)). npm bundles minor and patch into one
+PR and puts majors in a separate group, so a breaking major can't hold up routine updates;
+pip is a single group, since without a lock file Dependabot can't tell a major from a minor.
+Nothing is on an `ignore` list: a major that needs migration work (React, Next, Tailwind,
+eslint, recharts, the Python base image) arrives as its own PR — do the migration on that
+branch, or close it and take the upgrade later as a normal PR.
+
+Security alerts are separate from these PRs (Security → Dependabot). GitHub's preset
+auto-triage rule, on by default for public repositories, dismisses low-impact alerts on
+development-only dependencies the moment they are raised — so a lint-tooling advisory can sit
+under *Closed* without ever having been open.
 
 ### Pinning policy
 

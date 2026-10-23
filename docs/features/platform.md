@@ -27,12 +27,15 @@ theming, and the pipeline that keeps it deployable.
 - **Welcome page** — the public `/`: what the app does today, every module with its release, and
   sign-up / log-in calls to action (one "Open dashboard" button for a signed-in visitor).
 - **Auth guard** — signed-in routes live under `app/(app)/` and are wrapped by `AuthGuard`.
-- **App shell** — navigation that adapts to the width: a sidebar on desktops, an icon rail on
-  tablets, and a menu button with a slide-out drawer on phones. Profile, settings and log out
-  live in an account menu behind the avatar, top right, at every width.
-- **Dashboard** — currently a module index rather than per-domain summary widgets.
-- **Theming** — every colour routed through theme tokens, with a picker in Settings and
-  system-preference dark mode.
+- **App shell** — navigation that adapts to the width: a sidebar with labels on desktops, an
+  icon rail on tablets, and on phones a bottom tab bar (the first four modules plus **More**,
+  which opens a drawer with every module). The header holds only what belongs to every module:
+  a **Log** menu (one row per module that can log — Expense today), the notification bell, and
+  the account menu (profile, settings, dark mode, log out).
+- **Dashboard** — a Finance snapshot for the month, then the module index.
+- **Theming** — every colour routed through theme tokens. Eight colour schemes, each only an
+  accent on a neutral base, and Light / Dark / Match system, chosen in Settings and applied
+  before first paint.
 - **In-app notifications** — `notifications` table, `/api/v1/notifications`, a live bell in the
   header and a `/notifications` page; subscription reminders and renewal notices are the first
   writers. See [Notifications](#notifications).
@@ -40,14 +43,15 @@ theming, and the pipeline that keeps it deployable.
   triggerable over HTTP or the command line. See [Background jobs](#background-jobs).
 - **Health check** — `GET /api/v1/health`.
 - **CI/CD** — lint, type-check, test, and build on every PR; auto-deploy on merge.
-- **Error tracking** — Sentry on the backend.
 
 **Not built:**
 
+- Error tracking — Sentry is installed but not initialised. See [Observability](#observability).
 - Onboarding flow — the page is a placeholder.
-- Dashboard summary widgets — the dashboard lists modules, it does not summarise them.
+- Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
 - Notification delivery beyond in-app: no email yet.
-- Data export and account deletion.
+- Full data export and account deletion. (Finance's Transactions tab exports expenses to Excel;
+  there is no whole-account export.)
 
 ---
 
@@ -104,7 +108,7 @@ feature, is the obvious failure mode. One delivery service, one preference surfa
 | Piece | Status | Notes |
 |---|---|---|
 | In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. |
-| Scheduler | Open | The jobs exist and are idempotent; what triggers them is undecided — see [Background jobs](#background-jobs). |
+| Scheduler | **Built** | Supabase pg_cron + pg_net calling the job endpoints — see [Background jobs](#background-jobs). |
 | Email | Not built | Resend. Used for the weekly digest and opted-in reminders. |
 | Preferences | Not built | Per-channel, per-category, on the profile. One place the user turns things off. |
 
@@ -168,10 +172,13 @@ sees.
 
 ## Settings and onboarding
 
-- **[v0.1, built]** Timezone and display currency. The timezone follows the browser: it is
+- **[v0.1, built]** Timezone. It follows the browser: it is
   synced to the profile silently on each signed-in page load, so server-side work (subscription
   scheduling, renewals and reminders) uses wherever the user is now.
-- **[v0.1, built]** Colour scheme, including a system-preference default.
+- **[v0.1, built]** Appearance: eight colour schemes and Light / Dark / Match system (the
+  default), with a quick dark-mode switch in the account menu.
+- **[v0.1, built]** Currencies: display currency (what totals are reported in) and preferred
+  currency (what new entries start in).
 - **[v0.2]** Notification preferences, arriving with the notification service.
 - **[v0.3]** Connected accounts — Google Calendar, and later Riot and Steam.
 - **[v0.3]** Onboarding — domain selection and goal setup, under three minutes.
@@ -181,9 +188,13 @@ sees.
 
 ## Observability
 
-- **Structured logging** — JSON via structlog, so logs stay queryable if a log aggregator is ever added.
-- **Sentry** — unhandled exceptions, both ends.
-- **Health check** — `GET /api/v1/health`, used by Render and an uptime monitor.
+- **Structured logging** *(partly built)* — the backend logs through structlog with event names
+  and fields, but structlog is not configured, so output is its default console format.
+  **[v0.4]** A JSON renderer in production, so logs stay queryable if an aggregator is added.
+- **Sentry** *(not built)* — `sentry-sdk` is a dependency and `SENTRY_DSN` is read, but nothing
+  initialises it, on either end. **[v0.4]** Unhandled exceptions, both ends.
+- **Health check** — `GET /api/v1/health`, used by Render and an uptime monitor. Always `200`;
+  the body says `"db": "connected"` or `"disconnected"`.
 - **Uptime monitoring** — UptimeRobot pinging the health check every 5 minutes.
 - **[v0.4]** Per-endpoint latency logging, reviewed by hand. A full Prometheus and Grafana stack is
   overkill at this scale.

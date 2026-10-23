@@ -24,7 +24,7 @@ Five domains, listed in the order they appear in the app.
 
 | # | Domain | Status | What it covers |
 |---|---|---|---|
-| 1 | 💰 Finance & Budgeting | Partly built | Expenses, categories, multi-currency budgets, spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders |
+| 1 | 💰 Finance & Budgeting | Partly built | Expenses with search, filters and Excel export; categories; multi-currency budgets; spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders. Budget breach alerts are next |
 | 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
 | 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
 | 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
@@ -44,13 +44,13 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Layer | Choice | Why |
 |---|---|---|
 | Frontend | Next.js 16 (App Router) + TypeScript | SSR for fast dashboard loads, strong ecosystem |
-| Styling | Tailwind CSS + shadcn/ui | Fast to build, consistent, no design system from scratch |
+| Styling | Tailwind CSS 4 + theme tokens | Every colour is a CSS variable, so eight colour schemes and dark mode come from one set of components; no component library to fight |
 | Charts | Recharts | Lightweight, React-native, good defaults |
 | Icons | lucide-react | Tree-shaken SVG icons, one import per icon; MIT |
 | Backend | FastAPI (Python 3.14) | Async-first, type-safe, fast to build REST APIs |
 | Database | PostgreSQL via Supabase | Relational data suits cross-domain queries, generous free tier |
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |
-| Background jobs | APScheduler / Celery (TBD, lands in v0.2) | Subscription reminders need it first; budget alerts and the weekly digest reuse it |
+| Background jobs | Supabase pg_cron + pg_net → `POST /api/v1/tasks/*` | No worker to run: the database's scheduler calls idempotent job endpoints on the backend. Subscriptions and exchange rates use it today; budget alerts and the weekly digest will too |
 | Calendar sync | Google Calendar API (v0.3) | Two-way sync of timetable and events; `calendar.events` scope only |
 | Spreadsheet export | openpyxl | Pure-Python .xlsx writer: exact decimals and real date cells, no Excel install needed on the server |
 | Exchange rates | open.er-api.com | No API key, quotes 160+ currencies including VND; ECB-backed alternatives quote ~30 and omit it |
@@ -58,7 +58,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
 | Frontend hosting | Vercel (free tier) | Zero-config Next.js deploys |
 | Backend hosting | Render (free tier) | Simple Docker-based deploys for FastAPI |
-| Error tracking | Sentry (free tier) | Catch production errors before users report them |
+| Error tracking | Sentry (free tier) — **planned, v0.4** | The backend SDK is installed and `SENTRY_DSN` is read, but nothing initialises it yet; the frontend has none |
 
 > **No mobile app.** This is a web-only project. Step counts, app usage, and other data that would normally come from a phone are entered manually for now.
 
@@ -68,7 +68,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24 (what CI and Docker Compose use)
 - Python 3.14+
 - Docker + Docker Compose
 - A free [Supabase](https://supabase.com) project (Postgres + Auth)
@@ -80,10 +80,19 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 ```bash
 git clone https://github.com/<your-username>/ultimate-tracker.git
 cd ultimate-tracker
-cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-Fill in `.env` with your Supabase project URL, anon key, service role key, and database connection string (found in your Supabase project settings).
+Each app reads its own file — there is no root `.env`. Fill in, from your Supabase project
+settings:
+
+- `backend/.env`: `DATABASE_URL` (the connection string, with the `postgresql+asyncpg://`
+  scheme) and `SUPABASE_JWKS_URL`. Set `TASK_SECRET` too if you want to call the job endpoints.
+- `frontend/.env.local`: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+No service role key is needed anywhere: the backend verifies users' tokens against the
+project's public JWKS.
 
 ### 2. Backend setup
 
@@ -105,6 +114,8 @@ Backend runs at `http://localhost:8000`. API docs auto-generated at `http://loca
 
 ### 3. Frontend setup
 
+In a second terminal (the backend keeps the first), from the repo root:
+
 ```bash
 cd frontend
 npm install
@@ -118,6 +129,9 @@ Frontend runs at `http://localhost:3000`.
 ```bash
 docker compose up --build
 ```
+
+Compose uses the same two env files. Point `DATABASE_URL` at Supabase (or another host the
+container can reach): `localhost` inside the backend container is the container itself.
 
 ---
 
@@ -133,8 +147,8 @@ ultimate-tracker/
 ├── .github/        # CI/CD workflows
 ├── docker-compose.yml
 ├── README.md
-├── DeveloperGuide.md
-└── CLAUDE.md
+├── CONTRIBUTING.md
+└── DeveloperGuide.md
 ```
 
 Full structure and architecture details: [`DeveloperGuide.md`](./DeveloperGuide.md).
@@ -155,6 +169,10 @@ when it is done and the one before it is stable.
 | **v0.4** | Polish, performance pass, full observability, public launch. |
 | **Last** | Gaming Performance — Riot and Steam integration, tilt detection. Deliberately after everything else. |
 
+**Where it stands:** v0.1 is done. From v0.2, subscriptions with reminders, in-app
+notifications and the scheduler have shipped too; budget breach alerts, Fitness and the focus
+timer are what remain of it.
+
 ---
 
 ## Testing
@@ -164,7 +182,7 @@ when it is done and the one before it is stable.
 cd backend && python -m pytest
 
 # Frontend
-cd frontend && npm run test
+cd frontend && npm run test -- --run   # without --run, vitest stays in watch mode
 ```
 
 CI runs both suites on every pull request — see [`DeveloperGuide.md`](./DeveloperGuide.md#9-cicd-pipeline) for the full pipeline.
