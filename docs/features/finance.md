@@ -18,6 +18,8 @@ This is the first domain built and the most complete.
 
 - Categories — full CRUD, each with a name and a colour.
 - Expenses — full CRUD, each with its own currency, amount, optional category, date and note.
+- Transactions tab — every expense, searchable and filterable, exportable to Excel. See
+  [Transactions](#transactions).
 - Budgets — full CRUD. A budget is a named cap applied to **any number of categories**
   (many-to-many), of one of two kinds: **monthly**, which starts fresh every calendar month, or
   **custom**, over one fixed date range. See [Budgets](#budgets).
@@ -28,14 +30,69 @@ This is the first domain built and the most complete.
 - Budget progress — spend-to-date against each cap, converted.
 - Breakdowns — spend by category and spend by period (day or week buckets), both filterable by
   category and comparable across two date ranges.
-- Finance dashboard — four panels: two comparison charts over a categories / expenses / budgets row.
+- Finance pages — tabs under the Finance title: **Overview** (summary tiles, the two comparison
+  charts, the latest expenses and budget progress), **Transactions**, **Budgets**,
+  **Subscriptions**, **Categories**. Expenses are added from the Add expense dialog beside the
+  title, or the header's Log menu.
+- Subscriptions — tracking with free trials, automatic renewal into expenses, reminders and
+  renewal notices. Shipped ahead of its v0.2 slot. See [Subscriptions](#subscriptions).
 
 **Not built:**
 
-- Subscriptions — schema, CRUD, routes, the renewal job and reminders are built (see below).
 - Budget breach alerts. Progress is calculated and displayed; nothing notifies you.
 - Income. The domain is expense-only today; there is no income/expense type split.
 - CSV import, savings goals.
+
+---
+
+## Transactions
+
+The Transactions tab (`/finance/expenses`) is the full list: every expense, newest first.
+
+**Everything is filtered in the browser.** The tab fetches all of the user's expenses once,
+walking `GET /finance/expenses` 500 rows at a time until a short page, then searches and
+filters locally. One person's expenses stay in the thousands (a few a day is a thousand or two
+a year), so filtering on the keystroke needs no request, and the backend stays plain CRUD.
+Rows are drawn 50 at a time behind **Show N more**, with "Showing 50 of 312".
+
+- **Search** works like Ctrl+F: one case-insensitive phrase, found anywhere in what a row shows
+  — description, category name (including "Uncategorised", also matched as "Uncategorized"),
+  the date as displayed and as `YYYY-MM-DD`, and the formatted amount. Each field is matched on
+  its own, so a phrase never spans two.
+- **Filters:** date (Any time, This month, Last month, Last 30 days, This year, or open-ended
+  From / To), categories (with the uncategorised bucket switched separately), and amount. An
+  amount range is always **in one currency** and compares amounts as recorded, never
+  converted: "over 50" means different things in SGD and VND, and converting first would make
+  which rows match drift with the exchange rate.
+- **Summary line:** "12 of 312 transactions · S$120.00 + ₫50,000" — one exact total per
+  currency, summed as decimal strings. Not converted: the browser has no rate table.
+- **The URL holds the filters** (`?q=&from=&to=&category=&currency=&min=&max=`), so a filtered
+  view survives a reload and can be bookmarked.
+
+**Export to Excel** covers every matching row, not only the ones drawn. The tab posts the
+filtered ids and the filters in words to `POST /finance/expenses/export`, which answers with an
+`.xlsx` built by openpyxl:
+
+- a **Transactions** sheet — Date, Description, Category, Amount, Currency and *Amount (display
+  currency)* — with real date and number cells formatted to each currency's decimals, a frozen
+  header and an autofilter. A row whose rate is missing leaves its converted cell blank rather
+  than writing 0;
+- an **About this export** sheet: when, how many rows, and the filters.
+
+Sending ids rather than filters keeps the filter logic in one place, so the file cannot
+disagree with the screen. Ids that are not the caller's, or no longer exist, are left out.
+Every text cell is typed as a string, so a description beginning with `=` never becomes a
+formula.
+
+### Endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/finance/expenses` | Newest first. `?limit=` (1–500, default 100), `?offset=`, `?start_date=`, `?end_date=`. Ordered by `spent_on`, `created_at`, `id`, so paging never repeats or skips a row. |
+| `POST` | `/finance/expenses` | Create. |
+| `PATCH` | `/finance/expenses/{id}` | Partial update; explicit `null` clears `category_id` or `description`. |
+| `DELETE` | `/finance/expenses/{id}` | `204`. |
+| `POST` | `/finance/expenses/export` | Body `{"expense_ids": [...], "filters": ["Search: taxi", ...]}` (up to 50,000 ids, 20 filter lines). Answers `.xlsx` as an attachment, `transactions-YYYY-MM-DD.xlsx`. |
 
 ---
 
@@ -71,8 +128,8 @@ own cap instead.
 
 ## Subscriptions
 
-**Status: in progress. Release: v0.2 — the whole feature in one release, reminders included.**
-Built: schema, CRUD service and routes, the renewal job, reminders and renewal notices.
+**Status: built. Release: v0.2, shipped early.** Schema, CRUD service and routes, the renewal
+job, reminders and renewal notices, scheduled by pg_cron in production.
 
 Recurring costs are the spending that hurts most and gets watched least: they are invisible
 between renewals, and each one individually looks too small to bother cancelling. Tracking them
@@ -212,10 +269,8 @@ Budget breach alerts must use the same mechanism; the two are not built twice.
 
 ### Open questions
 
-- Which scheduler triggers the jobs? Both are callable over HTTP and from the command line —
-  see [Background jobs](./platform.md#background-jobs) — so this is a deployment decision, not a
-  code one.
-- Which email provider?
+- Which email provider? Resend is the working assumption. (The scheduler question is settled:
+  Supabase pg_cron + pg_net — see [Background jobs](./platform.md#background-jobs).)
 
 ---
 
@@ -276,11 +331,13 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 - **[Core]** Multi-currency with a per-user display currency and server-side conversion.
 - **[Core]** Spending dashboard — category and period breakdowns, per-chart range picker,
   category filtering, two-range comparison.
+- **[Core]** Transactions — every expense, Ctrl+F-style search, date / category / amount
+  filters, export of the matching rows to Excel.
+- **[v0.2, shipped early]** Subscriptions — tracking with free trials, automatic renewal that
+  writes an expense, a reminder three days before each charge that stays until acted on.
 
 ### Planned
 
-- **[v0.2]** Subscriptions — tracking with free trials, automatic renewal that writes an expense,
-  a reminder three days before each charge that stays until acted on.
 - **[v0.2]** Budget breach alerts at configurable thresholds (default 80% / 100%).
 
 ### Future

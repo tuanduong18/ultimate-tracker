@@ -36,10 +36,8 @@ body:
       description: Which part of the app? See DeveloperGuide.md section 6.
       options:
         - Finance & Budgeting
-        - Steps & Walking
-        - Fitness
-        - Time Tracking
-        - Wellness
+        - Fitness (training, steps, sleep, mood, habits)
+        - Time Tracking & Calendar
         - Cross-Domain Insights
         - Gaming Performance
         - Platform / Auth / Dashboard
