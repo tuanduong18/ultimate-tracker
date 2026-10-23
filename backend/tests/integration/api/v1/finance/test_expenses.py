@@ -92,3 +92,18 @@ async def test_delete_expense(finance_client: AsyncClient) -> None:
         await finance_client.delete(f"/api/v1/finance/expenses/{expense['id']}")
     ).status_code == 204
     assert (await finance_client.get("/api/v1/finance/expenses")).json() == []
+
+
+async def test_pages_neither_repeat_nor_skip_rows_from_one_day(
+    finance_client: AsyncClient,
+) -> None:
+    # The Transactions tab walks every page; same-day rows need a total order.
+    made = [await make_expense(finance_client, description=f"row {i}") for i in range(5)]
+
+    seen: list[str] = []
+    for offset in (0, 2, 4):
+        page = await finance_client.get(
+            "/api/v1/finance/expenses", params={"limit": 2, "offset": offset}
+        )
+        seen += [e["id"] for e in page.json()]
+    assert sorted(seen) == sorted(e["id"] for e in made)

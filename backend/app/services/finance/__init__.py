@@ -37,8 +37,10 @@ from app.services.finance.expenses import (
     create_expense,
     delete_expense,
     list_expenses,
+    list_expenses_by_id,
     update_expense,
 )
+from app.services.finance.export import XLSX_MEDIA_TYPE, export_expenses
 from app.services.finance.subscriptions import (
     create_subscription,
     delete_subscription,
@@ -61,6 +63,7 @@ from app.services.finance.summaries import (
 __all__ = [
     "BUCKETERS",
     "DEFAULT_CATEGORIES",
+    "XLSX_MEDIA_TYPE",
     "UNCATEGORIZED_COLOUR",
     "UNCATEGORIZED_NAME",
     "CategoryNameTakenError",
@@ -85,9 +88,11 @@ __all__ = [
     "delete_category",
     "delete_expense",
     "delete_subscription",
+    "export_expenses",
     "list_budgets",
     "list_categories",
     "list_expenses",
+    "list_expenses_by_id",
     "list_subscriptions",
     "next_billing_date",
     "summarize",

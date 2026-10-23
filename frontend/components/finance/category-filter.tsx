@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-
+import { FilterMenu } from '@/components/finance/filter-menu';
 import type { Category } from '@/lib/types/finance';
 
 /**
@@ -40,6 +39,8 @@ interface CategoryFilterProps {
   onChange: (selection: CategorySelection) => void;
   /** Distinguishes the two filters when both are on one page. */
   idPrefix: string;
+  /** Charts put the filter at the right of their controls; the Transactions row starts with it. */
+  align?: 'start' | 'end';
 }
 
 /**
@@ -50,26 +51,13 @@ interface CategoryFilterProps {
  * chrome until it is used. The button says how many are hidden, so a filtered
  * chart never looks like an unfiltered one.
  */
-export function CategoryFilter({ categories, selection, onChange, idPrefix }: CategoryFilterProps) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
+export function CategoryFilter({
+  categories,
+  selection,
+  onChange,
+  idPrefix,
+  align = 'end',
+}: CategoryFilterProps) {
   const chosen = selection.ids ?? categories.map((category) => category.id);
   const hidden = categories.length - chosen.length + (selection.uncategorized ? 0 : 1);
 
@@ -81,84 +69,72 @@ export function CategoryFilter({ categories, selection, onChange, idPrefix }: Ca
   }
 
   return (
-    <div className="relative" ref={root}>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="true"
-        className="rounded-full border px-2.5 py-1 text-xs hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-4"
-        onClick={() => setOpen((was) => !was)}
-      >
-        {hidden > 0 ? `Categories · ${hidden} hidden` : 'All categories'}
-      </button>
+    <FilterMenu
+      label={hidden > 0 ? `Categories · ${hidden} hidden` : 'All categories'}
+      active={hidden > 0}
+      align={align}
+    >
+      <div className="-m-1 max-h-64 overflow-y-auto">
+        <div className="flex gap-2 border-b border-border pb-2 text-xs">
+          <button
+            type="button"
+            className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
+            onClick={() => onChange(ALL_CATEGORIES)}
+          >
+            Select all
+          </button>
+          <button
+            type="button"
+            className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
+            onClick={() => onChange({ ids: [], uncategorized: false })}
+          >
+            Clear
+          </button>
+        </div>
 
-      {open && (
-        <div
-          // Above the chart rather than pushing it down, so opening the filter
-          // does not resize the thing you are filtering.
-          className="absolute right-0 z-10 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-lg"
-        >
-          <div className="flex gap-2 border-b border-border pb-2 text-xs">
-            <button
-              type="button"
-              className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
-              onClick={() => onChange(ALL_CATEGORIES)}
-            >
-              Select all
-            </button>
-            <button
-              type="button"
-              className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
-              onClick={() => onChange({ ids: [], uncategorized: false })}
-            >
-              Clear
-            </button>
-          </div>
-
-          <ul className="mt-2 space-y-1">
-            {categories.map((category) => (
-              <li key={category.id}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11">
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(category.id)}
-                    onChange={() => toggle(category.id)}
-                  />
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: category.colour }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">{category.name}</span>
-                </label>
-              </li>
-            ))}
-
-            <li>
-              <label
-                className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11"
-                htmlFor={`${idPrefix}-uncategorised`}
-              >
+        <ul className="mt-2 space-y-1">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <label className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11">
                 <input
-                  id={`${idPrefix}-uncategorised`}
                   type="checkbox"
-                  checked={selection.uncategorized}
-                  onChange={() =>
-                    onChange({
-                      // Switching this alone has to pin the category list too,
-                      // or "everything" would silently switch it back on.
-                      ids: selection.ids ?? categories.map((category) => category.id),
-                      uncategorized: !selection.uncategorized,
-                    })
-                  }
+                  checked={chosen.includes(category.id)}
+                  onChange={() => toggle(category.id)}
                 />
-                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-fg/10" />
-                <span className="min-w-0 flex-1 truncate text-fg-muted">Uncategorised</span>
+                <span
+                  aria-hidden
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: category.colour }}
+                />
+                <span className="min-w-0 flex-1 truncate">{category.name}</span>
               </label>
             </li>
-          </ul>
-        </div>
-      )}
-    </div>
+          ))}
+
+          <li>
+            <label
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1 text-xs hover:bg-surface-muted pointer-coarse:min-h-11"
+              htmlFor={`${idPrefix}-uncategorised`}
+            >
+              <input
+                id={`${idPrefix}-uncategorised`}
+                type="checkbox"
+                checked={selection.uncategorized}
+                onChange={() =>
+                  onChange({
+                    // Switching this alone has to pin the category list too,
+                    // or "everything" would silently switch it back on.
+                    ids: selection.ids ?? categories.map((category) => category.id),
+                    uncategorized: !selection.uncategorized,
+                  })
+                }
+              />
+              <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full bg-fg/10" />
+              <span className="min-w-0 flex-1 truncate text-fg-muted">Uncategorised</span>
+            </label>
+          </li>
+        </ul>
+      </div>
+    </FilterMenu>
   );
 }

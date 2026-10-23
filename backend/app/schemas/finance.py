@@ -150,6 +150,22 @@ class ExpenseRead(BaseModel):
     created_at: datetime
 
 
+ExportFilterLine = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
+
+
+class ExpenseExportRequest(BaseModel):
+    """What the Transactions tab is showing: its rows by id, its filters in words.
+
+    Ids rather than filters because the tab filters in the browser; sending
+    the result keeps the filtering in one place. The cap is decades of daily
+    spending, and exists so one request cannot ask for an unbounded IN list.
+    """
+
+    expense_ids: list[uuid.UUID] = Field(max_length=50_000)
+    # Shown on the file's About sheet as text — never interpreted.
+    filters: list[ExportFilterLine] = Field(default_factory=list, max_length=20)
+
+
 # --- Budgets ------------------------------------------------------------------
 
 

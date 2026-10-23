@@ -1,10 +1,10 @@
 """finance API routes (v1). Keep handlers thin — business logic lives in app/services/."""
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import timezones
@@ -20,6 +20,7 @@ from app.schemas.finance import (
     CategoryRead,
     CategoryUpdate,
     ExpenseCreate,
+    ExpenseExportRequest,
     ExpenseRead,
     ExpenseUpdate,
     Granularity,
@@ -115,6 +116,39 @@ async def list_expenses(
         db, user_id, start_date=start_date, end_date=end_date, limit=limit, offset=offset
     )
     return [ExpenseRead.model_validate(e) for e in expenses]
+
+
+@router.post(
+    "/expenses/export",
+    response_class=Response,
+    responses={200: {"content": {finance_service.XLSX_MEDIA_TYPE: {}}}},
+)
+async def export_expenses(
+    payload: ExpenseExportRequest,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """The listed expenses as an .xlsx file, newest first.
+
+    A POST because the body can carry thousands of ids, more than a URL holds;
+    it changes nothing. Ids that are not the caller's are left out silently.
+    """
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    exported_at = datetime.now(timezones.resolve(profile.timezone))
+    content = await finance_service.export_expenses(
+        db,
+        user_id,
+        payload.expense_ids,
+        filters=payload.filters,
+        display_currency=profile.display_currency,
+        exported_at=exported_at,
+    )
+    filename = f"transactions-{exported_at:%Y-%m-%d}.xlsx"
+    return Response(
+        content=content,
+        media_type=finance_service.XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/expenses", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)

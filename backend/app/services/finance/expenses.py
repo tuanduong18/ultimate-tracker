@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Expense
@@ -30,12 +30,30 @@ async def list_expenses(
         stmt = stmt.where(Expense.spent_on >= start_date)
     if end_date is not None:
         stmt = stmt.where(Expense.spent_on <= end_date)
-    stmt = (
-        stmt.order_by(Expense.spent_on.desc(), Expense.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
+    stmt = _newest_first(stmt).limit(limit).offset(offset)
     return (await db.scalars(stmt)).all()
+
+
+def _newest_first(stmt: Select[Expense]) -> Select[Expense]:
+    # id is the last tiebreak: without a total order, two rows saved in the same
+    # instant could swap places between pages, and a client walking every page
+    # (the Transactions tab does) would see one twice and miss the other.
+    return stmt.order_by(Expense.spent_on.desc(), Expense.created_at.desc(), Expense.id)
+
+
+async def list_expenses_by_id(
+    db: AsyncSession, user_id: uuid.UUID, expense_ids: Sequence[uuid.UUID]
+) -> Sequence[Expense]:
+    """The user's expenses among ``expense_ids``, newest first.
+
+    An id that is not theirs, or no longer exists, is left out rather than
+    failing the request: a row deleted between filtering and exporting is not
+    worth refusing the file over, and someone else's id must reveal nothing.
+    """
+    if not expense_ids:
+        return []
+    stmt = select(Expense).where(Expense.user_id == user_id, Expense.id.in_(expense_ids))
+    return (await db.scalars(_newest_first(stmt))).all()
 
 
 async def _get_owned_expense(

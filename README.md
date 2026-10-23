@@ -52,6 +52,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |
 | Background jobs | APScheduler / Celery (TBD, lands in v0.2) | Subscription reminders need it first; budget alerts and the weekly digest reuse it |
 | Calendar sync | Google Calendar API (v0.3) | Two-way sync of timetable and events; `calendar.events` scope only |
+| Spreadsheet export | openpyxl | Pure-Python .xlsx writer: exact decimals and real date cells, no Excel install needed on the server |
 | Exchange rates | open.er-api.com | No API key, quotes 160+ currencies including VND; ECB-backed alternatives quote ~30 and omit it |
 | CI/CD | GitHub Actions | Lint, test, build, deploy on every PR |
 | Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |

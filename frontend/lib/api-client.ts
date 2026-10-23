@@ -59,7 +59,7 @@ async function clearRejectedSession(): Promise<void> {
   if (session) await supabase.auth.signOut();
 }
 
-async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function send(path: string, options: RequestOptions = {}): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(await authHeaders()),
@@ -84,13 +84,24 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
     }
     throw new ApiError(res.status, body);
   }
+  return res;
+}
 
+async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const res = await send(path, options);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
+  /**
+   * A file the API builds from what is posted — the transactions export.
+   * Fetched rather than linked to, because a plain link can carry neither the
+   * bearer token nor the body.
+   */
+  download: async (path: string, body: unknown): Promise<Blob> =>
+    (await send(path, { method: 'POST', body: JSON.stringify(body) })).blob(),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>

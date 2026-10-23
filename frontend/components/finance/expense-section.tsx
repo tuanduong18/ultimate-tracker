@@ -2,7 +2,7 @@
 
 import { Pencil, Receipt } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { CategoryEdge } from '@/components/finance/category-edge';
 import { DeleteButton } from '@/components/finance/delete-button';
@@ -28,6 +28,14 @@ interface ExpenseSectionProps {
   limit?: number;
   /** Where "See all" goes. Omitted on the page that already is "all". */
   seeAllHref?: string;
+  /** Under the title, outside the scroll area — the Transactions filters. */
+  header?: ReactNode;
+  /** Title-row actions; replaces See all. */
+  action?: ReactNode;
+  /** Instead of "Nothing logged yet" when there are rows, just none shown. */
+  empty?: ReactNode;
+  /** Under the list — Show more. */
+  footer?: ReactNode;
 }
 
 /**
@@ -50,6 +58,10 @@ export function ExpenseSection({
   title = 'Latest expenses',
   limit,
   seeAllHref,
+  header,
+  action,
+  empty,
+  footer,
 }: ExpenseSectionProps) {
   const { items, loading, error, reload, setError } = expenses;
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -101,23 +113,27 @@ export function ExpenseSection({
       title={title}
       error={error}
       className="h-full"
+      header={header}
       action={
-        seeAllHref && (
+        action ??
+        (seeAllHref && (
           <Link
             href={seeAllHref}
             className="inline-flex items-center rounded-sm border px-2 py-1 text-xs whitespace-nowrap hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
           >
             See all
           </Link>
-        )
+        ))
       }
     >
       {loading ? (
         <PanelNote>Loading…</PanelNote>
       ) : shown.length === 0 && error ? null : shown.length === 0 ? (
-        <PanelEmpty icon={Receipt}>
-          Nothing logged yet. Use Add expense at the top of the page to log one.
-        </PanelEmpty>
+        (empty ?? (
+          <PanelEmpty icon={Receipt}>
+            Nothing logged yet. Use Add expense at the top of the page to log one.
+          </PanelEmpty>
+        ))
       ) : (
         <ul className="space-y-2 p-3">
           {shown.map((expense) =>
@@ -182,6 +198,7 @@ export function ExpenseSection({
           )}
         </ul>
       )}
+      {!loading && shown.length > 0 && footer}
     </Panel>
   );
 }

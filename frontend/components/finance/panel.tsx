@@ -164,14 +164,18 @@ export function IconButton({
 export function PanelEmpty({
   icon,
   children,
+  action,
 }: {
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean; strokeWidth?: number }>;
   children: ReactNode;
+  /** The way out, when there is one on the spot — "Clear filters". */
+  action?: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
       <IconBadge icon={icon} size="sm" />
       <p className="max-w-60 text-sm text-fg-muted">{children}</p>
+      {action}
     </div>
   );
 }

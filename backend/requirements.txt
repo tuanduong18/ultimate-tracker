@@ -23,6 +23,8 @@ sentry-sdk[fastapi]>=2.72.0,<3
 # IANA timezones for zoneinfo. The Docker image has the system database, but
 # Windows has none, and without this every user's "today" quietly becomes UTC.
 tzdata>=2026.5,<2027
+# Writes the Transactions export (.xlsx). Pure Python, no Excel needed.
+openpyxl>=3.1.5,<3.2
 
 # --- Tooling / tests (kept here so CI installs them with one file) ---
 httpx>=0.28.1,<0.29
