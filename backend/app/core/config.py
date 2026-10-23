@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     project_name: str = "Ultimate Tracker API"
+    # "development" or "test" log as readable text; anything else (Render sets
+    # "production") logs JSON — see app/core/observability.py.
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
 
@@ -53,9 +55,6 @@ class Settings(BaseSettings):
     # reminder goes out. It then stays open until the charge happens or the
     # user acts on it.
     subscription_reminder_lead_days: int = 3
-
-    # Observability.
-    sentry_dsn: str | None = None
 
 
 settings = Settings()

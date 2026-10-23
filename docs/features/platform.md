@@ -43,10 +43,10 @@ theming, and the pipeline that keeps it deployable.
   triggerable over HTTP or the command line. See [Background jobs](#background-jobs).
 - **Health check** — `GET /api/v1/health`.
 - **CI/CD** — lint, type-check, test, and build on every PR; auto-deploy on merge.
+- **Logs** — JSON lines in deployments, searchable by field. See [Observability](#observability).
 
 **Not built:**
 
-- Error tracking — Sentry is installed but not initialised. See [Observability](#observability).
 - Onboarding flow — the page is a placeholder.
 - Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
 - Notification delivery beyond in-app: no email yet.
@@ -188,11 +188,13 @@ sees.
 
 ## Observability
 
-- **Structured logging** *(partly built)* — the backend logs through structlog with event names
-  and fields, but structlog is not configured, so output is its default console format.
-  **[v0.4]** A JSON renderer in production, so logs stay queryable if an aggregator is added.
-- **Sentry** *(not built)* — `sentry-sdk` is a dependency and `SENTRY_DSN` is read, but nothing
-  initialises it, on either end. **[v0.4]** Unhandled exceptions, both ends.
+- **Structured logging** *(built)* — structlog, configured at start-up
+  ([`app/core/observability.py`](../../backend/app/core/observability.py)): one JSON object
+  per line when `ENVIRONMENT` is a deployment (`production` on Render), readable text in
+  `development`. Fields stay fields, so the logs are searchable by them.
+- **No error-reporting service** *(by choice)* — the users are the author and a few
+  friends, who see failures on screen. Failed scheduled jobs show up as `level: error`
+  log lines and in pg_cron's run history.
 - **Health check** — `GET /api/v1/health`, used by Render and an uptime monitor. Always `200`;
   the body says `"db": "connected"` or `"disconnected"`.
 - **Uptime monitoring** — UptimeRobot pinging the health check every 5 minutes.

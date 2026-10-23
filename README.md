@@ -58,7 +58,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
 | Frontend hosting | Vercel (free tier) | Zero-config Next.js deploys |
 | Backend hosting | Render (free tier) | Simple Docker-based deploys for FastAPI |
-| Error tracking | Sentry (free tier) — **planned, v0.4** | The backend SDK is installed and `SENTRY_DSN` is read, but nothing initialises it yet; the frontend has none |
+| Logging | structlog, JSON lines on Render | Every log call carries named fields, so Render's log search can filter by them. There is no error-reporting service, by choice — the app's users are its author and a few friends, who see failures on screen |
 
 > **No mobile app.** This is a web-only project. Step counts, app usage, and other data that would normally come from a phone are entered manually for now.
 
