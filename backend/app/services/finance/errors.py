@@ -63,6 +63,16 @@ class RateUnavailableError(FinanceError):
         super().__init__(f"Could not convert to the display currency: {detail}")
 
 
+class ImportFileError(FinanceError):
+    """An upload that can't be read as a whole: not a spreadsheet, no column
+    names, too many rows. A problem with one row is reported, not raised.
+
+    The message is written for the person who chose the file."""
+
+    status_code = 422
+    code = "IMPORT_FILE_REJECTED"
+
+
 class UnknownGranularityError(FinanceError):
     status_code = 422
     code = "UNKNOWN_GRANULARITY"

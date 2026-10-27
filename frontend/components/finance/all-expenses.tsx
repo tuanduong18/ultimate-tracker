@@ -1,10 +1,11 @@
 'use client';
 
-import { Download, SearchX } from 'lucide-react';
+import { Download, Receipt, SearchX } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { ExpenseSection } from '@/components/finance/expense-section';
+import { ImportExpenses } from '@/components/finance/import-expenses';
 import { PanelButton, PanelEmpty } from '@/components/finance/panel';
 import { TransactionFilterBar } from '@/components/finance/transaction-filters';
 import {
@@ -22,6 +23,7 @@ import { todayIso } from '@/lib/dates';
 import { useExpensesChanged } from '@/lib/finance-events';
 import { describeError, fetchEveryPage, useCollection } from '@/lib/hooks/use-collection';
 import { useFinanceBasics } from '@/lib/hooks/use-finance-basics';
+import { saveFile } from '@/lib/save-file';
 import { formatMoney, type Expense } from '@/lib/types/finance';
 
 /**
@@ -38,7 +40,7 @@ type ExportState =
 
 /**
  * The Transactions tab: every expense, newest first, searchable and filterable,
- * and exportable as exactly what is on screen.
+ * exportable as exactly what is on screen, and fillable from a spreadsheet.
  *
  * Fetches every expense once and filters in the browser — one person's
  * expenses stay in the thousands, so a filter answers on the keystroke with
@@ -47,6 +49,8 @@ type ExportState =
  *
  * Nothing on this page is an aggregate the server keeps, so its own writes
  * leave nothing else stale; an expense added from the header is picked up.
+ * An import is the exception in one way: it can create categories, so the
+ * categories are fetched again too, or new rows would read "Uncategorised".
  */
 export function AllExpenses() {
   const searchParams = useSearchParams();
@@ -117,19 +121,31 @@ export function AllExpenses() {
       onChange={onChange}
       title="All expenses"
       action={
-        <PanelButton
-          // The whole match, not just the rows drawn so far — the label says
-          // how many, so nobody expects a file of fifty.
-          label={`Export ${noun(matching.length)} to Excel`}
-          title={`Export ${noun(matching.length)} to Excel`}
-          disabled={expenses.loading || matching.length === 0 || exported.kind === 'busy'}
-          onClick={() => void exportToExcel()}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Download aria-hidden className="size-3.5" />
-            {exported.kind === 'busy' ? 'Exporting…' : 'Export to Excel'}
-          </span>
-        </PanelButton>
+        <>
+          <ImportExpenses onImported={() => void categories.reload()} />
+          <PanelButton
+            // The whole match, not just the rows drawn so far — the label says
+            // how many, so nobody expects a file of fifty.
+            label={`Export ${noun(matching.length)} to Excel`}
+            title={`Export ${noun(matching.length)} to Excel`}
+            disabled={expenses.loading || matching.length === 0 || exported.kind === 'busy'}
+            onClick={() => void exportToExcel()}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Download aria-hidden className="size-3.5" />
+              {exported.kind === 'busy' ? (
+                'Exporting…'
+              ) : (
+                // One span, so the flex gap doesn't open between the words.
+                // "Export" alone on a phone, so both buttons fit beside the
+                // title; the accessible name still says Excel.
+                <span>
+                  Export<span className="max-sm:hidden"> to Excel</span>
+                </span>
+              )}
+            </span>
+          </PanelButton>
+        </>
       }
       header={
         <div className="space-y-2">
@@ -187,7 +203,14 @@ export function AllExpenses() {
           >
             No transactions match these filters.
           </PanelEmpty>
-        ) : undefined
+        ) : (
+          // Names the Import button above rather than adding a second one:
+          // two controls called Import on one screen read as two things.
+          <PanelEmpty icon={Receipt}>
+            Nothing logged yet. Use Add expense at the top of the page, or Import to bring in a
+            spreadsheet.
+          </PanelEmpty>
+        )
       }
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-fg-muted">
@@ -207,17 +230,4 @@ export function AllExpenses() {
       }
     />
   );
-}
-
-/** Hand a fetched file to the browser's own download, then let the memory go. */
-function saveFile(file: Blob, name: string) {
-  const url = URL.createObjectURL(file);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // After the click has been handled, not during it.
-  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

@@ -19,7 +19,7 @@ const FINANCE_FEATURES = [
   {
     icon: PiggyBank,
     title: 'Budgets that fit your life',
-    text: 'A monthly cap that resets itself, or a fixed one for a trip — across as many categories as you like.',
+    text: 'A monthly cap that resets itself, or a fixed one for a trip — with a heads-up before you run out.',
   },
   {
     icon: Repeat,
@@ -35,7 +35,10 @@ const FINANCE_FEATURES = [
 
 const STEPS = [
   { title: 'Sign up in seconds', text: 'With Google, or an email and password.' },
-  { title: 'Log as you go', text: 'An expense takes a few taps; subscriptions log themselves.' },
+  {
+    title: 'Log as you go',
+    text: 'An expense takes a few taps, a spreadsheet one upload; subscriptions log themselves.',
+  },
   { title: 'Read the patterns', text: 'Charts and budgets turn the entries into answers.' },
 ] as const;
 

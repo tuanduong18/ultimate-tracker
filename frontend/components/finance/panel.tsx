@@ -79,18 +79,22 @@ export function PanelButton({
   disabled,
   title,
   label,
+  opensDialog,
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   title?: string;
   label?: string;
+  /** Says so to screen readers before the click, as any dialog opener should. */
+  opensDialog?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
       aria-label={label}
+      aria-haspopup={opensDialog ? 'dialog' : undefined}
       disabled={disabled}
       onClick={onClick}
       className="rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-primary-soft disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3"

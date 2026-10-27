@@ -181,6 +181,45 @@ export interface BudgetProgress {
   created_at: string;
 }
 
+/** One expense an import file would add, as the server read it. */
+export interface ImportRow {
+  /** The row number the spreadsheet shows. */
+  row: number;
+  spent_on: string;
+  description: string | null;
+  /** An existing category's own name, or a new one as the file spells it; null is uncategorised. */
+  category: string | null;
+  /** Importing this row creates the category. */
+  new_category: boolean;
+  amount: string;
+  currency: string;
+  /** Matches an expense already recorded: same date, amount, currency and description. */
+  duplicate: boolean;
+}
+
+/** Why one cell keeps its row out of an import. */
+export interface ImportProblem {
+  row: number;
+  column: string;
+  message: string;
+}
+
+/** What importing a file would do. Nothing has been saved. */
+export interface ImportPreview {
+  /** File order; duplicates included, flagged. */
+  rows: ImportRow[];
+  /** One per problem; a row can have more than one. */
+  problems: ImportProblem[];
+}
+
+export interface ImportResult {
+  imported: number;
+  duplicates_skipped: number;
+  /** Rows, not problems. */
+  problem_rows_skipped: number;
+  categories_created: string[];
+}
+
 /** The unit of a subscription's billing cycle; paired with `interval_count`. */
 export type BillingInterval = 'day' | 'week' | 'month' | 'year';
 

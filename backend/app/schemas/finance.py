@@ -168,6 +168,50 @@ class ExpenseExportRequest(BaseModel):
     filters: list[ExportFilterLine] = Field(default_factory=list, max_length=20)
 
 
+class ImportRowRead(BaseModel):
+    """One expense a file would import, as the importer read it."""
+
+    # The row number the spreadsheet shows, so the person can find it.
+    row: int
+    spent_on: date
+    description: str | None
+    # The existing category's own name, or a new one as the file spells it;
+    # null is uncategorised.
+    category: str | None
+    # Importing this row creates the category.
+    new_category: bool
+    amount: Decimal
+    currency: str
+    # The same date, amount, currency and description as an expense already
+    # recorded; left out unless the import is asked to keep duplicates.
+    duplicate: bool
+
+
+class ImportProblemRead(BaseModel):
+    """Why one cell keeps its row out of the import."""
+
+    row: int
+    column: str
+    message: str
+
+
+class ExpenseImportPreviewRead(BaseModel):
+    """What importing a file would do. Nothing has been saved."""
+
+    # In file order: every row that can be imported, duplicates included.
+    rows: list[ImportRowRead]
+    # Every problem, row by row; a row can have more than one.
+    problems: list[ImportProblemRead]
+
+
+class ExpenseImportResultRead(BaseModel):
+    imported: int
+    duplicates_skipped: int
+    # Rows, not problems: a row with two problems counts once.
+    problem_rows_skipped: int
+    categories_created: list[str]
+
+
 # --- Budgets ------------------------------------------------------------------
 
 

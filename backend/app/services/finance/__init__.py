@@ -25,6 +25,7 @@ from app.services.finance.categories import (
 from app.services.finance.errors import (
     CategoryNameTakenError,
     FinanceError,
+    ImportFileError,
     InvalidAmountError,
     InvalidDateRangeError,
     NotFoundError,
@@ -41,6 +42,13 @@ from app.services.finance.expenses import (
     update_expense,
 )
 from app.services.finance.export import XLSX_MEDIA_TYPE, export_expenses
+from app.services.finance.imports import (
+    MAX_IMPORT_BYTES,
+    MAX_IMPORT_ROWS,
+    import_expenses,
+    import_template,
+    preview_import,
+)
 from app.services.finance.subscriptions import (
     create_subscription,
     delete_subscription,
@@ -63,11 +71,14 @@ from app.services.finance.summaries import (
 __all__ = [
     "BUCKETERS",
     "DEFAULT_CATEGORIES",
+    "MAX_IMPORT_BYTES",
+    "MAX_IMPORT_ROWS",
     "XLSX_MEDIA_TYPE",
     "UNCATEGORIZED_COLOUR",
     "UNCATEGORIZED_NAME",
     "CategoryNameTakenError",
     "FinanceError",
+    "ImportFileError",
     "InvalidAmountError",
     "InvalidDateRangeError",
     "NotFoundError",
@@ -89,12 +100,15 @@ __all__ = [
     "delete_expense",
     "delete_subscription",
     "export_expenses",
+    "import_expenses",
+    "import_template",
     "list_budgets",
     "list_categories",
     "list_expenses",
     "list_expenses_by_id",
     "list_subscriptions",
     "next_billing_date",
+    "preview_import",
     "summarize",
     "summarize_by_category",
     "summarize_by_period",

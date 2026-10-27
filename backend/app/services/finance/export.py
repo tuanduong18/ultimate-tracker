@@ -31,6 +31,10 @@ from app.services.finance.summaries import UNCATEGORIZED_NAME
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+# The columns an expense is written as, in order. The export leads with them
+# and the import template is exactly them, so an exported file imports as it is.
+COLUMNS = ("Date", "Description", "Category", "Amount", "Currency")
+
 _BOLD = Font(bold=True)
 _DATE_FORMAT = "yyyy-mm-dd"
 
@@ -74,7 +78,7 @@ def build_workbook(
     sheet.title = "Transactions"
 
     converted_header = f"Amount ({display_currency})"
-    headers = ["Date", "Description", "Category", "Amount", "Currency", converted_header]
+    headers = [*COLUMNS, converted_header]
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = _BOLD
