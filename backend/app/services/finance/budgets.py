@@ -101,6 +101,7 @@ async def create_budget(db: AsyncSession, user_id: uuid.UUID, data: BudgetCreate
         period=data.period,
         starts_on=starts_on,
         ends_on=ends_on,
+        warn_at_percent=data.warn_at_percent,
         categories=categories,
     )
     db.add(budget)
@@ -114,7 +115,8 @@ async def update_budget(
 ) -> Budget:
     budget = await _get_owned_budget(db, user_id, budget_id)
     # ends_on may be sent as null: that is how a monthly budget becomes ongoing.
-    changes: dict[str, Any] = _applied_changes(data, frozenset({"ends_on"}))
+    # warn_at_percent likewise: null turns the early warning off.
+    changes: dict[str, Any] = _applied_changes(data, frozenset({"ends_on", "warn_at_percent"}))
     await _check_currency(db, changes.get("currency"), budget.currency)
     category_ids = changes.pop("category_ids", None)
     if category_ids is not None:

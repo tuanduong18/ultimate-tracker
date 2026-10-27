@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import { BellOff, BellRing, Coins, Receipt } from 'lucide-react';
+import { BellOff, BellRing, Coins, Gauge, Receipt, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -22,6 +22,8 @@ const ICONS = {
   trial_ending: BellRing,
   subscription_renewed: Receipt,
   currency_delisted: Coins,
+  budget_warning: Gauge,
+  budget_exceeded: TriangleAlert,
 } as const;
 
 /**
@@ -30,7 +32,8 @@ const ICONS = {
  * In the inbox: a reminder can be snoozed ("I'm renewing anyway"), a notice
  * moved to the history. In the history: a snoozed reminder can be unsnoozed,
  * in case it was pressed by mistake, and a notice deleted. Each also links to
- * where it can be acted on — the subscription, the expenses, the settings.
+ * where it can be acted on — the subscription, the expenses, the budgets, the
+ * settings.
  *
  * Every action goes to the server and then reloads, rather than updating in
  * place, so what is shown is what was stored.

@@ -12,6 +12,7 @@ are units of account rather than money.
 """
 
 import re
+from decimal import Decimal
 from typing import Final
 
 DEFAULT_CURRENCY: Final = "USD"
@@ -41,6 +42,16 @@ def minor_units(code: str) -> int:
     if code in _THREE_DECIMAL:
         return 3
     return 2
+
+
+def format_money(amount: Decimal, code: str) -> str:
+    """ "USD 12.99", "VND 260,000": an amount in its currency's own minor units.
+
+    The code rather than a symbol, for text the server writes (notifications):
+    "$" is several currencies, and the browser that would pick a locale's
+    symbol is not the one writing it.
+    """
+    return f"{code} {amount:,.{minor_units(code)}f}"
 
 
 def is_currency_code(code: str) -> bool:

@@ -402,3 +402,54 @@ async def test_the_summary_counts_an_ongoing_monthly_budget(
     ).json()
 
     assert Decimal(summary["budgeted"]) == Decimal("300.00")
+
+
+async def test_a_new_budget_warns_at_80_percent_unless_told_otherwise(
+    finance_client: AsyncClient,
+) -> None:
+    food = await make_category(finance_client)
+
+    default = await make_budget(finance_client, [food["id"]])
+    chosen = await make_budget(finance_client, [food["id"]], warn_at_percent=90)
+    off = await make_budget(finance_client, [food["id"]], warn_at_percent=None)
+
+    assert [b["warn_at_percent"] for b in (default, chosen, off)] == [80, 90, None]
+    progress = (await finance_client.get(AUGUST_PROGRESS)).json()
+    assert sorted(p["warn_at_percent"] or 0 for p in progress) == [0, 80, 90]
+
+
+@pytest.mark.parametrize("percent", [0, 100, 150])
+async def test_a_warning_outside_1_to_99_is_a_422(
+    finance_client: AsyncClient, percent: int
+) -> None:
+    food = await make_category(finance_client)
+
+    resp = await finance_client.post(
+        "/api/v1/finance/budgets",
+        json={
+            "name": "Essentials",
+            "amount": "500.00",
+            "currency": "USD",
+            "starts_on": "2026-08-01",
+            "ends_on": "2026-08-31",
+            "category_ids": [food["id"]],
+            "warn_at_percent": percent,
+        },
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_patching_the_warning_to_null_turns_it_off(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client)
+    budget = await make_budget(finance_client, [food["id"]])
+    url = f"/api/v1/finance/budgets/{budget['id']}"
+
+    off = await finance_client.patch(url, json={"warn_at_percent": None})
+    untouched = await finance_client.patch(url, json={"name": "Renamed"})
+    back = await finance_client.patch(url, json={"warn_at_percent": 75})
+
+    assert off.json()["warn_at_percent"] is None
+    assert untouched.json()["warn_at_percent"] is None
+    assert back.json()["warn_at_percent"] == 75

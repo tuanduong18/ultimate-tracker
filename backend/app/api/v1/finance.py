@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import timezones
@@ -21,6 +21,8 @@ from app.schemas.finance import (
     CategoryUpdate,
     ExpenseCreate,
     ExpenseExportRequest,
+    ExpenseImportPreviewRead,
+    ExpenseImportResultRead,
     ExpenseRead,
     ExpenseUpdate,
     Granularity,
@@ -149,6 +151,115 @@ async def export_expenses(
         media_type=finance_service.XLSX_MEDIA_TYPE,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get(
+    "/expenses/import/template",
+    response_class=Response,
+    responses={200: {"content": {finance_service.XLSX_MEDIA_TYPE: {}}}},
+)
+async def download_import_template(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """An empty .xlsx to fill in and import, with drop-downs of the caller's
+    categories and the supported currencies."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    content = await finance_service.import_template(
+        db, user_id, default_currency=profile.preferred_currency
+    )
+    return Response(
+        content=content,
+        media_type=finance_service.XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": 'attachment; filename="expenses-template.xlsx"'},
+    )
+
+
+# The file is the request body itself. One file and no other fields need no
+# form encoding, and parsing multipart forms would add a dependency
+# (python-multipart) for nothing a raw body can't carry.
+_UPLOAD = {
+    "requestBody": {
+        "required": True,
+        "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+    }
+}
+
+
+async def _uploaded_file(request: Request) -> bytes:
+    """The body, refused as soon as it passes the size cap rather than after
+    the whole of an oversized upload has been held in memory."""
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > finance_service.MAX_IMPORT_BYTES:
+            limit = finance_service.MAX_IMPORT_BYTES // (1024 * 1024)
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={
+                    "code": "IMPORT_FILE_TOO_LARGE",
+                    "message": f"That file is over {limit} MB. Split it into smaller files "
+                    "and import them one at a time.",
+                },
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+@router.post(
+    "/expenses/import/preview", response_model=ExpenseImportPreviewRead, openapi_extra=_UPLOAD
+)
+async def preview_expense_import(
+    request: Request,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> ExpenseImportPreviewRead:
+    """Read an .xlsx or CSV file and say what importing it would do: the rows
+    ready to import, likely duplicates, and the problems keeping rows out.
+    Saves nothing."""
+    content = await _uploaded_file(request)
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        preview = await finance_service.preview_import(
+            db, user_id, content, default_currency=profile.preferred_currency
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return ExpenseImportPreviewRead.model_validate(preview)
+
+
+@router.post(
+    "/expenses/import",
+    response_model=ExpenseImportResultRead,
+    status_code=status.HTTP_201_CREATED,
+    openapi_extra=_UPLOAD,
+)
+async def import_expenses(
+    request: Request,
+    include_duplicates: bool = False,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> ExpenseImportResultRead:
+    """Import the ready rows of the same file the preview read, in one
+    transaction, creating the categories they name that don't exist yet.
+
+    Rows with problems are left out. So are likely duplicates, unless
+    `include_duplicates` is true.
+    """
+    content = await _uploaded_file(request)
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        result = await finance_service.import_expenses(
+            db,
+            user_id,
+            content,
+            default_currency=profile.preferred_currency,
+            include_duplicates=include_duplicates,
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return ExpenseImportResultRead.model_validate(result)
 
 
 @router.post("/expenses", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)

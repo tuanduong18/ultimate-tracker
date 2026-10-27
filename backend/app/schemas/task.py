@@ -20,3 +20,12 @@ class SubscriptionJobRead(BaseModel):
     reminders_created: int
     reminders_updated: int
     reminders_removed: int
+
+
+class BudgetJobRead(BaseModel):
+    # Budgets measured in a window that holds their owner's today.
+    checked: int
+    # Alerts sent this run; a re-run with nothing new spent reports 0.
+    alerted: int
+    # Inbox alerts moved to the history because they no longer apply.
+    cleared: int

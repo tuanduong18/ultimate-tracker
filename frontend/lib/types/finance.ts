@@ -47,6 +47,11 @@ export interface Budget {
   starts_on: string;
   /** Null for an ongoing monthly budget; always set for a custom one. */
   ends_on: string | null;
+  /**
+   * The share of the cap (1–99) at which an alert warns; null for no early
+   * warning. Reaching the cap is announced either way.
+   */
+  warn_at_percent: number | null;
   /** Embedded by the API so a chart needs no second round trip. */
   categories: Category[];
   created_at: string;
@@ -164,6 +169,7 @@ export interface BudgetProgress {
   period: BudgetPeriod;
   starts_on: string;
   ends_on: string | null;
+  warn_at_percent: number | null;
   /**
    * The days `spent` covers: the requested month for a monthly budget, the
    * whole range for a custom one.
@@ -173,6 +179,45 @@ export interface BudgetProgress {
   categories: Category[];
   /** Orders the card colours, so adding a budget does not recolour the rest. */
   created_at: string;
+}
+
+/** One expense an import file would add, as the server read it. */
+export interface ImportRow {
+  /** The row number the spreadsheet shows. */
+  row: number;
+  spent_on: string;
+  description: string | null;
+  /** An existing category's own name, or a new one as the file spells it; null is uncategorised. */
+  category: string | null;
+  /** Importing this row creates the category. */
+  new_category: boolean;
+  amount: string;
+  currency: string;
+  /** Matches an expense already recorded: same date, amount, currency and description. */
+  duplicate: boolean;
+}
+
+/** Why one cell keeps its row out of an import. */
+export interface ImportProblem {
+  row: number;
+  column: string;
+  message: string;
+}
+
+/** What importing a file would do. Nothing has been saved. */
+export interface ImportPreview {
+  /** File order; duplicates included, flagged. */
+  rows: ImportRow[];
+  /** One per problem; a row can have more than one. */
+  problems: ImportProblem[];
+}
+
+export interface ImportResult {
+  imported: number;
+  duplicates_skipped: number;
+  /** Rows, not problems. */
+  problem_rows_skipped: number;
+  categories_created: string[];
 }
 
 /** The unit of a subscription's billing cycle; paired with `interval_count`. */

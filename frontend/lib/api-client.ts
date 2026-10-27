@@ -35,7 +35,7 @@ export class ApiError extends Error {
 
 interface RequestOptions {
   method?: string;
-  body?: string;
+  body?: string | Blob;
   headers?: Record<string, string>;
 }
 
@@ -96,12 +96,25 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   /**
-   * A file the API builds from what is posted — the transactions export.
-   * Fetched rather than linked to, because a plain link can carry neither the
-   * bearer token nor the body.
+   * A file the API builds — from what is posted (the transactions export), or
+   * from nothing but who is asking (the import template, a GET). Fetched
+   * rather than linked to, because a plain link can carry neither the bearer
+   * token nor a body.
    */
-  download: async (path: string, body: unknown): Promise<Blob> =>
-    (await send(path, { method: 'POST', body: JSON.stringify(body) })).blob(),
+  download: async (path: string, body?: unknown): Promise<Blob> =>
+    (
+      await send(path, body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) })
+    ).blob(),
+  /**
+   * POST a file as the request body itself, and read the JSON answer. The
+   * import endpoints take the raw bytes: one file needs no form encoding.
+   */
+  upload: <T>(path: string, file: Blob) =>
+    apiFetch<T>(path, {
+      method: 'POST',
+      body: file,
+      headers: { 'Content-Type': 'application/octet-stream' },
+    }),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>

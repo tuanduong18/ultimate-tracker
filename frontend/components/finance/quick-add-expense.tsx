@@ -1,10 +1,11 @@
 'use client';
 
-import { CircleCheck, Plus, X } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { CircleCheck, Plus } from 'lucide-react';
+import { useId, useState } from 'react';
 
 import { ExpenseForm, expensePayload, type ExpenseValues } from '@/components/finance/expense-form';
 import { PanelNote } from '@/components/finance/panel';
+import { SheetDialog, SheetHeader } from '@/components/shared/sheet-dialog';
 import { api } from '@/lib/api-client';
 import { todayIso } from '@/lib/dates';
 import { announceExpensesChange } from '@/lib/finance-events';
@@ -46,38 +47,15 @@ export function QuickAddExpense() {
  * a hurry — at the till, on a phone. It used to live in the fourth of six
  * panels on the finance page, in a form squeezed into that panel's width. Now
  * it is centred on a desktop and a sheet rising from the bottom on a phone,
- * where the thumb is.
- *
- * Built on a native <dialog> like the navigation drawer: focus moves inside,
- * the page behind goes inert, Escape closes it. Native focus return goes to
- * whatever opened it; a caller whose opener disappears (a menu item) moves
- * focus itself in `onClose`.
+ * where the thumb is (SheetDialog).
  */
 export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
-
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={titleId}
-      // Escape fires `cancel` then `close`; listening to `close` keeps React's
-      // state in step however the dialog was dismissed.
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      className="m-auto w-[min(30rem,calc(100vw-2rem))] max-w-none overflow-hidden rounded-2xl border border-border bg-surface p-0 text-fg shadow-xl transition duration-200 ease-out backdrop:bg-black/40 motion-reduce:transition-none max-sm:mb-0 max-sm:w-full max-sm:rounded-b-none max-sm:border-b-0 max-sm:starting:open:translate-y-full sm:starting:open:scale-95 sm:starting:open:opacity-0"
-    >
-      {open && <AddExpenseBody titleId={titleId} onDone={onClose} />}
-    </dialog>
+    <SheetDialog open={open} onClose={onClose} labelledBy={titleId}>
+      <AddExpenseBody titleId={titleId} onDone={onClose} />
+    </SheetDialog>
   );
 }
 
@@ -116,20 +94,8 @@ function AddExpenseBody({ titleId, onDone }: { titleId: string; onDone: () => vo
   }
 
   return (
-    <div className="pb-[env(safe-area-inset-bottom)]">
-      <header className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
-        <h2 id={titleId} className="text-base font-semibold">
-          Add expense
-        </h2>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onDone}
-          className="flex size-11 items-center justify-center rounded-lg text-fg-muted hover:bg-surface-muted hover:text-fg"
-        >
-          <X aria-hidden className="size-5" />
-        </button>
-      </header>
+    <>
+      <SheetHeader titleId={titleId} title="Add expense" onClose={onDone} />
 
       {added ? (
         <div className="space-y-5 p-5">
@@ -188,6 +154,6 @@ function AddExpenseBody({ titleId, onDone }: { titleId: string; onDone: () => vo
           )}
         </>
       )}
-    </div>
+    </>
   );
 }

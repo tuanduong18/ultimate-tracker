@@ -42,6 +42,8 @@ export function describeError(err: unknown, fallback: string): string {
       return 'That item no longer exists — someone may have deleted it.';
     case 'INVALID_AMOUNT':
     case 'INVALID_DATE_RANGE':
+    case 'IMPORT_FILE_REJECTED':
+    case 'IMPORT_FILE_TOO_LARGE':
       // The backend's message is specific and already user-safe here.
       return err.message;
     case 'VALIDATION_ERROR':

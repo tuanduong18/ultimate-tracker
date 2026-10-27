@@ -37,10 +37,11 @@ theming, and the pipeline that keeps it deployable.
   accent on a neutral base, and Light / Dark / Match system, chosen in Settings and applied
   before first paint.
 - **In-app notifications** — `notifications` table, `/api/v1/notifications`, a live bell in the
-  header and a `/notifications` page; subscription reminders and renewal notices are the first
-  writers. See [Notifications](#notifications).
-- **Background jobs** — exchange-rate refresh, and subscription renewals and reminders, idempotent and
-  triggerable over HTTP or the command line. See [Background jobs](#background-jobs).
+  header and a `/notifications` page; written by subscription reminders and renewal notices,
+  currency notices and budget alerts. See [Notifications](#notifications).
+- **Background jobs** — exchange-rate refresh, subscription renewals and reminders, and budget
+  alerts, idempotent and triggerable over HTTP or the command line. See
+  [Background jobs](#background-jobs).
 - **Health check** — `GET /api/v1/health`.
 - **CI/CD** — lint, type-check, test, and build on every PR; auto-deploy on merge.
 - **Logs** — JSON lines in deployments, searchable by field. See [Observability](#observability).
@@ -99,8 +100,8 @@ to it by Supabase — same user id, so the same profile and data.
 
 ## Notifications
 
-Three features depend on it: budget breach alerts, subscription renewal reminders, and the weekly
-digest. Subscription reminders are the first caller and are built.
+Three features depend on it: subscription renewal reminders and budget breach alerts, both
+built, and the weekly digest, still to come.
 
 It is listed here rather than inside any one domain because building it three times, once per
 feature, is the obvious failure mode. One delivery service, one preference surface, three callers.
@@ -122,10 +123,10 @@ Two families, with different lives:
 | | Kinds | Text | Leaves the bell | Then |
 |---|---|---|---|---|
 | **Reminders** | `subscription_renewal`, `trial_ending` | Live: a daily countdown, rewritten by edits | Snoozed (`snoozed_at`) | Deleted on the charge day |
-| **Notices** | `subscription_renewed`, `currency_delisted` | Fixed once sent | Moved to the history (`archived_at`) | Kept until the user deletes them |
+| **Notices** | `subscription_renewed`, `currency_delisted`, `budget_warning`, `budget_exceeded` | Fixed once sent | Moved to the history (`archived_at`) — by the user, or by the job once a currency or budget notice no longer applies | Kept until the user deletes them |
 
 See [Subscriptions → Reminders](./finance.md#reminders) for when reminders are created,
-rewritten and removed.
+rewritten and removed, and [Budget alerts](./finance.md#budget-alerts) for when a budget warns.
 
 | Method | Path | Notes |
 |---|---|---|
@@ -147,6 +148,7 @@ focus and every five minutes covers a dropped socket.
 |---|---|---|
 | `exchange-rates` | Fetch rates from the upstream into `exchange_rates`, delist currencies it dropped, and notify their users. The table's only writer. | Daily. |
 | `subscriptions` | Record charges that have come due as expenses (the renewal job), then create, re-count and clean up reminders. | Every 2 hours: each user's daily countdown then changes within 2 hours of their midnight. |
+| `budgets` | Alert on budgets that reached their early warning or their cap, and move alerts that no longer apply to the history. | Hourly, at half past: an overspend is announced within the hour, and renewals logged on the hour are counted. |
 
 The jobs live in [`app/tasks/jobs.py`](../../backend/app/tasks/jobs.py) as plain async functions,
 and every trigger calls the same ones:

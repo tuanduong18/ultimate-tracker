@@ -37,12 +37,16 @@ describe('linkFor', () => {
     expect(linkFor('trial_ending')).toEqual({ href: '/finance', label: 'Manage subscription' });
     expect(linkFor('subscription_renewed').href).toBe('/finance/expenses');
     expect(linkFor('currency_delisted').href).toBe('/profile');
+    expect(linkFor('budget_warning')).toEqual({ href: '/finance/budgets', label: 'View budgets' });
+    expect(linkFor('budget_exceeded').href).toBe('/finance/budgets');
   });
 });
 
 describe('archiveLabel', () => {
-  it('acknowledges a currency notice and files a renewal', () => {
+  it('acknowledges news and files a renewal', () => {
     expect(archiveLabel('currency_delisted')).toBe('Got it');
+    expect(archiveLabel('budget_warning')).toBe('Got it');
+    expect(archiveLabel('budget_exceeded')).toBe('Got it');
     expect(archiveLabel('subscription_renewed')).toBe('Move to history');
   });
 });
