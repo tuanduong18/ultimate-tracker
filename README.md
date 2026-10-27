@@ -24,7 +24,7 @@ Five domains, listed in the order they appear in the app.
 
 | # | Domain | Status | What it covers |
 |---|---|---|---|
-| 1 | 💰 Finance & Budgeting | Partly built | Expenses with search, filters and Excel export; categories; multi-currency budgets; spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders. Budget breach alerts are next |
+| 1 | 💰 Finance & Budgeting | Built | Expenses with search, filters, Excel export and import from a template; categories; multi-currency budgets that alert you as they near and reach their cap; spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders |
 | 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
 | 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
 | 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
@@ -50,9 +50,9 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Backend | FastAPI (Python 3.14) | Async-first, type-safe, fast to build REST APIs |
 | Database | PostgreSQL via Supabase | Relational data suits cross-domain queries, generous free tier |
 | Auth | Supabase Auth | Email/password + Google OAuth out of the box, no custom auth to maintain |
-| Background jobs | Supabase pg_cron + pg_net → `POST /api/v1/tasks/*` | No worker to run: the database's scheduler calls idempotent job endpoints on the backend. Subscriptions and exchange rates use it today; budget alerts and the weekly digest will too |
+| Background jobs | Supabase pg_cron + pg_net → `POST /api/v1/tasks/*` | No worker to run: the database's scheduler calls idempotent job endpoints on the backend. Subscriptions, exchange rates and budget alerts use it today; the weekly digest will too |
 | Calendar sync | Google Calendar API (v0.3) | Two-way sync of timetable and events; `calendar.events` scope only |
-| Spreadsheet export | openpyxl | Pure-Python .xlsx writer: exact decimals and real date cells, no Excel install needed on the server |
+| Spreadsheets | openpyxl | Pure-Python .xlsx reader and writer for the export, the import template and imports: exact decimals and real date cells, no Excel install needed on the server |
 | Exchange rates | open.er-api.com | No API key, quotes 160+ currencies including VND; ECB-backed alternatives quote ~30 and omit it |
 | CI/CD | GitHub Actions | Lint, test, build, deploy on every PR |
 | Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
@@ -170,8 +170,8 @@ when it is done and the one before it is stable.
 | **Last** | Gaming Performance — Riot and Steam integration, tilt detection. Deliberately after everything else. |
 
 **Where it stands:** v0.1 is done. From v0.2, subscriptions with reminders, in-app
-notifications and the scheduler have shipped too; budget breach alerts, Fitness and the focus
-timer are what remain of it.
+notifications, the scheduler and budget breach alerts have shipped too, which completes
+Finance; Fitness and the focus timer are what remain of it.
 
 ---
 

@@ -12,7 +12,7 @@ release plan.** It is deliberate, not alphabetical.
 
 | # | Domain | Spec | Status |
 |---|---|---|---|
-| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Partly built |
+| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Built |
 | 2 | 🏋️ Fitness | [`fitness.md`](./fitness.md) | Not started |
 | 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started |
 | 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started |

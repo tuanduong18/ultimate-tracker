@@ -222,6 +222,7 @@ erDiagram
         string period "monthly | custom"
         date starts_on
         date ends_on "nullable: an ongoing monthly budget"
+        smallint warn_at_percent "nullable: no early warning"
         timestamp created_at
     }
     BUDGET_CATEGORIES {
@@ -272,7 +273,8 @@ never built.
 - Resource-based REST naming: `GET /api/v1/finance/expenses`, `POST /api/v1/finance/expenses`, `PATCH /api/v1/finance/expenses/{id}`
 - Auth: every protected route requires `Authorization: Bearer <supabase_jwt>`. The exceptions are `/health`, `/finance/currencies` (identical for everyone), and `/tasks/*`, which take an `X-Task-Secret` header instead
 - Pagination: offset-based, `?limit=&offset=`, on lists that grow — today `GET /finance/expenses` (default 100, max 500), with a total order (`spent_on`, `created_at`, `id`) so pages never repeat or skip a row. `GET /notifications` takes `?limit=` only
-- An action that is not plain CRUD, or that needs a large body, is a `POST` on a sub-path: `POST /finance/expenses/export` takes the ids to export and returns an `.xlsx`
+- An action that is not plain CRUD, or that needs a large body, is a `POST` on a sub-path: `POST /finance/expenses/export` takes the ids to export and returns an `.xlsx`; `POST /finance/expenses/import/preview` and `POST /finance/expenses/import` take a spreadsheet
+- An uploaded file is the request body itself (`Content-Type: application/octet-stream`), not a multipart form: one file and no other fields need no form encoding, and it keeps `python-multipart` out of the dependencies. The route reads the stream with a size cap
 - Standard error shape:
 
 ```json
@@ -524,12 +526,13 @@ before it is stable.
 | **v0.4** | Polish, performance pass, full observability, public launch | No `level: error` lines in the logs across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection | Match history syncs and at least one gaming correlation appears in the insights dashboard |
 
-**Where it stands:** v0.1 is done. Ahead of v0.2, subscriptions with reminders, in-app
-notifications and the scheduler (pg_cron) have shipped as well; budget breach alerts, Fitness
-training and steps, and the focus timer are what remain of v0.2.
+**Where it stands:** v0.1 is done. From v0.2, subscriptions with reminders, in-app
+notifications, the scheduler (pg_cron) and budget breach alerts have shipped, which completes
+Finance; Fitness training and steps, and the focus timer, are what remain of v0.2. Expense
+import from a spreadsheet shipped alongside, ahead of any release.
 
 **The scheduler moved from v0.3 to v0.2.** Subscription reminders are the first feature that
-cannot work without it, and budget alerts and the weekly digest then reuse the same service
+cannot work without it; budget alerts now reuse the same service, and the weekly digest will,
 rather than each growing their own.
 
 

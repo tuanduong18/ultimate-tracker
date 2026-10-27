@@ -1,9 +1,12 @@
 # Finance & Budgeting
 
 Track what you spend, cap it by category, and keep recurring costs from going unnoticed.
-This is the first domain built and the most complete.
+This is the first domain built, and it is complete: everything below is built.
 
-- **Release:** v0.1 (core), v0.2 (subscriptions)
+The domain is about **understanding spending**, not about balances. Income and savings goals
+are deliberately out of scope — see [Out of scope](#out-of-scope).
+
+- **Release:** v0.1 (core), v0.2 (subscriptions, budget alerts); import shipped ahead of any release
 - **Scope name:** `finance`
 - **API prefix:** `/api/v1/finance`
 - **Code:** [`backend/app/api/v1/finance.py`](../../backend/app/api/v1/finance.py) ·
@@ -18,8 +21,8 @@ This is the first domain built and the most complete.
 
 - Categories — full CRUD, each with a name and a colour.
 - Expenses — full CRUD, each with its own currency, amount, optional category, date and note.
-- Transactions tab — every expense, searchable and filterable, exportable to Excel. See
-  [Transactions](#transactions).
+- Transactions tab — every expense, searchable and filterable, exportable to Excel, and
+  importable from a spreadsheet. See [Transactions](#transactions) and [Import](#import).
 - Budgets — full CRUD. A budget is a named cap applied to **any number of categories**
   (many-to-many), of one of two kinds: **monthly**, which starts fresh every calendar month, or
   **custom**, over one fixed date range. See [Budgets](#budgets).
@@ -28,6 +31,9 @@ This is the first domain built and the most complete.
   daily scheduled job; requests never call open.er-api.com. The same table decides which
   currencies can be picked. See [Exchange rates](#exchange-rates).
 - Budget progress — spend-to-date against each cap, converted.
+- Budget alerts — a notification when a budget reaches its early warning (80% by default, or
+  off) and when it reaches its cap, from an hourly scheduled job. See
+  [Budget alerts](#budget-alerts).
 - Breakdowns — spend by category and spend by period (day or week buckets), both filterable by
   category and comparable across two date ranges.
 - Finance pages — tabs under the Finance title: **Overview** (summary tiles, the two comparison
@@ -37,11 +43,17 @@ This is the first domain built and the most complete.
 - Subscriptions — tracking with free trials, automatic renewal into expenses, reminders and
   renewal notices. Shipped ahead of its v0.2 slot. See [Subscriptions](#subscriptions).
 
-**Not built:**
+### Out of scope
 
-- Budget breach alerts. Progress is calculated and displayed; nothing notifies you.
-- Income. The domain is expense-only today; there is no income/expense type split.
-- CSV import, savings goals.
+Decided on 2026-10-24, not deferred:
+
+- **Income tracking**, and with it a net position. Your bank already shows what came in and
+  what is left; this app is for understanding where the money goes, which the bank does not
+  show. The domain stays expense-only — there is no income/expense type split.
+- **Savings goals**, for the same reason: a balance-and-target question, which a bank answers
+  better.
+
+Revisit either only if the Insights domain finds a concrete use for it.
 
 ---
 
@@ -96,6 +108,70 @@ formula.
 
 ---
 
+## Import
+
+Expenses come in from a spreadsheet in three steps, all in one dialog behind **Import** on the
+Transactions tab ([`services/finance/imports.py`](../../backend/app/services/finance/imports.py)):
+
+1. **Download the template.** An `.xlsx` made for the user: an **Expenses** sheet with exactly the
+   columns the importer reads, a **How to fill this in** sheet, and a hidden **Lists** sheet that
+   feeds the drop-downs.
+2. **Upload the filled-in file.** The server reads it and answers with a preview. Nothing is
+   saved.
+3. **Confirm.** The same file is sent again and imported in one transaction.
+
+**Fixed columns, not a column-mapping step.** The template is the layout: `Date`, `Description`,
+`Category`, `Amount`, `Currency` — the five the export leads with, in the same order, so **an
+exported file imports as it is** (its extra converted-amount column is ignored). A bank statement
+gets pasted into the template. Column names are matched however they are capitalised; other
+columns are ignored; the first row with anything in it holds the names, and `Date` and `Amount`
+are required.
+
+**The template is personal.** The Category column's drop-down lists the user's own categories
+(a warning, not a block, on a name that isn't one); the Currency column's lists the supported
+currencies; Date and Amount cells check their type. It holds no example row — one left in by
+mistake would be imported — the instructions sheet shows one instead.
+
+| Column | Required | Read as |
+|---|---|---|
+| Date | Yes | A date cell, or text `2026-10-24` or `24/10/2026` — **day first**, never guessed: `05/10` read the wrong way round is a wrong expense nobody notices |
+| Description | No | Up to 500 characters |
+| Category | No | Matched to the user's categories however it is capitalised. A name they don't have is **created on import**, in the next unused colour of a fixed palette. Blank or "Uncategorised" is no category |
+| Amount | Yes | A number cell, or text like `12.50`, `1,250.00`, `250000`. A comma is a thousands separator only where it groups three digits — `12,50` is refused, not read as 1,250. More than 0, within the currency's decimals |
+| Currency | No | A supported code; blank is the profile's **preferred** currency |
+
+**Files:** `.xlsx` (the first worksheet; formulas give their saved values) or CSV in UTF-8, with
+or without Excel's BOM, delimited by `,`, `;` or tab — whichever the first line uses most. An
+old `.xls` is refused with a message to save it as `.xlsx` or CSV. Caps: 5 MB and 5,000 rows,
+refused outright rather than cut short, and an `.xlsx` that would unpack past 100 MB is refused
+unread.
+
+**Rows with problems are left out, not blocking.** The preview lists every problem by its
+spreadsheet row number and column, in words ("“31/02/2026” isn’t a date…"); the rest can be
+imported straight away, and the fixed file uploaded later.
+
+**Duplicates** are rows with the same date, amount, currency and description (case and spaces
+ignored) as an expense already recorded. Category is not compared: the file's may be newer.
+They are matched **one for one** — two identical coffees in the file and one already saved
+leaves one of the two as new — which is also what makes re-uploading a partly imported file
+safe. Left out unless the user ticks them in.
+
+The upload is the request body itself (`application/octet-stream`), read with a size cap as it
+streams in; one file needs no multipart form.
+
+### Endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/finance/expenses/import/template` | `.xlsx` attachment, `expenses-template.xlsx`. |
+| `POST` | `/finance/expenses/import/preview` | Body: the file. Answers `{rows, problems}`: each row with `row` (spreadsheet number), the values as read, `new_category` and `duplicate`; each problem with `row`, `column` and `message`. Saves nothing. |
+| `POST` | `/finance/expenses/import` | Body: the same file. `?include_duplicates=true` keeps duplicates. `201` with `{imported, duplicates_skipped, problem_rows_skipped, categories_created}`. |
+
+A file that can't be read as a whole is `422 IMPORT_FILE_REJECTED` with a message written for
+the person; over 5 MB is `413 IMPORT_FILE_TOO_LARGE`.
+
+---
+
 ## Budgets
 
 A budget caps spending in one or more categories, in its own currency. There are two kinds, and
@@ -123,6 +199,41 @@ yearly kind yet; `period` is a CHECKed string so either can be added without an 
 There is no single "budget left" figure on the dashboard. Budgets cover different dates,
 categories and currencies, so any total across them would be wrong; each is shown against its
 own cap instead.
+
+---
+
+## Budget alerts
+
+**Status: built. Release: v0.2.**
+[`services/finance/budget_alerts.py`](../../backend/app/services/finance/budget_alerts.py), run
+by the hourly `budgets` job ([Background jobs](./platform.md#background-jobs)) — never by a
+request, so logging an expense does not itself send anything.
+
+Each run measures every budget whose window holds the user's today exactly as the Budgets tab
+does (`budget_progress`: the budget's own currency, its covered categories) and sends:
+
+| Kind | When | Example |
+|---|---|---|
+| `budget_warning` | spend reaches `warn_at_percent` of the cap | "Food is 85% spent" — "SGD 340.00 of SGD 400.00 spent in October 2026, SGD 60.00 left." |
+| `budget_exceeded` | spend reaches the cap | "Food is over budget" — "…SGD 12.50 over."; at exactly the cap, "Food is fully spent" |
+
+- **The warning is per budget**: `warn_at_percent` on `budgets`, 1–99, **80 by default**, or
+  null for none; the form offers 50, 75, 80 and 90%. Reaching the cap is always announced. A
+  budget that jumps straight past its cap gets only the exceeded alert.
+- **Once per window and cap.** The dedupe key is
+  `budget:<id>:<window start>:<threshold>:<cap><currency>`: a monthly budget warns afresh every
+  month, and raising a cap lets it warn again; a re-run sends nothing new.
+- **An alert stays in the inbox while it still applies.** Each run moves to the history every
+  inbox alert it would not send now — the warning once the exceeded alert supersedes it, and any
+  alert whose budget was raised, deleted or spent less after an edit, or whose window ended. The
+  same rule as currency notices. Spend that dips under a threshold and climbs back within the
+  same window and cap is not announced twice.
+- **Past windows are never alerted**: a backdated expense that pushes last month over is
+  history, not news. A custom budget alerts only while its range holds today.
+- **A missing exchange rate** skips that user for the run (logged as
+  `budget_alerts.rate_unavailable`) and leaves their alerts as they were.
+- Alerts are notices: fixed once sent, "Got it" moves one to the history, "View budgets" links to
+  the tab. On each budget's bar, a notch marks where its warning fires.
 
 ---
 
@@ -265,7 +376,7 @@ charge a cancellation stopped — is cleaned up by the next run. No reminder is 
 charge day itself: a run that missed the window does not send a late one.
 
 Delivery is in-app only for now. Email would be a second channel for the same notification row.
-Budget breach alerts must use the same mechanism; the two are not built twice.
+[Budget alerts](#budget-alerts) use the same mechanism; the two are not built twice.
 
 ### Open questions
 
@@ -335,16 +446,19 @@ little as rates move. That is an accepted trade-off for a personal tracker.
   filters, export of the matching rows to Excel.
 - **[v0.2, shipped early]** Subscriptions — tracking with free trials, automatic renewal that
   writes an expense, a reminder three days before each charge that stays until acted on.
+- **[v0.2]** Budget breach alerts — an early warning at a per-budget threshold (80% by default,
+  or off) and an alert at the cap.
+- **[Ahead of any release]** Import — a personal `.xlsx` template, `.xlsx` or CSV upload, a
+  preview before anything is saved, duplicate detection, new categories created on import.
+  Fixed template columns replaced the earlier plan of a column-mapping step.
 
 ### Planned
 
-- **[v0.2]** Budget breach alerts at configurable thresholds (default 80% / 100%).
+Nothing: Finance is complete for its release plan.
 
-### Future
+### Not planned
 
-- **[Future]** Income tracking, and with it a net position rather than gross spend.
-- **[Future]** CSV import with column mapping and duplicate detection.
-- **[Future]** Savings goals with progress tracking.
+- Income tracking and savings goals — see [Out of scope](#out-of-scope).
 
 ---
 
@@ -358,3 +472,10 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 - **Never sum amounts without converting.** Expenses carry their own currency; adding raw amounts
   across currencies produces a number that means nothing. Conversion belongs in
   `services/finance/summaries.py`, server-side — the browser does not have a rate table.
+- **An ORM `None` is not a NULL on insert.** SQLAlchemy leaves a `None` attribute out of the
+  INSERT, so a column default fills it. `budgets.warn_at_percent` uses
+  `SmallInteger().evaluates_none()` so "warning off" is stored as NULL rather than becoming 80.
+  Any new nullable column with a default needs the same.
+- **Two models with no relationship are inserted in no promised order.** The importer flushes new
+  categories before adding the expenses that reference them; a test fixture adding a profile and
+  its category together has to flush the profile first.
