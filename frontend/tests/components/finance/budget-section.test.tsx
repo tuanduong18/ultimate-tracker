@@ -36,6 +36,7 @@ const GROCERIES: BudgetProgress = {
   period: 'custom',
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
+  warn_at_percent: 80,
   window_starts_on: '2026-08-01',
   window_ends_on: '2026-08-31',
   categories: [FOOD],
@@ -127,8 +128,54 @@ describe('BudgetSection', () => {
         starts_on: '2026-08-01',
         ends_on: '2026-08-31',
         category_ids: ['c1'],
+        // The default, shown in the form and sent as chosen.
+        warn_at_percent: 80,
       })
     );
+  });
+
+  it('can turn the early warning off, and back on at another share', async () => {
+    get.mockResolvedValue([GROCERIES]);
+    patch.mockResolvedValue(GROCERIES);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Edit / }));
+    const warn = screen.getByLabelText('Warn me at');
+    expect(warn).toHaveValue('80');
+    expect(warn).toHaveAccessibleDescription('You’re also told when it’s fully spent.');
+
+    fireEvent.change(warn, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenLastCalledWith(
+        '/finance/budgets/b1',
+        expect.objectContaining({ warn_at_percent: null })
+      )
+    );
+  });
+
+  it('keeps a warning set outside the usual choices', async () => {
+    get.mockResolvedValue([{ ...GROCERIES, warn_at_percent: 85 }]);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Edit / }));
+
+    expect(screen.getByLabelText('Warn me at')).toHaveValue('85');
+    expect(screen.getByRole('option', { name: '85% of the cap' })).toBeInTheDocument();
+  });
+
+  it('marks where the warning fires on the bar, and only when there is one', async () => {
+    get.mockResolvedValue([
+      GROCERIES,
+      { ...OVERSPENT, id: 'b2', name: 'Rent', warn_at_percent: null },
+    ]);
+    render(<Harness />);
+
+    expect(await screen.findByRole('progressbar', { name: /Groceries spent/i })).toHaveAttribute(
+      'title',
+      'Warns at 80%'
+    );
+    expect(screen.getByRole('progressbar', { name: /Rent spent/i })).not.toHaveAttribute('title');
   });
 
   it('defaults a new budget to monthly, ongoing from the month on screen', async () => {

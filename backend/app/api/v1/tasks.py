@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.schemas.task import ExchangeRateRefreshRead, SubscriptionJobRead
+from app.schemas.task import BudgetJobRead, ExchangeRateRefreshRead, SubscriptionJobRead
 from app.services import exchange_rates
 from app.tasks import jobs
 
@@ -66,3 +66,10 @@ async def run_subscriptions(db: AsyncSession = Depends(get_db)) -> SubscriptionJ
     """Record charges that have come due as expenses, then update every
     reminder's countdown. Schedule it every couple of hours."""
     return await jobs.subscriptions(db)
+
+
+@router.post("/budgets", response_model=BudgetJobRead)
+async def run_budgets(db: AsyncSession = Depends(get_db)) -> BudgetJobRead:
+    """Alert on budgets that reached their warning or their cap, and clear
+    alerts that no longer apply. Schedule it hourly."""
+    return await jobs.budgets(db)

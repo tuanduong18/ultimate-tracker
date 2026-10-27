@@ -127,6 +127,10 @@ class BudgetPeriod(StrEnum):
 _PERIOD_LEN = 7
 _PERIOD_CHECK = "period IN ({})".format(", ".join(f"'{p.value}'" for p in BudgetPeriod))
 
+# The percentage of a cap at which a new budget warns, unless the user picks
+# another or turns the warning off.
+DEFAULT_WARN_AT_PERCENT = 80
+
 
 class Budget(Base):
     """A spending cap covering one or more categories, either over one fixed
@@ -156,6 +160,19 @@ class Budget(Base):
     starts_on: Mapped[date] = mapped_column(Date, nullable=False)
     # Null only for a monthly budget with no end — see ck_budgets_custom_has_end.
     ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The early warning: the budget alert job tells the user once spend reaches
+    # this percentage of the cap. Null turns the warning off; reaching the cap
+    # itself is always announced. The server default gives budgets made before
+    # alerts existed the same warning a new one starts with.
+    #
+    # evaluates_none: the ORM otherwise leaves a None out of the INSERT, the
+    # default fills the gap, and "warning off" is saved as 80%.
+    warn_at_percent: Mapped[int | None] = mapped_column(
+        SmallInteger().evaluates_none(),
+        nullable=True,
+        default=DEFAULT_WARN_AT_PERCENT,
+        server_default="80",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -172,6 +189,11 @@ class Budget(Base):
         CheckConstraint(_PERIOD_CHECK, name="ck_budgets_period"),
         CheckConstraint(
             "period = 'monthly' OR ends_on IS NOT NULL", name="ck_budgets_custom_has_end"
+        ),
+        # Below 100: reaching the cap has its own alert, so a warning at 100
+        # would only ever arrive alongside it.
+        CheckConstraint(
+            "warn_at_percent BETWEEN 1 AND 99", name="ck_budgets_warn_at_percent_range"
         ),
         Index("ix_budgets_user_range", "user_id", "starts_on", "ends_on"),
     )

@@ -43,9 +43,16 @@ function withoutSign(amount: string): string {
  * The bar is green until the cap is passed and red after, rather than shading
  * gradually: "am I over?" is the only question it has to answer at a glance,
  * and a gradient makes 99% and 101% look nearly the same.
+ *
+ * A notch marks the early warning, so how close the next alert is can be read
+ * off the bar. A gap in the bar's own surface colour rather than a coloured
+ * line: it shows on the green, the red and the empty track alike, in either
+ * mode. It adds nothing a screen reader needs — the bar's value is read out,
+ * and the form says where the warning is.
  */
 function BudgetCard({ budget }: { budget: BudgetProgress }) {
   const percent = barPercent(budget.spent, budget.amount);
+  const warnAt = budget.warn_at_percent;
   // Read the sign off the string's number rather than recomputing the
   // subtraction: no rounding error flips a sign, and the figures shown stay the
   // strings the API sent.
@@ -69,17 +76,25 @@ function BudgetCard({ budget }: { budget: BudgetProgress }) {
       </div>
 
       <div
-        className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-fg/10"
+        className="relative mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-fg/10"
         role="progressbar"
         aria-label={`${budget.name} spent`}
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
         aria-valuemax={100}
+        title={warnAt === null ? undefined : `Warns at ${warnAt}%`}
       >
         <div
           className={`h-full rounded-full ${over ? 'bg-negative' : 'bg-positive'}`}
           style={{ width: `${percent}%` }}
         />
+        {warnAt !== null && (
+          <span
+            aria-hidden
+            className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-surface"
+            style={{ left: `${warnAt}%` }}
+          />
+        )}
       </div>
     </>
   );
@@ -214,6 +229,8 @@ export function BudgetSection({
       // an edit that clears the last month really clears it.
       ends_on: values.ends_on || null,
       category_ids: values.category_ids,
+      // Likewise: null turns the early warning off.
+      warn_at_percent: values.warn_at_percent ? Number(values.warn_at_percent) : null,
     };
   }
 
@@ -280,6 +297,8 @@ export function BudgetSection({
             starts_on: month,
             ends_on: '',
             category_ids: [],
+            // The server's default, shown so it is a choice rather than a surprise.
+            warn_at_percent: '80',
           }}
           categories={categories}
           currencies={currencies}
@@ -317,6 +336,8 @@ export function BudgetSection({
                     starts_on: budget.starts_on,
                     ends_on: budget.ends_on ?? '',
                     category_ids: budget.categories.map((category) => category.id),
+                    warn_at_percent:
+                      budget.warn_at_percent === null ? '' : String(budget.warn_at_percent),
                   }}
                   categories={categories}
                   currencies={currencies}

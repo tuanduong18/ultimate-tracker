@@ -9,6 +9,7 @@ import httpx
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.support.finance_api import make_budget, make_category, make_expense
 from tests.support.ids import TEST_USER_ID
 
 from app.core.config import settings
@@ -156,4 +157,31 @@ async def test_subscriptions_job_renews_then_reminds(
     assert sorted(n["title"] for n in inbox.json()) == [
         "Due soon renews in 2 days",
         f"Due today auto-renewed on {today.day} {today:%b}",
+    ]
+
+
+async def test_budgets_job_alerts_once(authed_client: AsyncClient) -> None:
+    today = datetime.now(UTC).date()
+    food = await make_category(authed_client, name="Food")
+    await make_budget(
+        authed_client,
+        [food["id"]],
+        name="Food",
+        amount="400.00",
+        period="monthly",
+        starts_on=today.isoformat(),
+        ends_on=None,
+    )
+    await make_expense(
+        authed_client, amount="450.00", category_id=food["id"], spent_on=today.isoformat()
+    )
+
+    first = await authed_client.post("/api/v1/tasks/budgets", headers=AUTH)
+    second = await authed_client.post("/api/v1/tasks/budgets", headers=AUTH)
+
+    assert first.json() == {"checked": 1, "alerted": 1, "cleared": 0}
+    assert second.json() == {"checked": 1, "alerted": 0, "cleared": 0}
+    inbox = await authed_client.get("/api/v1/notifications")
+    assert [(n["kind"], n["title"]) for n in inbox.json()] == [
+        ("budget_exceeded", "Food is over budget")
     ]

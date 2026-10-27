@@ -361,6 +361,7 @@ async def budget_progress(
                 "period": budget.period,
                 "starts_on": budget.starts_on,
                 "ends_on": budget.ends_on,
+                "warn_at_percent": budget.warn_at_percent,
                 "window_starts_on": window_start,
                 "window_ends_on": window_end,
                 "categories": budget.categories,

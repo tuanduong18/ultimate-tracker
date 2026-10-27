@@ -28,7 +28,7 @@ from pydantic import (
 )
 
 from app.core.currencies import minor_units, normalize_currency
-from app.models.finance import BillingInterval, BudgetPeriod
+from app.models.finance import DEFAULT_WARN_AT_PERCENT, BillingInterval, BudgetPeriod
 
 # Mirrors Numeric(20, 3) on the expense and budget columns. The scale is the
 # widest any supported currency needs (KWD, BHD, JOD, OMR, LYD, TND); per-currency
@@ -48,6 +48,8 @@ SubscriptionName = Annotated[
 ]
 # Upper bound is a sanity cap well inside SmallInteger, not a business rule.
 IntervalCount = Annotated[int, Field(ge=1, le=999)]
+# Below 100, because reaching the cap is announced on its own.
+WarnAtPercent = Annotated[int, Field(ge=1, le=99)]
 # Hex colour for charts, matching the String(7) column.
 Colour = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^#[0-9a-fA-F]{6}$")]
 # The column is unbounded Text; the cap is a schema-level guard on user input.
@@ -194,6 +196,9 @@ class BudgetCreate(BaseModel):
     # with none once a category is deleted — that is the service's problem, not
     # a reason to reject the row here.
     category_ids: Annotated[list[uuid.UUID], Field(min_length=1)]
+    # When spend reaches this share of the cap, an alert says so; null for no
+    # early warning. Reaching the cap is announced either way.
+    warn_at_percent: WarnAtPercent | None = DEFAULT_WARN_AT_PERCENT
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
@@ -212,6 +217,8 @@ class BudgetUpdate(BaseModel):
     ends_on: date | None = None
     # When present, replaces the covered set outright rather than merging.
     category_ids: Annotated[list[uuid.UUID], Field(min_length=1)] | None = None
+    # Send null to turn the early warning off.
+    warn_at_percent: WarnAtPercent | None = None
 
     @model_validator(mode="after")
     def _validate(self) -> Self:
@@ -236,6 +243,8 @@ class BudgetRead(BaseModel):
     starts_on: date
     # Null for an ongoing monthly budget.
     ends_on: date | None
+    # Null when the early warning is off.
+    warn_at_percent: int | None
     # Loaded via the model's selectin relationship; carries name and colour so a
     # chart does not need a second round trip.
     categories: list[CategoryRead]
@@ -411,6 +420,7 @@ class BudgetProgressRead(BaseModel):
     period: BudgetPeriod
     starts_on: date
     ends_on: date | None
+    warn_at_percent: int | None
     # The stretch `spent` was measured over: the chosen month (clipped to the
     # budget's own months) for a monthly budget, the whole range for a custom one.
     window_starts_on: date

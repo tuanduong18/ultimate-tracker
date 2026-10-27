@@ -16,12 +16,27 @@ export interface BudgetValues {
   /** YYYY-MM-DD, or empty: an ongoing monthly budget has no end. */
   ends_on: string;
   category_ids: string[];
+  /** A whole percentage as text (a select's value), or empty for no early warning. */
+  warn_at_percent: string;
 }
 
 const PERIODS: { value: BudgetPeriod; label: string; hint: string }[] = [
   { value: 'monthly', label: 'Monthly', hint: 'Resets on the 1st of every month.' },
   { value: 'custom', label: 'Custom dates', hint: 'One cap over a range you pick.' },
 ];
+
+/**
+ * The early warnings offered. A short list rather than a number field: the
+ * useful answers are few, and a select can't be mistyped as 800%. A budget
+ * saved with another value (through the API) still shows it — see
+ * `warnOptions`.
+ */
+const WARN_AT = [50, 75, 80, 90];
+
+function warnOptions(current: string): number[] {
+  const value = Number(current);
+  return current && !WARN_AT.includes(value) ? [...WARN_AT, value].sort((a, b) => a - b) : WARN_AT;
+}
 
 /** "2026-10-01" → "2026-10" for a month input, and back again. */
 const toMonth = (iso: string) => iso.slice(0, 7);
@@ -43,6 +58,9 @@ interface BudgetFormProps {
  * The type comes first because it decides what the dates mean: a monthly
  * budget asks for months (and an optional last month), a custom one for exact
  * days. The server rounds monthly dates out to whole months either way.
+ *
+ * The early warning comes last: it is about being told, not about what the
+ * budget is, and its default (80%) suits most budgets untouched.
  */
 export function BudgetForm({
   idPrefix,
@@ -244,6 +262,29 @@ export function BudgetForm({
           ))}
         </div>
       </fieldset>
+
+      <div>
+        <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-warn`}>
+          Warn me at
+        </label>
+        <select
+          id={`${idPrefix}-warn`}
+          aria-describedby={`${idPrefix}-warn-hint`}
+          className="mt-1 w-full rounded-md border bg-surface px-2 py-1.5 text-sm sm:w-auto"
+          value={values.warn_at_percent}
+          onChange={(e) => set('warn_at_percent', e.target.value)}
+        >
+          {warnOptions(values.warn_at_percent).map((percent) => (
+            <option key={percent} value={String(percent)}>
+              {percent}% of the cap
+            </option>
+          ))}
+          <option value="">Don’t warn early</option>
+        </select>
+        <p id={`${idPrefix}-warn-hint`} className="mt-1 text-xs text-fg-muted">
+          You’re also told when it’s fully spent.
+        </p>
+      </div>
 
       <div className="flex items-center gap-3">
         <button

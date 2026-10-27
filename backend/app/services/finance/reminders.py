@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import timezones
-from app.core.currencies import minor_units
+from app.core.currencies import format_money
 from app.models.finance import Subscription
 from app.models.notification import REMINDER_KINDS, Notification, NotificationKind
 from app.models.profile import Profile
@@ -47,9 +47,8 @@ class ReminderRun:
 
 
 def money(subscription: Subscription) -> str:
-    """ "USD 12.99", "VND 260,000": the amount in its currency's own minor units."""
-    places = minor_units(subscription.currency)
-    return f"{subscription.currency} {subscription.amount:,.{places}f}"
+    """ "USD 12.99", "VND 260,000": what one charge costs."""
+    return format_money(subscription.amount, subscription.currency)
 
 
 def short_date(day: date) -> str:

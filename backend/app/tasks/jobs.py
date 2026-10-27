@@ -11,8 +11,9 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.schemas.task import ExchangeRateRefreshRead, SubscriptionJobRead
+from app.schemas.task import BudgetJobRead, ExchangeRateRefreshRead, SubscriptionJobRead
 from app.services import exchange_rates
+from app.services.finance.budget_alerts import check_budgets
 from app.services.finance.currency_notices import notify_delisted_currencies
 from app.services.finance.reminders import refresh_reminders
 from app.services.finance.renewals import renew_due_subscriptions
@@ -48,3 +49,15 @@ async def subscriptions(db: AsyncSession, now: datetime | None = None) -> Subscr
         reminders_updated=run.updated,
         reminders_removed=run.removed,
     )
+
+
+async def budgets(db: AsyncSession, now: datetime | None = None) -> BudgetJobRead:
+    """Hourly: alert on budgets that reached their warning or their cap, and
+    clear alerts that no longer apply.
+
+    Its own job rather than a step of another: spend moves whenever anyone logs
+    an expense, not on a charge date or a rate refresh. Hourly bounds how long
+    an overspend goes unannounced; each run is a few queries per user.
+    """
+    run = await check_budgets(db, now=now or datetime.now(UTC))
+    return BudgetJobRead(checked=run.checked, alerted=run.alerted, cleared=run.cleared)

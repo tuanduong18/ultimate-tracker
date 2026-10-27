@@ -5,7 +5,14 @@
  * Web Notifications API), and shadowing it invites the wrong import.
  */
 export type NotificationKind =
-  'subscription_renewal' | 'trial_ending' | 'subscription_renewed' | 'currency_delisted';
+  | 'subscription_renewal'
+  | 'trial_ending'
+  | 'subscription_renewed'
+  | 'currency_delisted'
+  /** A budget reached its early-warning share of the cap. */
+  | 'budget_warning'
+  /** A budget reached its cap. */
+  | 'budget_exceeded';
 
 export interface AppNotification {
   id: string;
@@ -53,12 +60,20 @@ export function linkFor(kind: NotificationKind): NotificationLink {
       return { href: '/profile', label: 'Currency settings' };
     case 'subscription_renewed':
       return { href: '/finance/expenses', label: 'View expenses' };
+    case 'budget_warning':
+    case 'budget_exceeded':
+      return { href: '/finance/budgets', label: 'View budgets' };
     default:
       return { href: '/finance', label: 'Manage subscription' };
   }
 }
 
-/** The button that moves a notice out of the inbox. */
+/**
+ * The button that moves a notice out of the inbox.
+ *
+ * "Got it" for news to acknowledge — a dropped currency, a budget nearly or
+ * fully spent — and "Move to history" for a record worth keeping, a renewal.
+ */
 export function archiveLabel(kind: NotificationKind): string {
-  return kind === 'currency_delisted' ? 'Got it' : 'Move to history';
+  return kind === 'subscription_renewed' ? 'Move to history' : 'Got it';
 }

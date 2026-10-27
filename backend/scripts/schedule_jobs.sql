@@ -72,6 +72,10 @@ select cron.schedule('exchange-rates', '0 1 * * *', $$ select public.call_task('
 -- daily countdown changes within two hours of their local midnight.
 select cron.schedule('subscriptions', '0 */2 * * *', $$ select public.call_task('subscriptions') $$);
 
+-- Budgets: alerts at each budget's warning and at its cap. Hourly, at half
+-- past, so renewals logged on the hour are counted in the same hour.
+select cron.schedule('budgets', '30 * * * *', $$ select public.call_task('budgets') $$);
+
 -- 5. Checking it works. --------------------------------------------------------
 -- Fire one now instead of waiting:
 --   select public.call_task('subscriptions');

@@ -47,6 +47,11 @@ export interface Budget {
   starts_on: string;
   /** Null for an ongoing monthly budget; always set for a custom one. */
   ends_on: string | null;
+  /**
+   * The share of the cap (1–99) at which an alert warns; null for no early
+   * warning. Reaching the cap is announced either way.
+   */
+  warn_at_percent: number | null;
   /** Embedded by the API so a chart needs no second round trip. */
   categories: Category[];
   created_at: string;
@@ -164,6 +169,7 @@ export interface BudgetProgress {
   period: BudgetPeriod;
   starts_on: string;
   ends_on: string | null;
+  warn_at_percent: number | null;
   /**
    * The days `spent` covers: the requested month for a monthly budget, the
    * whole range for a custom one.

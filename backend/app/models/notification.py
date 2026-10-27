@@ -1,8 +1,8 @@
 """In-app notifications — the one delivery record every alerting feature shares.
 
-Subscription reminders and renewal notices are the first writers; budget breach
-alerts and the weekly digest are meant to write here too rather than each
-growing their own table. Email, when it arrives, is a second channel for the
+Subscription reminders and renewal notices were the first writers, budget
+alerts the next; the weekly digest is meant to write here too rather than
+growing its own table. Email, when it arrives, is a second channel for the
 same row.
 
 A notification is in one of three places:
@@ -15,8 +15,8 @@ A notification is in one of three places:
 Reminders are live: the scheduled job rewrites their countdown each day ("renews
 in 2 days") and an edit to the subscription rewrites them at once. They are
 deleted on their charge day, when the renewal job replaces them with a renewal
-notice. Renewal and currency notices are fixed once sent and stay in history
-until the user deletes them.
+notice. Every other kind is a notice: fixed once sent, and kept in the history
+until the user deletes it.
 """
 
 import uuid
@@ -46,9 +46,13 @@ class NotificationKind(StrEnum):
     # Notices: fixed once sent.
     SUBSCRIPTION_RENEWED = "subscription_renewed"
     CURRENCY_DELISTED = "currency_delisted"
+    # A budget's spend reached its early-warning percentage, or its cap.
+    BUDGET_WARNING = "budget_warning"
+    BUDGET_EXCEEDED = "budget_exceeded"
 
 
 REMINDER_KINDS = frozenset({NotificationKind.SUBSCRIPTION_RENEWAL, NotificationKind.TRIAL_ENDING})
+BUDGET_ALERT_KINDS = frozenset({NotificationKind.BUDGET_WARNING, NotificationKind.BUDGET_EXCEEDED})
 
 # A CHECKed string rather than a Postgres enum, as with subscriptions'
 # interval_unit: a new kind is then a constraint swap, not an ALTER TYPE.
@@ -71,7 +75,8 @@ class Notification(Base):
     # What makes a job safe to re-run: one notification per (user, key).
     # Reminders use "subscription:<id>:<charge date>", renewal notices
     # "renewed:<subscription id>:<charge date>", currency notices
-    # "currency:<code>:delisted:<date>".
+    # "currency:<code>:delisted:<date>", budget alerts
+    # "budget:<id>:<window start>:<percent>:<cap><currency>".
     dedupe_key: Mapped[str] = mapped_column(String(120), nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # A reminder the user muted until its date. Unsnoozing, or editing the

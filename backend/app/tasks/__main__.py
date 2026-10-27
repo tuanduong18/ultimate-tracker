@@ -16,6 +16,7 @@ from app.db.session import SessionLocal, engine
 from app.tasks import jobs
 
 JOBS: dict[str, Callable[[AsyncSession], Awaitable[BaseModel]]] = {
+    "budgets": jobs.budgets,
     "exchange-rates": jobs.refresh_exchange_rates,
     "subscriptions": jobs.subscriptions,
 }
