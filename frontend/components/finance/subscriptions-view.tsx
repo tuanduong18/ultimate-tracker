@@ -11,8 +11,8 @@ import type { Subscription } from '@/lib/types/finance';
 export function SubscriptionsView() {
   const subscriptions = useCollection<Subscription>('/finance/subscriptions');
   const { categories, currencies, defaultCurrency } = useFinanceBasics();
-  // Editing a subscription writes no expense — only a renewal does — so
-  // nothing outside this list goes stale.
+  // Editing a subscription writes no expense, and renewing one early
+  // announces the expense it writes itself, so nothing else is owed here.
   const onChange = useCallback(() => {}, []);
 
   return (

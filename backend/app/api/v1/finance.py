@@ -425,6 +425,24 @@ async def update_subscription(
     return SubscriptionRead.model_validate(subscription)
 
 
+@router.post("/subscriptions/{subscription_id}/renew", response_model=SubscriptionRead)
+async def renew_subscription(
+    subscription_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> SubscriptionRead:
+    """Renew ahead of the next charge: log it as an expense today and move the
+    subscription on to the charge after. 409 when a cancellation stops it."""
+    profile = await profile_service.get_or_create_profile(db, user_id)
+    try:
+        subscription = await finance_service.renew_subscription(
+            db, user_id, subscription_id, today=_today_in(profile.timezone)
+        )
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
+    return SubscriptionRead.model_validate(subscription)
+
+
 @router.delete("/subscriptions/{subscription_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_subscription(
     subscription_id: uuid.UUID,

@@ -14,8 +14,10 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 import { SubscriptionSection } from '@/components/finance/subscription-section';
+import { formatDate } from '@/lib/dates';
+import { EXPENSES_CHANGED } from '@/lib/finance-events';
 import { useCollection } from '@/lib/hooks/use-collection';
-import type { Category, Subscription } from '@/lib/types/finance';
+import { formatMoney, type Category, type Subscription } from '@/lib/types/finance';
 
 const FOOD: Category = {
   id: 'c1',
@@ -106,6 +108,61 @@ describe('SubscriptionSection', () => {
     render(<Harness />);
 
     expect(await screen.findByText(/Cancelled/)).toBeInTheDocument();
+  });
+
+  it('renews early once confirmed, saying what it logs', async () => {
+    const music: Subscription = {
+      ...STREAMING,
+      id: 's2',
+      name: 'Music',
+      next_billing_on: '2099-02-15',
+    };
+    const renewed = { ...STREAMING, next_billing_on: '2099-04-30' };
+    // Renewing moves Streaming's next charge past Music's, so the list re-sorts.
+    get.mockResolvedValueOnce([STREAMING, music]).mockResolvedValueOnce([music, renewed]);
+    post.mockResolvedValue(renewed);
+    const expensesChanged = vi.fn();
+    window.addEventListener(EXPENSES_CHANGED, expensesChanged);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Renew Streaming now' }));
+    const money = formatMoney('12.990', 'USD');
+    expect(screen.getByRole('group', { name: 'Confirm renewal' })).toHaveTextContent(
+      `Renew now? Logs ${money} today for the ${formatDate('2099-01-31')} charge.`
+    );
+    // The way back has focus, so a stray Enter does not log money.
+    expect(screen.getByRole('button', { name: 'Not now' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, renew' }));
+
+    await waitFor(() =>
+      expect(screen.getByText(`Renewed — ${money} logged today.`)).toBeInTheDocument()
+    );
+    expect(post).toHaveBeenCalledWith('/finance/subscriptions/s1/renew', {});
+    expect(expensesChanged).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(`Renews ${formatDate('2099-04-30')}`)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Renew Streaming now' })).toHaveFocus()
+    );
+    window.removeEventListener(EXPENSES_CHANGED, expensesChanged);
+  });
+
+  it('backs out of a renewal without logging anything', async () => {
+    get.mockResolvedValue([STREAMING]);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Renew Streaming now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+
+    expect(screen.getByRole('button', { name: 'Renew Streaming now' })).toHaveFocus();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('offers no renewal for a charge its cancellation stops', async () => {
+    get.mockResolvedValue([{ ...STREAMING, cancelled_on: STREAMING.next_billing_on }]);
+    render(<Harness />);
+
+    expect(await screen.findByText('Streaming')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Renew Streaming now' })).not.toBeInTheDocument();
   });
 
   it('preselects the Subscriptions category whatever its case', async () => {

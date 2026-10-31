@@ -258,6 +258,9 @@ subscription is a commitment that will keep happening until you stop it.
    the reminder open until the charge happens or the user acts on it. Enough warning to cancel.
    The lead time is a setting (`SUBSCRIPTION_REMINDER_LEAD_DAYS`); the reminder is sent once,
    not once per day.
+4. **Renew early by hand.** A plan paid before it runs out — prepaid, or renewed manually — is
+   logged on the day it was paid, not on the billing date. One button, confirmed, and the
+   automatic renewal then leaves that charge alone. See [Renewing early](#renewing-early).
 
 Without the expense, a renewal is a date change that never reaches your spending totals, and
 budgets silently under-report. The renewal is what makes a subscription real money. The
@@ -312,8 +315,15 @@ anchored on 31 January bills on 28 February (29 in a leap year), not 3 March, an
 days every month. Day and week intervals need no clamping.
 
 `next_billing_on` is stored rather than computed on read so the daily job is an indexed range
-scan. It is recalculated as the first charge on or after today whenever the schedule changes —
-interval, start, trial end, or cancellation — and otherwise only the renewal job moves it.
+scan. It is recalculated whenever the schedule actually changes — interval, start, trial end,
+or cancellation; the edit form sends every field, so a value sent unchanged does not count — and
+otherwise only the renewal job and [renewing early](#renewing-early) move it.
+
+A recalculation takes the first charge on or after today, then moves past as many charges as
+were already recorded from today on under the old schedule: today's, if the job has taken it,
+and any renewed early. Counting them, rather than keeping the old date, lets a corrected billing
+day take effect at once while an edit made after a renewal never charges for the same period
+twice.
 
 A subscription created with a start date in the past does **not** back-fill the charges before
 today: the user has most likely recorded those already, and guessing would double-count.
@@ -328,6 +338,7 @@ Resuming a cancelled subscription likewise skips the charges it missed while can
 | `GET` | `/finance/subscriptions` | List: live first, soonest charge first; cancelled last. |
 | `POST` | `/finance/subscriptions` | Create. Omitted or `null` `category_id` means uncategorized. |
 | `PATCH` | `/finance/subscriptions/{id}` | Edit — including amount, which affects future renewals only. |
+| `POST` | `/finance/subscriptions/{id}/renew` | Renew early: log the next charge as today's expense and move on to the one after. `409 SUBSCRIPTION_CANCELLED` when a cancellation stops that charge. |
 | `DELETE` | `/finance/subscriptions/{id}` | Hard delete. Expenses already written survive. |
 
 ### Renewal job
@@ -352,6 +363,30 @@ Doing everything in one transaction is what makes the job safe to re-run: once a
 recorded, `next_billing_on` has already moved past it. The row is locked while processed
 (`FOR UPDATE SKIP LOCKED`), so two overlapping runs cannot both take the same charge.
 
+### Renewing early
+
+**Built** (`renew_subscription` in
+[`services/finance/subscriptions.py`](../../backend/app/services/finance/subscriptions.py)).
+Some plans are paid before they run out — a prepaid plan topped up early, a domain renewed a
+week ahead. The money leaves on that day, so that is where the expense belongs. The card's
+**Renew** button (a calendar-check icon) asks first — "Renew now? Logs USD 15.49 today for the
+22 Nov 2026 charge." — and then, in one transaction:
+
+1. writes an expense for the amount, in the subscription's currency and category, dated
+   **today** in the user's timezone, with the subscription's name as its note;
+2. advances `next_billing_on` past the charge it paid for, so the job will not record that
+   charge again when its day comes;
+3. removes that charge's reminder, and adds the next one's if it is already within three days.
+
+**The billing day stays.** Renewing early extends the plan from when it would have run out, not
+from today: a charge due 22 Oct, renewed on 19 Oct, is logged on 19 Oct, and the next charge is
+22 Nov. No renewal notice is sent — the user is the one who renewed.
+
+The row is locked (`FOR UPDATE`) as the job locks it, so a renewal by hand and the job cannot
+both take the same charge. Pressing it again renews a further period ahead, as prepaying two
+months would. A charge a cancellation stops cannot be renewed (`409`); the button is not shown
+then. Deleting the expense does not move the date back, which is why the button confirms first.
+
 ### Reminders
 
 **Built** ([`services/finance/reminders.py`](../../backend/app/services/finance/reminders.py)).
@@ -371,8 +406,9 @@ One reminder per subscription per charge date, kept live from two sides through 
 quietly in the history, and its renewal notice goes straight to the history too. **Unsnooze**
 brings it back, for a mispress; so does editing the subscription.
 
-The reminder is **deleted on its charge day** by the renewal job. A reminder left behind — a
-charge a cancellation stopped — is cleaned up by the next run. No reminder is sent on the
+The reminder is **deleted on its charge day** by the renewal job, or as soon as the charge is
+[renewed early](#renewing-early). A reminder left behind — a charge a cancellation stopped — is
+cleaned up by the next run. No reminder is sent on the
 charge day itself: a run that missed the window does not send a late one.
 
 Delivery is in-app only for now. Email would be a second channel for the same notification row.
@@ -445,7 +481,8 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 - **[Core]** Transactions — every expense, Ctrl+F-style search, date / category / amount
   filters, export of the matching rows to Excel.
 - **[v0.2, shipped early]** Subscriptions — tracking with free trials, automatic renewal that
-  writes an expense, a reminder three days before each charge that stays until acted on.
+  writes an expense, a reminder three days before each charge that stays until acted on, and
+  renewing early by hand, logged on the day it was paid.
 - **[v0.2]** Budget breach alerts — an early warning at a per-budget threshold (80% by default,
   or off) and an alert at the cap.
 - **[Ahead of any release]** Import — a personal `.xlsx` template, `.xlsx` or CSV upload, a

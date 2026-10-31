@@ -88,9 +88,10 @@ def _charge_stopped(subscription: Subscription, charge: date) -> bool:
 
 def wanted_charge(subscription: Subscription, today: date, lead_days: int) -> date | None:
     """The charge a reminder should be counting down to right now, if any:
-    the next one after today, when it is at most ``lead_days`` away and will
-    actually happen."""
-    charge = next_charge(subscription, today + timedelta(days=1))
+    the next unpaid one after today, when it is at most ``lead_days`` away and
+    will actually happen."""
+    # next_billing_on is past tomorrow's charge when the user renewed early.
+    charge = next_charge(subscription, max(today + timedelta(days=1), subscription.next_billing_on))
     if (charge - today).days > lead_days or _charge_stopped(subscription, charge):
         return None
     return charge
@@ -113,7 +114,7 @@ async def sync_reminder(
 
     A reminder for today or earlier is left to the renewal job, which needs its
     snooze to decide where the renewal notice goes — unless the charge it
-    announces will no longer happen.
+    announces will no longer happen, or is already paid (renewed by hand).
     """
     now = now or datetime.now(UTC)
     run = ReminderRun()
@@ -123,7 +124,11 @@ async def sync_reminder(
     current: Notification | None = None
     for reminder in await notifications.reminders_for(db, subscription.user_id, subscription.id):
         due = reminder.due_on
-        if due is not None and due <= today and not _charge_stopped(subscription, due):
+        if (
+            due is not None
+            and subscription.next_billing_on <= due <= today
+            and not _charge_stopped(subscription, due)
+        ):
             continue
         if reminder.dedupe_key == key and current is None:
             current = reminder

@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react';
 
 /** Where focus should land once the next render has put the list in its new shape. */
 type Pending =
-  /** A row's inline editor closed: back to that row. */
-  | { kind: 'row'; id: string }
+  /** A row's inline editor closed, or its action moved it: back to that row. */
+  | { kind: 'row'; id: string; label?: string }
   /** A row was deleted: its neighbour, once the reload without it has landed. */
   | { kind: 'removed'; index: number; before: unknown }
   /** The add form closed: the panel's own button that opened it. */
@@ -23,9 +23,10 @@ type Pending =
  * The panel's root takes `panelRef`, and each row in its resting (not editing)
  * state carries `data-row-id={id}` — a plain attribute rather than a helper
  * from this hook, since anything read off the hook's result during render
- * counts as reading a ref. Focus lands on the first button in a row — its
- * edit button — or, when the list has emptied, on the panel's header button
- * (or its heading, if it has none).
+ * counts as reading a ref. Focus lands on the row's button with the given
+ * accessible name, else its first button — its edit button — or, when the
+ * list has emptied, on the panel's header button (or its heading, if it has
+ * none).
  *
  * Deletion waits for `items` to change rather than firing on the next render:
  * the row is still on screen until the reload lands, and focusing its
@@ -47,7 +48,10 @@ export function useRowFocus(items: unknown) {
     const rows = [...panel.querySelectorAll<HTMLElement>('[data-row-id]')];
     let element: HTMLElement | null | undefined;
     if (target.kind === 'row') {
-      element = rows.find((row) => row.dataset.rowId === target.id)?.querySelector('button');
+      const row = rows.find((candidate) => candidate.dataset.rowId === target.id);
+      const buttons = [...(row?.querySelectorAll('button') ?? [])];
+      element =
+        buttons.find((button) => button.getAttribute('aria-label') === target.label) ?? buttons[0];
       if (!element) return;
     } else if (target.kind === 'removed' && rows.length > 0) {
       element = rows[Math.min(target.index, rows.length - 1)].querySelector('button');
@@ -64,9 +68,13 @@ export function useRowFocus(items: unknown) {
 
   return {
     panelRef,
-    /** Call as a row's editor closes, whether it saved or was cancelled. */
-    returnToRow(id: string) {
-      pending.current = { kind: 'row', id };
+    /**
+     * Call as a row's editor closes, whether it saved or was cancelled — or
+     * after an action that re-sorts the list, naming the button by its
+     * `label` (aria-label): a row that moves takes the focus off its button.
+     */
+    returnToRow(id: string, label?: string) {
+      pending.current = { kind: 'row', id, label };
     },
     /** Call just before deleting the row with this id. */
     removing(id: string) {

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.models.finance import BillingInterval, Category
+from app.models.finance import BillingInterval, Category, Subscription
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services import finance as finance_service
 from app.services import profile as profile_service
@@ -133,6 +133,59 @@ async def test_resuming_skips_the_missed_charges(db: AsyncSession) -> None:
     )
     assert resumed.cancelled_on is None
     assert resumed.next_billing_on == date(2027, 2, 15)
+
+
+def _whole_form(subscription: Subscription, **overrides: Any) -> SubscriptionUpdate:
+    """What the edit form sends: every field, changed or not."""
+    fields = {
+        "name": subscription.name,
+        "amount": subscription.amount,
+        "currency": subscription.currency,
+        "interval_unit": subscription.interval_unit,
+        "interval_count": subscription.interval_count,
+        "category_id": subscription.category_id,
+        "started_on": subscription.started_on,
+        "trial_ends_on": subscription.trial_ends_on,
+        "cancelled_on": subscription.cancelled_on,
+    }
+    return SubscriptionUpdate.model_validate(fields | overrides)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"name": "Streaming HD"},
+        # A cancellation ahead, for a plan that runs out after one more charge.
+        {"cancelled_on": date(2026, 12, 25)},
+    ],
+)
+async def test_an_edit_after_renewing_early_keeps_the_charge_paid(
+    db: AsyncSession, overrides: dict[str, Any]
+) -> None:
+    created = await finance_service.create_subscription(
+        db, USER_ID, _create(started_on=date(2026, 10, 20)), today=TODAY
+    )
+    renewed = await finance_service.renew_subscription(db, USER_ID, created.id, today=TODAY)
+    assert renewed.next_billing_on == date(2026, 11, 20)
+
+    updated = await finance_service.update_subscription(
+        db, USER_ID, created.id, _whole_form(renewed, **overrides), today=TODAY
+    )
+    assert updated.next_billing_on == date(2026, 11, 20)
+
+
+async def test_correcting_the_billing_day_after_renewing_early(db: AsyncSession) -> None:
+    created = await finance_service.create_subscription(
+        db, USER_ID, _create(started_on=date(2026, 10, 20)), today=TODAY
+    )
+    await finance_service.renew_subscription(db, USER_ID, created.id, today=TODAY)
+
+    # It really bills on the 18th. The charge paid today was that one, so the
+    # next is November's 18th — not tomorrow's, and not December's.
+    updated = await finance_service.update_subscription(
+        db, USER_ID, created.id, SubscriptionUpdate(started_on=date(2026, 10, 18)), today=TODAY
+    )
+    assert updated.next_billing_on == date(2026, 11, 18)
 
 
 @pytest.mark.parametrize(

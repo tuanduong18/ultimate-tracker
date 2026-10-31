@@ -30,6 +30,7 @@ from app.services.finance.errors import (
     InvalidDateRangeError,
     NotFoundError,
     RateUnavailableError,
+    SubscriptionCancelledError,
     UnknownCategoryError,
     UnknownGranularityError,
     UnsupportedCurrencyError,
@@ -53,6 +54,7 @@ from app.services.finance.subscriptions import (
     create_subscription,
     delete_subscription,
     list_subscriptions,
+    renew_subscription,
     update_subscription,
 )
 from app.services.finance.summaries import (
@@ -83,6 +85,7 @@ __all__ = [
     "InvalidDateRangeError",
     "NotFoundError",
     "RateUnavailableError",
+    "SubscriptionCancelledError",
     "UnknownCategoryError",
     "UnknownGranularityError",
     "UnsupportedCurrencyError",
@@ -109,6 +112,7 @@ __all__ = [
     "list_subscriptions",
     "next_billing_date",
     "preview_import",
+    "renew_subscription",
     "summarize",
     "summarize_by_category",
     "summarize_by_period",

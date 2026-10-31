@@ -1,5 +1,6 @@
 """The renewal job against Postgres: each charge becomes an expense once, the
-reminder makes way for a renewal notice, and missed days are caught up."""
+reminder makes way for a renewal notice, and missed days are caught up. Also
+renewing by hand, ahead of the job."""
 
 import asyncio
 import uuid
@@ -15,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.models.finance import Expense, Subscription
 from app.models.notification import Notification, NotificationKind
 from app.models.profile import Profile
+from app.services import finance as finance_service
 from app.services import notifications
 from app.services.finance.reminders import refresh_reminders
 from app.services.finance.renewals import renew_due_subscriptions
@@ -179,6 +181,91 @@ async def test_a_trial_ending_says_the_trial_ended(db: AsyncSession) -> None:
     [notice] = await notices(db)
     assert notice.title == "Your Streaming trial ended on 22 Oct"
     assert notice.body == "The first charge of USD 12.99 was logged as an expense."
+
+
+# --- Renewing by hand ---------------------------------------------------------
+#
+# The user paid ahead of the charge. The expense is dated to the day they paid,
+# and the job must then leave the charge alone when its day comes.
+
+
+async def renew_early(db: AsyncSession, subscription_id: uuid.UUID, today: date) -> None:
+    await finance_service.renew_subscription(db, USER, subscription_id, today=today)
+
+
+async def test_renewing_early_logs_today_and_the_job_skips_that_charge(
+    db: AsyncSession,
+) -> None:
+    subscription_id = await add(db)
+
+    await renew_early(db, subscription_id, date(2026, 10, 19))
+
+    [expense] = await expenses(db)
+    assert (expense.amount, expense.currency) == (Decimal("12.99"), "USD")
+    assert expense.spent_on == date(2026, 10, 19)
+    assert expense.description == "Streaming"
+    # The billing day stays: paying early extends from the old end, not today.
+    assert await next_billing(db, subscription_id) == date(2026, 11, 22)
+    assert await renew(db, at(22)) == 0
+    assert len(await expenses(db)) == 1
+
+
+async def test_renewing_early_clears_the_paid_charges_reminder(db: AsyncSession) -> None:
+    subscription_id = await add(db)
+    await refresh_reminders(db, now=at(20), lead_days=3)
+
+    await renew_early(db, subscription_id, date(2026, 10, 20))
+    await refresh_reminders(db, now=at(21), lead_days=3)
+
+    # No reminder for a charge that is paid, and no renewal notice either:
+    # the user is the one who renewed.
+    assert await notices(db) == []
+
+
+async def test_renewing_on_the_charge_day_takes_it_from_the_job(db: AsyncSession) -> None:
+    subscription_id = await add(db)
+    await refresh_reminders(db, now=at(20), lead_days=3)
+
+    await renew_early(db, subscription_id, date(2026, 10, 22))
+
+    assert await next_billing(db, subscription_id) == date(2026, 11, 22)
+    assert await notices(db) == []
+    assert await renew(db, at(22, hour=23)) == 0
+
+
+async def test_the_next_reminder_counts_down_to_the_charge_after(db: AsyncSession) -> None:
+    subscription_id = await add(
+        db, interval_unit="week", started_on=date(2026, 10, 1), next_billing_on=date(2026, 10, 22)
+    )
+
+    await renew_early(db, subscription_id, date(2026, 10, 20))
+    await refresh_reminders(db, now=at(26), lead_days=3)
+
+    [reminder] = await notices(db)
+    assert reminder.due_on == date(2026, 10, 29)
+    assert reminder.title == "Streaming renews in 3 days"
+
+
+@pytest.mark.parametrize(("cancelled_on", "renewable"), [(22, False), (23, True)])
+async def test_a_charge_a_cancellation_stops_cannot_be_renewed(
+    db: AsyncSession, cancelled_on: int, renewable: bool
+) -> None:
+    subscription_id = await add(db, cancelled_on=date(2026, 10, cancelled_on))
+
+    if renewable:
+        await renew_early(db, subscription_id, date(2026, 10, 20))
+    else:
+        with pytest.raises(finance_service.SubscriptionCancelledError):
+            await renew_early(db, subscription_id, date(2026, 10, 20))
+    assert len(await expenses(db)) == int(renewable)
+
+
+async def test_someone_elses_subscription_cannot_be_renewed(db: AsyncSession) -> None:
+    subscription_id = await add(db, user_id=SGT_USER)
+
+    with pytest.raises(finance_service.NotFoundError):
+        await renew_early(db, subscription_id, date(2026, 10, 20))
+    assert await expenses(db) == []
 
 
 # --- Overlapping runs ---------------------------------------------------------
