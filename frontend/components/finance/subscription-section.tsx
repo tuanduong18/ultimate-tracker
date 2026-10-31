@@ -1,8 +1,9 @@
 'use client';
 
-import { BellRing, Pencil, Repeat } from 'lucide-react';
+import { BellRing, CalendarCheck, Check, Pencil, Repeat } from 'lucide-react';
 import { useState } from 'react';
 
+import { ConfirmButton } from '@/components/finance/confirm-button';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/finance/subscription-form';
 import { api } from '@/lib/api-client';
 import { daysUntil, formatDate, todayIso } from '@/lib/dates';
+import { announceExpensesChange } from '@/lib/finance-events';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import { NEUTRAL_COLOUR, withAlpha } from '@/lib/tint';
@@ -65,6 +67,25 @@ function nextStep(subscription: Subscription, today: string): { text: string; so
   return { text: `${verb} ${formatDate(next_billing_on)}${ending}`, soon: false };
 }
 
+/**
+ * Whether the next charge will happen, so that paying it early means anything.
+ * The server's rule: a cancellation on or before the charge stops it.
+ */
+function renewable({ cancelled_on, next_billing_on }: Subscription): boolean {
+  return cancelled_on === null || cancelled_on > next_billing_on;
+}
+
+function renewLabel(subscription: Subscription): string {
+  return `Renew ${subscription.name} now`;
+}
+
+/**
+ * A confirm strip drops to a line of its own under the name. In place, beside
+ * the icons, it squeezed the name to nothing on a phone — and the name is
+ * what says which subscription is being renewed or deleted.
+ */
+const STRIP_OWN_LINE = 'order-last mb-1 basis-full';
+
 interface SubscriptionSectionProps {
   subscriptions: Collection<Subscription>;
   categories: Category[];
@@ -83,6 +104,8 @@ export function SubscriptionSection({
   const { items, loading, error, reload, setError } = subscriptions;
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The row whose "Renewed" line shows, until the next action replaces it.
+  const [renewedId, setRenewedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { panelRef, ...focus } = useRowFocus(items);
 
@@ -92,6 +115,7 @@ export function SubscriptionSection({
   async function run(action: () => Promise<unknown>, fallback: string): Promise<boolean> {
     setBusy(true);
     setError(null);
+    setRenewedId(null);
     try {
       await action();
       // The backend rewrote this subscription's reminder in the same request;
@@ -146,6 +170,23 @@ export function SubscriptionSection({
     if (updated) {
       focus.returnToRow(id);
       setEditingId(null);
+    }
+  }
+
+  /**
+   * Renewing early: the server logs the charge as an expense dated today and
+   * moves the next charge on by one period, keeping the billing day.
+   */
+  async function handleRenew(subscription: Subscription) {
+    const renewed = await run(
+      () => api.post(`/finance/subscriptions/${subscription.id}/renew`, {}),
+      'Could not renew that subscription.'
+    );
+    if (renewed) {
+      // The row re-sorts by its new date, and moving it drops the focus.
+      focus.returnToRow(subscription.id, renewLabel(subscription));
+      setRenewedId(subscription.id);
+      announceExpensesChange();
     }
   }
 
@@ -250,6 +291,7 @@ export function SubscriptionSection({
               ? byId.get(subscription.category_id)
               : undefined;
             const step = nextStep(subscription, today);
+            const money = formatMoney(subscription.amount, subscription.currency);
             const ended = subscription.cancelled_on !== null && subscription.cancelled_on <= today;
 
             return (
@@ -274,7 +316,7 @@ export function SubscriptionSection({
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start gap-1">
+                  <div className="flex flex-wrap items-start gap-1">
                     <p className="min-w-0 flex-1 truncate pt-1 text-sm font-semibold">
                       {subscription.name}
                     </p>
@@ -286,18 +328,35 @@ export function SubscriptionSection({
                         setEditingId(subscription.id);
                       }}
                     />
+                    {/* Confirmed, though nothing is destroyed: it writes money and
+                        moves a date that deleting the expense would not move back.
+                        The prompt shows the amount, so a stale price is caught. */}
+                    {renewable(subscription) && (
+                      <ConfirmButton
+                        label={renewLabel(subscription)}
+                        icon={CalendarCheck}
+                        prompt={`Renew now? Logs ${money} today for the ${formatDate(
+                          subscription.next_billing_on
+                        )} charge.`}
+                        confirmLabel="Yes, renew"
+                        keepLabel="Not now"
+                        groupLabel="Confirm renewal"
+                        stripClassName={STRIP_OWN_LINE}
+                        busy={busy}
+                        onConfirm={() => void handleRenew(subscription)}
+                      />
+                    )}
                     <DeleteButton
                       label={`Delete ${subscription.name}`}
                       prompt="Delete? Expenses it already logged stay."
+                      stripClassName={STRIP_OWN_LINE}
                       busy={busy}
                       onConfirm={() => void handleDelete(subscription.id)}
                     />
                   </div>
 
                   <p className="text-sm">
-                    <span className="font-medium">
-                      {formatMoney(subscription.amount, subscription.currency)}
-                    </span>
+                    <span className="font-medium">{money}</span>
                     <span className="text-fg-muted">
                       {' / '}
                       {formatInterval(subscription.interval_unit, subscription.interval_count)}
@@ -315,6 +374,17 @@ export function SubscriptionSection({
                       {' · '}
                       {category?.name ?? 'Uncategorised'}
                     </span>
+                  </p>
+
+                  {/* On every row from the start, so the line is announced when
+                      it fills: the expense it reports is on another page. */}
+                  <p role="status" className="text-xs text-fg-muted">
+                    {renewedId === subscription.id && (
+                      <span className="mt-1 flex items-center gap-1">
+                        <Check aria-hidden className="size-3.5 shrink-0 text-positive" />
+                        Renewed — {money} logged today.
+                      </span>
+                    )}
                   </p>
                 </div>
               </li>

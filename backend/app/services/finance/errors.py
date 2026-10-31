@@ -55,6 +55,16 @@ class InvalidDateRangeError(FinanceError):
         super().__init__(message)
 
 
+class SubscriptionCancelledError(FinanceError):
+    """Renewing a subscription whose next charge a cancellation has stopped."""
+
+    status_code = 409
+    code = "SUBSCRIPTION_CANCELLED"
+
+    def __init__(self) -> None:
+        super().__init__("This subscription is cancelled before its next charge; resume it first.")
+
+
 class RateUnavailableError(FinanceError):
     status_code = 503
     code = "RATE_UNAVAILABLE"

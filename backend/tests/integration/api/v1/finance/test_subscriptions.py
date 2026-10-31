@@ -17,6 +17,7 @@ from tests.support.finance_api import (
 )
 from tests.support.ids import OTHER_USER_ID
 
+from app.core import timezones
 from app.models.finance import Subscription
 
 
@@ -94,6 +95,33 @@ async def test_patch_dates_clashing_with_stored_ones_is_a_422(
     assert resp.json()["error"]["code"] == "INVALID_DATE_RANGE"
 
 
+async def test_renew_logs_an_expense_today_and_moves_the_next_charge(
+    finance_client: AsyncClient,
+) -> None:
+    created = await make_subscription(finance_client)
+
+    resp = await finance_client.post(f"/api/v1/finance/subscriptions/{created['id']}/renew")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["next_billing_on"] == "2099-02-28"
+
+    [expense] = (await finance_client.get("/api/v1/finance/expenses")).json()
+    # Today where the user is: the test profile's timezone is UTC.
+    assert expense["spent_on"] == timezones.today_in("UTC").isoformat()
+    assert (expense["amount"], expense["currency"]) == ("12.990", "USD")
+    assert expense["description"] == "Streaming"
+
+
+async def test_renewing_past_a_cancellation_is_a_409(finance_client: AsyncClient) -> None:
+    created = await make_subscription(finance_client)
+    url = f"/api/v1/finance/subscriptions/{created['id']}"
+    await finance_client.patch(url, json={"cancelled_on": FUTURE_START})
+
+    resp = await finance_client.post(f"{url}/renew")
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "SUBSCRIPTION_CANCELLED"
+    assert (await finance_client.get("/api/v1/finance/expenses")).json() == []
+
+
 async def test_delete_subscription(finance_client: AsyncClient) -> None:
     created = await make_subscription(finance_client)
 
@@ -122,4 +150,5 @@ async def test_someone_elses_subscription_is_invisible(
     url = f"/api/v1/finance/subscriptions/{theirs.id}"
     assert (await finance_client.get("/api/v1/finance/subscriptions")).json() == []
     assert (await finance_client.patch(url, json={"name": "Mine now"})).status_code == 404
+    assert (await finance_client.post(f"{url}/renew")).status_code == 404
     assert (await finance_client.delete(url)).status_code == 404

@@ -48,6 +48,8 @@ export function describeError(err: unknown, fallback: string): string {
       return err.message;
     case 'VALIDATION_ERROR':
       return firstValidationMessage(err.details) ?? 'Some of those details are not valid.';
+    case 'SUBSCRIPTION_CANCELLED':
+      return 'That subscription is cancelled before its next charge — clear the cancellation to renew it.';
     case 'RATE_UNAVAILABLE':
       return 'Exchange rates are unavailable right now, so totals cannot be shown.';
     default:

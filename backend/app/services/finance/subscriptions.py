@@ -1,4 +1,5 @@
-"""Subscription CRUD. The billing-date arithmetic lives in ``billing``.
+"""Subscription CRUD, and renewing one by hand. The billing-date arithmetic
+lives in ``billing``.
 
 Services take ``today`` from the caller instead of reading the clock, because
 "today" depends on the user's timezone and only the route knows the user.
@@ -10,25 +11,30 @@ or name — this is the trigger, in code rather than in the database.
 
 import uuid
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.finance import Subscription
+from app.models.finance import Expense, Subscription
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services.finance._common import _applied_changes, _check_currency, _check_scale
 from app.services.finance.billing import next_charge
 from app.services.finance.categories import _require_owned_category_ref
-from app.services.finance.errors import InvalidDateRangeError, NotFoundError
-from app.services.finance.reminders import remove_reminders, sync_reminder
+from app.services.finance.errors import (
+    InvalidDateRangeError,
+    NotFoundError,
+    SubscriptionCancelledError,
+)
+from app.services.finance.reminders import _charge_stopped, remove_reminders, sync_reminder
 
 # --- CRUD ---------------------------------------------------------------------
 
 _NULLABLE_SUBSCRIPTION_FIELDS = frozenset({"category_id", "trial_ends_on", "cancelled_on", "note"})
 # A change to any of these moves the billing dates, so next_billing_on is redone.
 # cancelled_on is included so a resumed subscription skips the charges it missed.
+# Only a real change counts: the edit form sends every field, unchanged or not.
 _SCHEDULE_FIELDS = frozenset(
     {"interval_unit", "interval_count", "started_on", "trial_ends_on", "cancelled_on"}
 )
@@ -51,6 +57,31 @@ async def list_subscriptions(db: AsyncSession, user_id: uuid.UUID) -> Sequence[S
         )
     )
     return (await db.scalars(stmt)).all()
+
+
+def _paid_ahead(subscription: Subscription, today: date) -> int:
+    """Charges from today on that are already recorded: today's, once the
+    renewal job has taken it, and any the user renewed early."""
+    paid = 0
+    charge = next_charge(subscription, today)
+    while charge < subscription.next_billing_on:
+        paid += 1
+        charge = next_charge(subscription, charge + timedelta(days=1))
+    return paid
+
+
+def _reschedule(subscription: Subscription, today: date, paid_ahead: int) -> None:
+    """Move next_billing_on to the first charge from today on, on the current
+    schedule, past the ``paid_ahead`` charges already recorded.
+
+    Counting the paid charges, rather than keeping the old date, is what lets a
+    corrected billing day still take effect at once, while an edit made after
+    a renewal never charges for the same period twice.
+    """
+    charge = next_charge(subscription, today)
+    for _ in range(paid_ahead):
+        charge = next_charge(subscription, charge + timedelta(days=1))
+    subscription.next_billing_on = charge
 
 
 async def _get_owned_subscription(
@@ -116,10 +147,13 @@ async def update_subscription(
         raise InvalidDateRangeError("cancelled_on must be on or after started_on.")
 
     edited = {field for field, value in changes.items() if getattr(subscription, field) != value}
+    rescheduled = bool(_SCHEDULE_FIELDS & edited)
+    # Counted on the schedule as it stands, before the edit replaces it.
+    paid_ahead = _paid_ahead(subscription, today) if rescheduled else 0
     for field, value in changes.items():
         setattr(subscription, field, value)
-    if _SCHEDULE_FIELDS & changes.keys():
-        subscription.next_billing_on = next_charge(subscription, today)
+    if rescheduled:
+        _reschedule(subscription, today, paid_ahead)
     if _REMINDER_FIELDS & edited:
         await sync_reminder(
             db,
@@ -128,6 +162,51 @@ async def update_subscription(
             lead_days=settings.subscription_reminder_lead_days,
             edited=True,
         )
+    await db.commit()
+    await db.refresh(subscription)
+    return subscription
+
+
+async def renew_subscription(
+    db: AsyncSession, user_id: uuid.UUID, subscription_id: uuid.UUID, *, today: date
+) -> Subscription:
+    """Record the next charge as paid today: the user renewed ahead of it.
+
+    The expense is dated today, the day the money left, rather than the charge
+    date it covers — the one difference from the renewal job. The billing day
+    stays: paying early extends a plan from when it would have run out, as a
+    prepaid plan or a domain does, so next_billing_on moves to the charge after
+    and the job will not record this one again when its day comes. No renewal
+    notice: the user is the one who did it.
+    """
+    # Locked as the renewal job locks it, so the two never take the same charge.
+    subscription = await db.scalar(
+        select(Subscription)
+        .where(Subscription.id == subscription_id, Subscription.user_id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if subscription is None:
+        raise NotFoundError("Subscription")
+    charge = subscription.next_billing_on
+    if _charge_stopped(subscription, charge):
+        raise SubscriptionCancelledError()
+
+    db.add(
+        Expense(
+            user_id=user_id,
+            category_id=subscription.category_id,
+            amount=subscription.amount,
+            currency=subscription.currency,
+            spent_on=today,
+            description=subscription.name,
+        )
+    )
+    subscription.next_billing_on = next_charge(subscription, charge + timedelta(days=1))
+    # Removes the paid charge's reminder, and adds the next one's if it is near.
+    await sync_reminder(
+        db, subscription, today=today, lead_days=settings.subscription_reminder_lead_days
+    )
     await db.commit()
     await db.refresh(subscription)
     return subscription
