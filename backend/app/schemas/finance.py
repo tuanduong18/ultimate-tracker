@@ -85,6 +85,27 @@ def check_amount_scale(amount: Decimal, currency: str) -> None:
         )
 
 
+# --- List order ---------------------------------------------------------------
+
+
+def _distinct(ids: list[uuid.UUID]) -> list[uuid.UUID]:
+    if len(set(ids)) != len(ids):
+        raise ValueError("Each id may appear only once.")
+    return ids
+
+
+class ListOrderUpdate(BaseModel):
+    """A list's new order, as the ids of the rows on screen, first to last.
+
+    May name only part of the list — the Budgets tab shows one month's
+    budgets — in which case those rows swap among the places they already
+    hold and the rest stay put. The cap is far past any one person's list and
+    exists so a request cannot ask for an unbounded IN list.
+    """
+
+    ids: Annotated[list[uuid.UUID], Field(max_length=1_000), AfterValidator(_distinct)]
+
+
 # --- Categories ---------------------------------------------------------------
 
 
@@ -236,10 +257,13 @@ class BudgetCreate(BaseModel):
     starts_on: date
     # Required for custom; optional for monthly, where null means "ongoing".
     ends_on: date | None = None
-    # A budget that caps nothing is meaningless to create. It may still *end up*
-    # with none once a category is deleted — that is the service's problem, not
-    # a reason to reject the row here.
-    category_ids: Annotated[list[uuid.UUID], Field(min_length=1)]
+    # Every expense, in any category or none, including categories made later.
+    # category_ids must then be empty: the budget names none of them.
+    all_spending: bool = False
+    # Otherwise the categories it covers. A budget that caps nothing is
+    # meaningless to create. It may still *end up* with none once a category is
+    # deleted — that is the service's problem, not a reason to reject the row here.
+    category_ids: list[uuid.UUID] = []
     # When spend reaches this share of the cap, an alert says so; null for no
     # early warning. Reaching the cap is announced either way.
     warn_at_percent: WarnAtPercent | None = DEFAULT_WARN_AT_PERCENT
@@ -248,6 +272,10 @@ class BudgetCreate(BaseModel):
     def _validate(self) -> Self:
         check_amount_scale(self.amount, self.currency)
         _check_budget_range(self.period, self.starts_on, self.ends_on)
+        if self.all_spending and self.category_ids:
+            raise ValueError("an all_spending budget takes no category_ids")
+        if not self.all_spending and not self.category_ids:
+            raise ValueError("a budget needs category_ids, or all_spending")
         return self
 
 
@@ -259,6 +287,10 @@ class BudgetUpdate(BaseModel):
     starts_on: date | None = None
     # Send null to make a monthly budget ongoing; a custom one rejects that.
     ends_on: date | None = None
+    # true drops the budget's categories for all spending; false narrows it back
+    # to categories, so category_ids must come with it. Checked in the service,
+    # which knows what the budget covers now.
+    all_spending: bool | None = None
     # When present, replaces the covered set outright rather than merging.
     category_ids: Annotated[list[uuid.UUID], Field(min_length=1)] | None = None
     # Send null to turn the early warning off.
@@ -289,6 +321,8 @@ class BudgetRead(BaseModel):
     ends_on: date | None
     # Null when the early warning is off.
     warn_at_percent: int | None
+    # True covers every expense, and `categories` is then empty.
+    all_spending: bool
     # Loaded via the model's selectin relationship; carries name and colour so a
     # chart does not need a second round trip.
     categories: list[CategoryRead]
@@ -469,6 +503,7 @@ class BudgetProgressRead(BaseModel):
     # budget's own months) for a monthly budget, the whole range for a custom one.
     window_starts_on: date
     window_ends_on: date
+    all_spending: bool
     categories: list[CategoryRead]
     # Carried so the UI can colour budgets in the order they were made. Without
     # it the only stable order is the display order, and that puts a new budget

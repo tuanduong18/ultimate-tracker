@@ -322,6 +322,17 @@
   html {
     scroll-padding-top: 4rem;
   }
+
+  /*
+   * Below md the tab bar covers the bottom 3.5rem in the same way. Dragging a
+   * row to arrange a list reads both paddings to know where the visible page
+   * ends, so it starts scrolling above the bar rather than under it.
+   */
+  @media (width < 48rem) {
+    html {
+      scroll-padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    }
+  }
 }
 
 /*

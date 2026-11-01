@@ -6,16 +6,19 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     SmallInteger,
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -52,6 +55,17 @@ _INTERVAL_UNIT_CHECK = "interval_unit IN ({})".format(
 )
 
 
+def _position_column() -> Mapped[int | None]:
+    """Where the user has put a row in its list, lowest first.
+
+    Null until they first arrange the list, and for anything added since.
+    Lists sort nulls first and fall back to their own order among them, so a
+    list nobody has arranged reads as it always did, and a new row appears at
+    the top, where the form that made it was. See ``_common._rearrange``.
+    """
+    return mapped_column(Integer, nullable=True)
+
+
 class Category(Base):
     """A user-defined expense category.
 
@@ -69,6 +83,7 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     # Hex colour for charts, e.g. "#22c55e".
     colour: Mapped[str] = mapped_column(String(7), nullable=False, default="#94a3b8")
+    position: Mapped[int | None] = _position_column()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -133,8 +148,9 @@ DEFAULT_WARN_AT_PERCENT = 80
 
 
 class Budget(Base):
-    """A spending cap covering one or more categories, either over one fixed
-    date range (custom) or repeating every calendar month (monthly)."""
+    """A spending cap covering one or more categories, or all spending, either
+    over one fixed date range (custom) or repeating every calendar month
+    (monthly)."""
 
     __tablename__ = "budgets"
 
@@ -173,6 +189,15 @@ class Budget(Base):
         default=DEFAULT_WARN_AT_PERCENT,
         server_default="80",
     )
+    # Covers every expense: each category, those made after the budget, and
+    # spend with no category at all. A flag rather than a full set of join
+    # rows, which would miss the next category created. Such a budget has no
+    # budget_categories rows. Budgets made before this column existed covered
+    # chosen categories, which the server default keeps.
+    all_spending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    position: Mapped[int | None] = _position_column()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

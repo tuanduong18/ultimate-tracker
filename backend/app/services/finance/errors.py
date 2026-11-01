@@ -55,6 +55,13 @@ class InvalidDateRangeError(FinanceError):
         super().__init__(message)
 
 
+class BudgetScopeError(FinanceError):
+    """A budget update that contradicts, or leaves out, what the budget covers."""
+
+    status_code = 422
+    code = "INVALID_BUDGET_SCOPE"
+
+
 class SubscriptionCancelledError(FinanceError):
     """Renewing a subscription whose next charge a cancellation has stopped."""
 

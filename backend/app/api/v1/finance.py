@@ -26,6 +26,7 @@ from app.schemas.finance import (
     ExpenseRead,
     ExpenseUpdate,
     Granularity,
+    ListOrderUpdate,
     PeriodBreakdownRead,
     SubscriptionCreate,
     SubscriptionRead,
@@ -74,6 +75,19 @@ async def create_category(
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
     return CategoryRead.model_validate(category)
+
+
+@router.put("/categories/order", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_categories(
+    payload: ListOrderUpdate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Arrange the categories: GET /categories lists them in this order from now on."""
+    try:
+        await finance_service.reorder_categories(db, user_id, payload.ids)
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryRead)
@@ -350,6 +364,20 @@ async def create_budget(
     except finance_service.FinanceError as exc:
         raise _as_http(exc) from exc
     return BudgetRead.model_validate(budget)
+
+
+@router.put("/budgets/order", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_budgets(
+    payload: ListOrderUpdate,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Arrange budgets — usually one month's, as the Budgets tab shows them.
+    Budgets left out keep their places; both budget lists follow this order."""
+    try:
+        await finance_service.reorder_budgets(db, user_id, payload.ids)
+    except finance_service.FinanceError as exc:
+        raise _as_http(exc) from exc
 
 
 @router.patch("/budgets/{budget_id}", response_model=BudgetRead)

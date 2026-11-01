@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Category
 from app.schemas.finance import CategoryCreate, CategoryUpdate
-from app.services.finance._common import _applied_changes
+from app.services.finance._common import _applied_changes, _rearrange
 from app.services.finance.errors import (
     CategoryNameTakenError,
     NotFoundError,
@@ -45,10 +45,21 @@ def build_default_categories(user_id: uuid.UUID) -> list[Category]:
 
 
 async def list_categories(db: AsyncSession, user_id: uuid.UUID) -> Sequence[Category]:
+    # In the user's order once they have arranged it; by name until then, and
+    # among the ones added since.
     result = await db.scalars(
-        select(Category).where(Category.user_id == user_id).order_by(Category.name)
+        select(Category)
+        .where(Category.user_id == user_id)
+        .order_by(Category.position.asc().nulls_first(), Category.name)
     )
     return result.all()
+
+
+async def reorder_categories(
+    db: AsyncSession, user_id: uuid.UUID, category_ids: Sequence[uuid.UUID]
+) -> None:
+    _rearrange(await list_categories(db, user_id), category_ids, "Category")
+    await db.commit()
 
 
 async def _get_owned_category(

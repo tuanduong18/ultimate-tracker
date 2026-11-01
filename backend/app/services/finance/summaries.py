@@ -306,10 +306,11 @@ async def budget_progress(
     converting both into some third currency would let the percentage drift as
     rates move without anyone having spent anything.
 
-    Only expenses in the covered categories and inside the window count.
-    Uncategorized spend counts towards no budget at all — which is what deleting
-    a category silently does to these figures, and worth knowing when a bar
-    drops for no apparent reason.
+    Only expenses inside the window count, and for a budget of chosen
+    categories, only those in them. Uncategorized spend counts only towards a
+    budget covering all spending — which is what deleting a category silently
+    does to the other budgets' figures, and worth knowing when a bar drops for
+    no apparent reason.
     """
     windowed = [
         (budget, window)
@@ -328,7 +329,6 @@ async def budget_progress(
         await db.execute(
             select(Expense.amount, Expense.currency, Expense.category_id, Expense.spent_on).where(
                 Expense.user_id == user_id,
-                Expense.category_id.is_not(None),
                 Expense.spent_on >= earliest,
                 Expense.spent_on <= latest,
             )
@@ -342,7 +342,8 @@ async def budget_progress(
         spends = [
             (amount, currency)
             for amount, currency, category_id, spent_on in rows
-            if category_id in covered and window_start <= spent_on <= window_end
+            if (budget.all_spending or category_id in covered)
+            and window_start <= spent_on <= window_end
         ]
         try:
             spent = _total_in(spends, budget.currency, rates)
@@ -364,6 +365,7 @@ async def budget_progress(
                 "warn_at_percent": budget.warn_at_percent,
                 "window_starts_on": window_start,
                 "window_ends_on": window_end,
+                "all_spending": budget.all_spending,
                 "categories": budget.categories,
                 "created_at": budget.created_at,
             }
