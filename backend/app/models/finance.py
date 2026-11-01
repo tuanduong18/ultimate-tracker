@@ -6,6 +6,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -133,8 +135,9 @@ DEFAULT_WARN_AT_PERCENT = 80
 
 
 class Budget(Base):
-    """A spending cap covering one or more categories, either over one fixed
-    date range (custom) or repeating every calendar month (monthly)."""
+    """A spending cap covering one or more categories, or all spending, either
+    over one fixed date range (custom) or repeating every calendar month
+    (monthly)."""
 
     __tablename__ = "budgets"
 
@@ -172,6 +175,14 @@ class Budget(Base):
         nullable=True,
         default=DEFAULT_WARN_AT_PERCENT,
         server_default="80",
+    )
+    # Covers every expense: each category, those made after the budget, and
+    # spend with no category at all. A flag rather than a full set of join
+    # rows, which would miss the next category created. Such a budget has no
+    # budget_categories rows. Budgets made before this column existed covered
+    # chosen categories, which the server default keeps.
+    all_spending: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

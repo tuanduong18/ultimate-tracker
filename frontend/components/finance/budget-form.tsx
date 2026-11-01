@@ -15,15 +15,81 @@ export interface BudgetValues {
   starts_on: string;
   /** YYYY-MM-DD, or empty: an ongoing monthly budget has no end. */
   ends_on: string;
+  /** Every expense, categories made later included; `category_ids` is then not sent. */
+  all_spending: boolean;
+  /** Kept while all spending is chosen, so switching back restores the ticks. */
   category_ids: string[];
   /** A whole percentage as text (a select's value), or empty for no early warning. */
   warn_at_percent: string;
 }
 
-const PERIODS: { value: BudgetPeriod; label: string; hint: string }[] = [
+interface Option<T extends string> {
+  value: T;
+  label: string;
+  hint: string;
+}
+
+const PERIODS: Option<BudgetPeriod>[] = [
   { value: 'monthly', label: 'Monthly', hint: 'Resets on the 1st of every month.' },
   { value: 'custom', label: 'Custom dates', hint: 'One cap over a range you pick.' },
 ];
+
+type Scope = 'chosen' | 'all';
+
+const SCOPES: Option<Scope>[] = [
+  { value: 'chosen', label: 'Chosen categories', hint: 'Only the ones you tick.' },
+  { value: 'all', label: 'All spending', hint: 'Every expense, new categories included.' },
+];
+
+/**
+ * Two or three options that each need a sentence: radio cards rather than a
+ * select, so the hints are read before the choice rather than after it.
+ */
+function OptionCards<T extends string>({
+  name,
+  legend,
+  options,
+  value,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  options: Option<T>[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="text-xs text-fg-muted">{legend}</legend>
+      <div className="mt-1 grid grid-cols-2 gap-2">
+        {options.map((option) => (
+          <label
+            key={option.value}
+            className={clsx(
+              'flex cursor-pointer flex-col rounded-lg border px-3 py-2 text-sm',
+              value === option.value
+                ? 'border-primary bg-primary-soft'
+                : 'bg-surface hover:border-primary'
+            )}
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={value === option.value}
+                onChange={() => onChange(option.value)}
+                className="accent-primary"
+              />
+              {option.label}
+            </span>
+            <span className="mt-0.5 text-xs text-fg-muted">{option.hint}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 /**
  * The early warnings offered. A short list rather than a number field: the
@@ -53,11 +119,16 @@ interface BudgetFormProps {
 }
 
 /**
- * Add or edit one budget, including the set of categories its cap covers.
+ * Add or edit one budget, including what its cap covers.
  *
  * The type comes first because it decides what the dates mean: a monthly
  * budget asks for months (and an optional last month), a custom one for exact
  * days. The server rounds monthly dates out to whole months either way.
+ *
+ * What it covers is a choice of two, not a checkbox in the list: "all
+ * spending" stays complete as categories come and go, which ticking every box
+ * does not, and a box beside the ones it overrides would read as one more
+ * category.
  *
  * The early warning comes last: it is about being told, not about what the
  * budget is, and its default (80%) suits most budgets untouched.
@@ -88,6 +159,9 @@ export function BudgetForm({
     }));
   }
 
+  const several = categories.length > 1;
+  const coversEvery = categories.every((category) => values.category_ids.includes(category.id));
+
   /** The rules the API enforces, checked here so the trip is not wasted. */
   function problem(): string | null {
     const amount = amountProblem(values.amount);
@@ -98,7 +172,8 @@ export function BudgetForm({
       return monthly
         ? 'The last month must be on or after the first.'
         : 'The end date must be on or after the start date.';
-    if (values.category_ids.length === 0) return 'Pick at least one category for this budget.';
+    if (!values.all_spending && values.category_ids.length === 0)
+      return 'Pick at least one category, or choose All spending.';
     return null;
   }
 
@@ -112,35 +187,13 @@ export function BudgetForm({
         if (!found) onSubmit(values);
       }}
     >
-      <fieldset>
-        <legend className="text-xs text-fg-muted">Type</legend>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          {PERIODS.map((option) => (
-            <label
-              key={option.value}
-              className={clsx(
-                'flex cursor-pointer flex-col rounded-lg border px-3 py-2 text-sm',
-                values.period === option.value
-                  ? 'border-primary bg-primary-soft'
-                  : 'bg-surface hover:border-primary'
-              )}
-            >
-              <span className="flex items-center gap-2 font-medium">
-                <input
-                  type="radio"
-                  name={`${idPrefix}-period`}
-                  value={option.value}
-                  checked={values.period === option.value}
-                  onChange={() => set('period', option.value)}
-                  className="accent-primary"
-                />
-                {option.label}
-              </span>
-              <span className="mt-0.5 text-xs text-fg-muted">{option.hint}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <OptionCards
+        name={`${idPrefix}-period`}
+        legend="Type"
+        options={PERIODS}
+        value={values.period}
+        onChange={(period) => set('period', period)}
+      />
 
       <div>
         <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-name`}>
@@ -247,21 +300,78 @@ export function BudgetForm({
         )}
       </div>
 
-      <fieldset>
-        <legend className="text-xs text-fg-muted">Categories it covers</legend>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-          {categories.map((category) => (
-            <label key={category.id} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={values.category_ids.includes(category.id)}
-                onChange={() => toggleCategory(category.id)}
-              />
-              {category.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="space-y-2">
+        <OptionCards
+          name={`${idPrefix}-scope`}
+          legend="What it covers"
+          options={SCOPES}
+          value={values.all_spending ? 'all' : 'chosen'}
+          onChange={(scope) => set('all_spending', scope === 'all')}
+        />
+
+        {/* Only chosen categories have anything to pick. A labelled group
+            rather than a fieldset: a legend cannot share a flex row, and the
+            shortcuts belong on the label's line, ahead of a list that can wrap
+            to several. A single category needs neither. */}
+        {!values.all_spending && (
+          <div role="group" aria-labelledby={`${idPrefix}-categories`}>
+            <div className="flex items-center justify-between gap-3">
+              <span id={`${idPrefix}-categories`} className="text-xs text-fg-muted">
+                Categories
+              </span>
+              {several && (
+                <div className="flex gap-3 text-xs">
+                  <button
+                    type="button"
+                    className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
+                    onClick={() =>
+                      set(
+                        'category_ids',
+                        categories.map((category) => category.id)
+                      )
+                    }
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className="underline pointer-coarse:min-h-11 pointer-coarse:px-2"
+                    onClick={() => set('category_ids', [])}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+            {categories.length === 0 ? (
+              <p className="mt-1 text-xs text-fg-muted">
+                No categories yet — add one on the Categories tab, or choose All spending.
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                {categories.map((category) => (
+                  <label key={category.id} className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={values.category_ids.includes(category.id)}
+                      onChange={() => toggleCategory(category.id)}
+                    />
+                    {category.name}
+                  </label>
+                ))}
+              </div>
+            )}
+            {/* Every box ticked is still a fixed set: next month's new category
+                would be missed. Said only then, which is when it is mistaken
+                for all spending. */}
+            {several && coversEvery && (
+              <p className="mt-1 text-xs text-fg-muted">
+                To count categories you add later too, choose All spending.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       <div>
         <label className="block text-xs text-fg-muted" htmlFor={`${idPrefix}-warn`}>

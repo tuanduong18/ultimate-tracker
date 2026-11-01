@@ -119,7 +119,7 @@ async def test_budget_progress_counts_only_covered_categories(
         category_id=food["id"],
         spent_on="2026-09-10",
     )
-    # Uncategorised spend counts towards no budget at all.
+    # Uncategorised spend counts only towards a budget covering all spending.
     await make_expense(finance_client, amount="55.00", currency="USD", spent_on="2026-08-10")
 
     resp = await finance_client.get(AUGUST_PROGRESS)
@@ -453,3 +453,108 @@ async def test_patching_the_warning_to_null_turns_it_off(finance_client: AsyncCl
     assert off.json()["warn_at_percent"] is None
     assert untouched.json()["warn_at_percent"] is None
     assert back.json()["warn_at_percent"] == 75
+
+
+# --- All spending -------------------------------------------------------------
+
+
+async def test_an_all_spending_budget_counts_every_expense(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    budget = await make_budget(finance_client, [], all_spending=True)
+    assert budget["all_spending"] is True
+    assert budget["categories"] == []
+
+    await make_expense(
+        finance_client, amount="30.00", category_id=food["id"], spent_on="2026-08-10"
+    )
+    # A category made after the budget is covered without touching the budget.
+    fun = await make_category(finance_client, name="Fun")
+    await make_expense(finance_client, amount="20.00", category_id=fun["id"], spent_on="2026-08-11")
+    await make_expense(finance_client, amount="5.00", spent_on="2026-08-12")
+    # Still only inside the window.
+    await make_expense(
+        finance_client, amount="77.00", category_id=food["id"], spent_on="2026-09-10"
+    )
+
+    [progress] = (await finance_client.get(AUGUST_PROGRESS)).json()
+    assert Decimal(progress["spent"]) == Decimal("55.00")
+    assert progress["all_spending"] is True
+    assert progress["categories"] == []
+
+
+async def test_an_all_spending_budget_needs_no_category_to_exist(
+    finance_client: AsyncClient,
+) -> None:
+    budget = await make_budget(finance_client, [], all_spending=True)
+    assert budget["all_spending"] is True
+
+
+async def test_a_budget_naming_categories_and_all_spending_is_a_422(
+    finance_client: AsyncClient,
+) -> None:
+    food = await make_category(finance_client)
+    resp = await finance_client.post(
+        "/api/v1/finance/budgets",
+        json={
+            "name": "Everything",
+            "amount": "900.00",
+            "currency": "USD",
+            "starts_on": "2026-08-01",
+            "ends_on": "2026-08-31",
+            "all_spending": True,
+            "category_ids": [food["id"]],
+        },
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_widening_to_all_spending_drops_the_categories(
+    finance_client: AsyncClient,
+) -> None:
+    food = await make_category(finance_client)
+    budget = await make_budget(finance_client, [food["id"]])
+
+    resp = await finance_client.patch(
+        f"/api/v1/finance/budgets/{budget['id']}", json={"all_spending": True}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["all_spending"] is True
+    assert resp.json()["categories"] == []
+
+
+async def test_narrowing_from_all_spending_needs_the_categories(
+    finance_client: AsyncClient,
+) -> None:
+    food = await make_category(finance_client, name="Food")
+    budget = await make_budget(finance_client, [], all_spending=True)
+    url = f"/api/v1/finance/budgets/{budget['id']}"
+
+    alone = await finance_client.patch(url, json={"all_spending": False})
+    assert alone.status_code == 422
+    assert alone.json()["error"]["code"] == "INVALID_BUDGET_SCOPE"
+    # Categories without saying so would leave the flag contradicting them.
+    unsaid = await finance_client.patch(url, json={"category_ids": [food["id"]]})
+    assert unsaid.status_code == 422
+    assert unsaid.json()["error"]["code"] == "INVALID_BUDGET_SCOPE"
+
+    resp = await finance_client.patch(
+        url, json={"all_spending": False, "category_ids": [food["id"]]}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["all_spending"] is False
+    assert [c["name"] for c in resp.json()["categories"]] == ["Food"]
+
+
+async def test_an_edit_that_leaves_the_scope_alone_keeps_all_spending(
+    finance_client: AsyncClient,
+) -> None:
+    budget = await make_budget(finance_client, [], all_spending=True)
+
+    resp = await finance_client.patch(
+        f"/api/v1/finance/budgets/{budget['id']}", json={"amount": "950.00"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["all_spending"] is True

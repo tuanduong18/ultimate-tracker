@@ -52,6 +52,11 @@ export interface Budget {
    * warning. Reaching the cap is announced either way.
    */
   warn_at_percent: number | null;
+  /**
+   * Covers every expense — any category, ones made later, and none — rather
+   * than a chosen set. `categories` is then empty.
+   */
+  all_spending: boolean;
   /** Embedded by the API so a chart needs no second round trip. */
   categories: Category[];
   created_at: string;
@@ -176,6 +181,8 @@ export interface BudgetProgress {
    */
   window_starts_on: string;
   window_ends_on: string;
+  /** See `Budget.all_spending`; `categories` is empty when it is true. */
+  all_spending: boolean;
   categories: Category[];
   /** Orders the card colours, so adding a budget does not recolour the rest. */
   created_at: string;

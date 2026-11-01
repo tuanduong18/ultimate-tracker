@@ -198,10 +198,6 @@ export function BudgetSection({
   const [busy, setBusy] = useState(false);
   const { panelRef, ...focus } = useRowFocus(items);
 
-  // BudgetCreate requires at least one category id, so there is nothing to
-  // create until one exists. Better to say so than to offer a form that 422s.
-  const blocked = categories.length === 0;
-
   async function run(action: () => Promise<unknown>, fallback: string): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -228,7 +224,10 @@ export function BudgetSection({
       // Empty means "ongoing" for a monthly budget; sent as an explicit null so
       // an edit that clears the last month really clears it.
       ends_on: values.ends_on || null,
-      category_ids: values.category_ids,
+      all_spending: values.all_spending,
+      // Left out for all spending, which the API refuses alongside any; the
+      // form keeps the ticks only so switching back restores them.
+      ...(values.all_spending ? {} : { category_ids: values.category_ids }),
       // Likewise: null turns the early warning off.
       warn_at_percent: values.warn_at_percent ? Number(values.warn_at_percent) : null,
     };
@@ -274,8 +273,6 @@ export function BudgetSection({
       header={<MonthSwitcher month={month} onChange={onMonthChange} />}
       action={
         <PanelButton
-          disabled={blocked}
-          title={blocked ? 'Add a category first' : undefined}
           onClick={() => {
             setEditingId(null);
             setAdding((open) => !open);
@@ -285,7 +282,7 @@ export function BudgetSection({
         </PanelButton>
       }
     >
-      {adding && !blocked && (
+      {adding && (
         <BudgetForm
           idPrefix="new-budget"
           initial={{
@@ -296,6 +293,10 @@ export function BudgetSection({
             period: 'monthly',
             starts_on: month,
             ends_on: '',
+            // Chosen categories, so a "Groceries" budget saved in a hurry is
+            // refused rather than quietly capping everything — unless there
+            // are none to choose.
+            all_spending: categories.length === 0,
             category_ids: [],
             // The server's default, shown so it is a choice rather than a surprise.
             warn_at_percent: '80',
@@ -316,9 +317,8 @@ export function BudgetSection({
       ) : items.length === 0 && error ? null : items.length === 0 ? (
         !adding && (
           <PanelEmpty icon={PiggyBank}>
-            {blocked
-              ? 'Add a category first — a budget caps spending across categories.'
-              : `No budgets apply to ${formatMonth(month)}. A monthly budget resets on the 1st; a custom one covers dates you pick.`}
+            No budgets apply to {formatMonth(month)}. A monthly budget resets on the 1st; a custom
+            one covers dates you pick.
           </PanelEmpty>
         )
       ) : (
@@ -335,6 +335,7 @@ export function BudgetSection({
                     period: budget.period,
                     starts_on: budget.starts_on,
                     ends_on: budget.ends_on ?? '',
+                    all_spending: budget.all_spending,
                     category_ids: budget.categories.map((category) => category.id),
                     warn_at_percent:
                       budget.warn_at_percent === null ? '' : String(budget.warn_at_percent),
@@ -380,12 +381,14 @@ export function BudgetSection({
                   </span>
                   <span className="truncate">
                     {scheduleOf(budget)}
-                    {budget.categories.length > 0 && (
-                      <>
-                        {' · '}
-                        {budget.categories.map((category) => category.name).join(', ')}
-                      </>
-                    )}
+                    {budget.all_spending
+                      ? ' · All spending'
+                      : budget.categories.length > 0 && (
+                          <>
+                            {' · '}
+                            {budget.categories.map((category) => category.name).join(', ')}
+                          </>
+                        )}
                   </span>
                 </p>
 

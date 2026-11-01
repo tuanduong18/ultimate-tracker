@@ -114,8 +114,15 @@ def test_single_day_budget_is_allowed() -> None:
 
 
 def test_budget_must_cover_at_least_one_category() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="category_ids, or all_spending"):
         make_budget(category_ids=[])
+
+
+def test_an_all_spending_budget_names_no_categories() -> None:
+    assert make_budget(all_spending=True, category_ids=[]).all_spending
+    # Both at once would leave unclear which one the budget follows.
+    with pytest.raises(ValidationError, match="takes no category_ids"):
+        make_budget(all_spending=True)
 
 
 def test_budget_update_checks_range_only_when_both_ends_arrive() -> None:

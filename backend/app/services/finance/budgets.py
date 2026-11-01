@@ -13,7 +13,7 @@ from app.models.finance import Budget, BudgetPeriod
 from app.schemas.finance import BudgetCreate, BudgetUpdate
 from app.services.finance._common import _applied_changes, _check_currency, _check_scale
 from app.services.finance.categories import _owned_categories
-from app.services.finance.errors import InvalidDateRangeError, NotFoundError
+from app.services.finance.errors import BudgetScopeError, InvalidDateRangeError, NotFoundError
 
 # --- Periods ------------------------------------------------------------------
 
@@ -102,6 +102,7 @@ async def create_budget(db: AsyncSession, user_id: uuid.UUID, data: BudgetCreate
         starts_on=starts_on,
         ends_on=ends_on,
         warn_at_percent=data.warn_at_percent,
+        all_spending=data.all_spending,
         categories=categories,
     )
     db.add(budget)
@@ -118,10 +119,21 @@ async def update_budget(
     # warn_at_percent likewise: null turns the early warning off.
     changes: dict[str, Any] = _applied_changes(data, frozenset({"ends_on", "warn_at_percent"}))
     await _check_currency(db, changes.get("currency"), budget.currency)
+    all_spending = changes.pop("all_spending", budget.all_spending)
     category_ids = changes.pop("category_ids", None)
-    if category_ids is not None:
+    if all_spending:
+        if category_ids is not None:
+            raise BudgetScopeError(
+                "A budget covering all spending takes no category_ids; "
+                "send all_spending: false with them to narrow it."
+            )
+        budget.categories = []
+    elif category_ids is not None:
         # Replaces the covered set outright, per the schema's contract.
         budget.categories = await _owned_categories(db, user_id, category_ids)
+    elif budget.all_spending:
+        raise BudgetScopeError("Narrowing a budget from all spending needs its category_ids.")
+    budget.all_spending = all_spending
     _check_scale(changes.get("amount", budget.amount), changes.get("currency", budget.currency))
 
     # Same partial-update rule for the range and the period: whatever was not

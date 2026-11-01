@@ -23,6 +23,7 @@ from app.services.finance.categories import (
     update_category,
 )
 from app.services.finance.errors import (
+    BudgetScopeError,
     CategoryNameTakenError,
     FinanceError,
     ImportFileError,
@@ -78,6 +79,7 @@ __all__ = [
     "XLSX_MEDIA_TYPE",
     "UNCATEGORIZED_COLOUR",
     "UNCATEGORIZED_NAME",
+    "BudgetScopeError",
     "CategoryNameTakenError",
     "FinanceError",
     "ImportFileError",

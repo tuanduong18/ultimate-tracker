@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +26,8 @@ const FOOD: Category = {
   created_at: '2026-08-01T00:00:00Z',
 };
 
+const TRANSPORT: Category = { ...FOOD, id: 'c2', name: 'Transport', colour: '#3b82f6' };
+
 const GROCERIES: BudgetProgress = {
   id: 'b1',
   name: 'Groceries',
@@ -37,6 +39,7 @@ const GROCERIES: BudgetProgress = {
   starts_on: '2026-08-01',
   ends_on: '2026-08-31',
   warn_at_percent: 80,
+  all_spending: false,
   window_starts_on: '2026-08-01',
   window_ends_on: '2026-08-31',
   categories: [FOOD],
@@ -95,14 +98,86 @@ describe('BudgetSection', () => {
     expect(screen.getByText(/Food/)).toBeInTheDocument();
   });
 
-  it('refuses to offer a form when no category exists to budget against', async () => {
+  it('offers all spending when no category exists yet', async () => {
+    get.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    post.mockResolvedValue({ ...GROCERIES, all_spending: true, categories: [] });
+    render(<Harness categories={[]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    // The one choice that can be saved, already made.
+    expect(screen.getByRole('radio', { name: /All spending/ })).toBeChecked();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Everything' } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '900' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/budgets',
+        expect.objectContaining({ all_spending: true })
+      )
+    );
+    // The API refuses categories alongside all spending, even an empty list.
+    expect(post.mock.calls[0][1]).not.toHaveProperty('category_ids');
+  });
+
+  it('says to add a category, or pick all spending, when there is none to tick', async () => {
     get.mockResolvedValue([]);
     render(<Harness categories={[]} />);
 
-    // BudgetCreate requires at least one category id, so an enabled button here
-    // would only lead to a 422 the user cannot act on.
-    expect(await screen.findByRole('button', { name: 'New budget' })).toBeDisabled();
-    expect(screen.getByText(/add a category first/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Chosen categories/ }));
+
+    expect(screen.getByText(/No categories yet/)).toBeInTheDocument();
+  });
+
+  it('creates a budget covering all spending, sending no categories', async () => {
+    get.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    post.mockResolvedValue({ ...GROCERIES, all_spending: true, categories: [] });
+    render(<Harness categories={[FOOD, TRANSPORT]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    // Chosen categories by default, so a hurried "Groceries" is not a total.
+    expect(screen.getByRole('radio', { name: /Chosen categories/ })).toBeChecked();
+    fireEvent.click(screen.getByLabelText('Food'));
+    fireEvent.click(screen.getByRole('radio', { name: /All spending/ }));
+    // Nothing left to pick.
+    expect(screen.queryByLabelText('Food')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Everything' } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '900' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/budgets',
+        expect.objectContaining({ name: 'Everything', all_spending: true })
+      )
+    );
+    expect(post.mock.calls[0][1]).not.toHaveProperty('category_ids');
+  });
+
+  it('says a budget covers all spending, and edits it back to chosen categories', async () => {
+    get.mockResolvedValue([{ ...GROCERIES, all_spending: true, categories: [] }]);
+    patch.mockResolvedValue(GROCERIES);
+    render(<Harness categories={[FOOD, TRANSPORT]} />);
+
+    expect(await screen.findByText(/· All spending/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Edit / }));
+    expect(screen.getByRole('radio', { name: /All spending/ })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('radio', { name: /Chosen categories/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    // Narrowing needs a category, like any chosen budget.
+    expect(await screen.findByRole('alert')).toHaveTextContent(/or choose All spending/);
+
+    fireEvent.click(screen.getByLabelText('Food'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith(
+        '/finance/budgets/b1',
+        expect.objectContaining({ all_spending: false, category_ids: ['c1'] })
+      )
+    );
   });
 
   it('creates a budget with the categories that were ticked', async () => {
@@ -127,6 +202,7 @@ describe('BudgetSection', () => {
         period: 'custom',
         starts_on: '2026-08-01',
         ends_on: '2026-08-31',
+        all_spending: false,
         category_ids: ['c1'],
         // The default, shown in the form and sent as chosen.
         warn_at_percent: 80,
@@ -249,6 +325,56 @@ describe('BudgetSection', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/at least one category/i);
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('ticks every category at once, pointing to all spending for new ones', async () => {
+    get.mockResolvedValueOnce([]).mockResolvedValueOnce([GROCERIES]);
+    post.mockResolvedValue(GROCERIES);
+    render(<Harness categories={[FOOD, TRANSPORT]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Everything' } });
+    fireEvent.change(screen.getByLabelText(/^Amount/), { target: { value: '900' } });
+    const group = screen.getByRole('group', { name: 'Categories' });
+    fireEvent.click(within(group).getByRole('button', { name: 'Select all' }));
+
+    expect(screen.getByLabelText('Food')).toBeChecked();
+    expect(screen.getByLabelText('Transport')).toBeChecked();
+    // These two, not every category: a new one needs All spending.
+    expect(within(group).getByText(/categories you add later too/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/budgets',
+        expect.objectContaining({ category_ids: ['c1', 'c2'] })
+      )
+    );
+  });
+
+  it('clears every tick at once', async () => {
+    get.mockResolvedValue([]);
+    render(<Harness categories={[FOOD, TRANSPORT]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByLabelText('Food'));
+    fireEvent.click(screen.getByLabelText('Transport'));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(screen.getByLabelText('Food')).not.toBeChecked();
+    expect(screen.getByLabelText('Transport')).not.toBeChecked();
+    expect(screen.queryByText(/categories you add later too/)).not.toBeInTheDocument();
+  });
+
+  it('offers no shortcuts for a single category', async () => {
+    get.mockResolvedValue([]);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New budget' }));
+    fireEvent.click(screen.getByLabelText('Food'));
+
+    expect(screen.queryByRole('button', { name: 'Select all' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/categories you add later too/)).not.toBeInTheDocument();
   });
 
   it('blocks a range that ends before it starts', async () => {

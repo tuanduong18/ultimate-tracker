@@ -24,7 +24,7 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
 - Transactions tab — every expense, searchable and filterable, exportable to Excel, and
   importable from a spreadsheet. See [Transactions](#transactions) and [Import](#import).
 - Budgets — full CRUD. A budget is a named cap applied to **any number of categories**
-  (many-to-many), of one of two kinds: **monthly**, which starts fresh every calendar month, or
+  (many-to-many) or to **all spending**, of one of two kinds: **monthly**, which starts fresh every calendar month, or
   **custom**, over one fixed date range. See [Budgets](#budgets).
 - Multi-currency — every expense and budget stores its own currency. Totals convert into the
   user's display currency server-side, using rates stored in the `exchange_rates` table by a
@@ -174,8 +174,8 @@ the person; over 5 MB is `413 IMPORT_FILE_TOO_LARGE`.
 
 ## Budgets
 
-A budget caps spending in one or more categories, in its own currency. There are two kinds, and
-the kind decides which expenses count:
+A budget caps spending in one or more categories, or all spending, in its own currency. There
+are two kinds, and the kind decides which days count:
 
 | Kind | Dates stored | Measured over, when viewing a month |
 |---|---|---|
@@ -191,6 +191,21 @@ involved. Looking at an earlier month — the Budgets panel's ‹ month › cont
 **A custom budget is one cap.** A trip from 25 September to 8 October shows in both months'
 views and reports the same full-range spend in each, because splitting it by month would invent
 two caps the user never set.
+
+**All spending is a flag, not every category ticked.** `budgets.all_spending` covers every
+expense: each category, categories created after the budget, and expenses with no category. A
+budget of chosen categories counts only its `budget_categories` rows, so ticking every box is a
+snapshot that misses next month's new category, and it never counts uncategorised spend. An
+all-spending budget has no `budget_categories` rows and needs no category to exist.
+
+- Create: `all_spending: true` with no `category_ids` (or an empty list); otherwise at least one
+  category id. Both at once is a 422.
+- Update: `all_spending: true` drops the categories; `all_spending: false` must come with
+  `category_ids`. Sending `category_ids` to an all-spending budget without
+  `all_spending: false` is a 422 `INVALID_BUDGET_SCOPE`, because the flag would contradict them.
+- The form offers **Chosen categories** (the default, so a hurried "Groceries" is refused rather
+  than capping everything) or **All spending** (the default when no category exists yet). With
+  every box ticked under chosen categories, it says to choose All spending to count new ones.
 
 Rows written before `period` existed are all `custom`, which is exactly what they already meant.
 There is deliberately **no rollover** of unspent money into the next month, and no weekly or
@@ -210,7 +225,8 @@ by the hourly `budgets` job ([Background jobs](./platform.md#background-jobs)) �
 request, so logging an expense does not itself send anything.
 
 Each run measures every budget whose window holds the user's today exactly as the Budgets tab
-does (`budget_progress`: the budget's own currency, its covered categories) and sends:
+does (`budget_progress`: the budget's own currency, its covered categories or all spending)
+and sends:
 
 | Kind | When | Example |
 |---|---|---|
@@ -473,8 +489,8 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 
 - **[Core]** Expense logging — amount, currency, category, date, note. Full CRUD.
 - **[Core]** Custom categories — CRUD, colour-coded.
-- **[Core]** Budgets — named cap across one or more categories, monthly (resets each month) or
-  over a custom date range, with a month picker for past months.
+- **[Core]** Budgets — named cap across one or more categories or all spending, monthly (resets
+  each month) or over a custom date range, with a month picker for past months.
 - **[Core]** Multi-currency with a per-user display currency and server-side conversion.
 - **[Core]** Spending dashboard — category and period breakdowns, per-chart range picker,
   category filtering, two-range comparison.
@@ -505,7 +521,8 @@ Nothing: Finance is complete for its release plan.
   `finance_transactions` table with an income/expense type and a payment method. The tables are
   `categories`, `expenses`, `budgets` and `budget_categories`. The column is `colour`, not `color`.
 - **Budgets are many-to-many with categories** via `budget_categories`. Any code assuming one
-  category per budget is wrong.
+  category per budget is wrong. **Check `all_spending` before reading the categories**: an
+  all-spending budget has none, and covers everything.
 - **Never sum amounts without converting.** Expenses carry their own currency; adding raw amounts
   across currencies produces a number that means nothing. Conversion belongs in
   `services/finance/summaries.py`, server-side — the browser does not have a rate table.
