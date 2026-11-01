@@ -137,9 +137,11 @@ rewritten and removed, and [Budget alerts](./finance.md#budget-alerts) for when 
 **Live updates.** The frontend shows the inbox behind a bell in the header, and the inbox and
 history on `/notifications`. Both subscribe to **Supabase Realtime** on `notifications`, so a
 job run, an edit in another tab or another device shows up without a reload. That needs row-level
-security on the table with one policy — a signed-in user may `SELECT` their own rows — and the
-table in the `supabase_realtime` publication; the migration sets up both when it runs on
-Supabase. The backend connects as the table owner, which RLS does not restrict. Refetching on tab
+security on the table with one policy — a signed-in user may `SELECT` their own rows — a `SELECT`
+grant to `authenticated`, which the policy narrows to those rows, and the table in the
+`supabase_realtime` publication; the migrations set all three up when they run on Supabase.
+Without the grant, Realtime answers every change with "401 Unauthorized" and the bell only
+catches up on refetch — the case until `23a0df7e12fb`. The backend connects as the table owner, which RLS does not restrict. Refetching on tab
 focus and every five minutes covers a dropped socket.
 
 ### Background jobs
