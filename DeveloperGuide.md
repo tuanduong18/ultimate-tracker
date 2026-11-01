@@ -504,6 +504,7 @@ anything else, `production` on Render, is a deployment.
 - Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit
 - `/api/v1/tasks/*` is not behind a user JWT: it compares `X-Task-Secret` to `TASK_SECRET` in constant time, and answers `503` with every job disabled while `TASK_SECRET` is unset
 - CORS: backend only accepts requests from the deployed frontend origin and `localhost` in dev
+- Row-level security is on for every table in `public`, so Supabase's Data API — open to anyone with the anon key, which ships in the frontend — returns nothing from them. The backend connects as the tables' owner, which RLS does not restrict. The one policy lets a signed-in user read their own `notifications`, for Realtime. A test fails for any table without RLS; see `CONTRIBUTING.md` § Database migrations
 
 ---
 

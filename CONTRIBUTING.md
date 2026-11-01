@@ -143,6 +143,20 @@ python -m pytest
 
 Then apply to production (`alembic upgrade head` against the prod `DATABASE_URL`) and merge.
 
+### A new table needs row-level security
+
+Autogenerate does not add it, so the migration that creates a table also says, by hand:
+
+```python
+op.execute("ALTER TABLE <name> ENABLE ROW LEVEL SECURITY")
+```
+
+Supabase serves the `public` schema over its Data API to anyone holding the anon key, which ships
+in the frontend. RLS with no policy gives the browser's roles no rows at all; the backend connects
+as the tables' owner, which RLS does not restrict, so it changes nothing for the app. Add a policy
+only when the browser must read a table itself — `notifications`, for Realtime, is the one case.
+`tests/integration/test_row_level_security.py` fails for any table left without it.
+
 ### What CI checks for you
 
 `backend-ci` runs against a real Postgres service and will fail if:
