@@ -12,6 +12,7 @@ from app.services.finance.budgets import (
     create_budget,
     delete_budget,
     list_budgets,
+    reorder_budgets,
     update_budget,
 )
 from app.services.finance.categories import (
@@ -20,6 +21,7 @@ from app.services.finance.categories import (
     create_category,
     delete_category,
     list_categories,
+    reorder_categories,
     update_category,
 )
 from app.services.finance.errors import (
@@ -115,6 +117,8 @@ __all__ = [
     "next_billing_date",
     "preview_import",
     "renew_subscription",
+    "reorder_budgets",
+    "reorder_categories",
     "summarize",
     "summarize_by_category",
     "summarize_by_period",

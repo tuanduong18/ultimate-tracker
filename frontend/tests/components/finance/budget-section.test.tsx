@@ -2,16 +2,17 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { get, post, patch, del } = vi.hoisted(() => ({
+const { get, post, patch, put, del } = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
+  put: vi.fn(),
   del: vi.fn(),
 }));
 
 vi.mock('@/lib/api-client', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api-client')>('@/lib/api-client');
-  return { ...actual, api: { get, post, patch, delete: del } };
+  return { ...actual, api: { get, post, patch, put, delete: del } };
 });
 
 import { useCollection } from '@/lib/hooks/use-collection';
@@ -476,5 +477,26 @@ describe('BudgetSection', () => {
     // Food is #22c55e; a budget over it is still the first pastel in the rota.
     const card = (await screen.findByText('Groceries')).closest('li');
     expect(card).toHaveClass(BUDGET_TINTS[0]);
+  });
+
+  it('arranges only the month on screen, with the month held still meanwhile', async () => {
+    get.mockResolvedValue([GROCERIES, { ...EATING_OUT, created_at: '2026-08-02T00:00:00Z' }]);
+    put.mockResolvedValue(undefined);
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Arrange budgets' }));
+    // The draft is this month's list; another month would swap it out.
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next month' })).toBeDisabled();
+    // Each compact row still wears its budget's pastel.
+    expect(screen.getByText('Eating out').closest('li')).toHaveClass(BUDGET_TINTS[1]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Eating out up' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save order' }));
+
+    await waitFor(() =>
+      expect(put).toHaveBeenCalledWith('/finance/budgets/order', { ids: ['b3', 'b1'] })
+    );
+    expect(await screen.findByRole('button', { name: 'Next month' })).toBeEnabled();
   });
 });

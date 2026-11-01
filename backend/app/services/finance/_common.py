@@ -1,12 +1,46 @@
 """Helpers shared by the finance service modules."""
 
-from typing import Any
+import uuid
+from collections.abc import Sequence
+from typing import Any, Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.finance import check_amount_scale
 from app.services import exchange_rates
-from app.services.finance.errors import InvalidAmountError, UnsupportedCurrencyError
+from app.services.finance.errors import (
+    InvalidAmountError,
+    NotFoundError,
+    UnsupportedCurrencyError,
+)
+
+
+class _Positioned(Protocol):
+    id: uuid.UUID
+    position: int | None
+
+
+def _rearrange(rows: Sequence[_Positioned], ids: Sequence[uuid.UUID], resource: str) -> None:
+    """Put the rows named by ``ids`` in that order, and number the whole list.
+
+    ``rows`` is the user's whole list in its current order. ``ids`` may name
+    only some of them: the Budgets tab arranges one month's budgets, and the
+    ones it does not show must not move. So the named rows trade places among
+    the slots they already hold — the first id takes the first of those slots,
+    and so on — and every other row keeps its slot.
+
+    Then every row is numbered from 0, so an arranged list has no nulls left
+    and later additions (null, so first) cannot tie with anything.
+    """
+    by_id = {row.id: row for row in rows}
+    if any(row_id not in by_id for row_id in ids):
+        # Most likely deleted from another device since the list was loaded.
+        raise NotFoundError(resource)
+    named = set(ids)
+    in_new_order = iter([by_id[row_id] for row_id in ids])
+    arranged = [next(in_new_order) if row.id in named else row for row in rows]
+    for position, row in enumerate(arranged):
+        row.position = position
 
 
 def _applied_changes(payload: Any, nullable_fields: frozenset[str]) -> dict[str, Any]:

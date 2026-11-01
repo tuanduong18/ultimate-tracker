@@ -42,6 +42,8 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
   title, or the header's Log menu.
 - Subscriptions — tracking with free trials, automatic renewal into expenses, reminders and
   renewal notices. Shipped ahead of its v0.2 slot. See [Subscriptions](#subscriptions).
+- Arranging — budgets and categories can be put in any order, kept on the account. See
+  [Arranging lists](#arranging-lists).
 
 ### Out of scope
 
@@ -437,6 +439,43 @@ Delivery is in-app only for now. Email would be a second channel for the same no
 
 ---
 
+## Arranging lists
+
+**Status: built.** Budgets and categories each have an **Arrange** button in their panel
+header (Budgets on both the Overview and its own tab). It switches the list to compact rows
+with a drag handle and Move up / Move down buttons; **Save order** sends the new order and
+**Cancel** drops it.
+
+The order is stored on the rows, in a nullable `position` column on `categories` and
+`budgets`, so it is the account's and follows the user to every device — not the browser's.
+
+**Subscriptions are not arrangeable**, by choice: they stay in next-charge order, which is the
+order worth reading them in.
+
+- **Null until arranged.** Lists sort `position` ascending, nulls first, then by their old
+  order: categories by name, budgets latest start first. A list nobody has arranged reads
+  exactly as before, and something added after an arrangement appears at the top, where the
+  form that made it was, until the list is arranged again.
+- **Arranging part of a list.** The Budgets panel shows one month, so it sends only that
+  month's budgets. The named rows trade the places they already hold, in the order sent, and
+  every other row keeps its place; then the whole list is numbered from 0
+  (`_common._rearrange`). Arranging October cannot shuffle September's budgets.
+- **The order is the list's everywhere.** Category pickers and filters list categories as the
+  API does, so they follow the arrangement. Budget colours do not: they are handed out by
+  creation date, so moving a card never recolours it.
+
+### Endpoints
+
+| Method | Path | Notes |
+|---|---|---|
+| `PUT` | `/finance/categories/order` | Body `{"ids": [...]}`, first to last. `204`. |
+| `PUT` | `/finance/budgets/order` | Same; usually one month's budgets — those left out keep their places. |
+
+An id that is not the user's (or no longer exists) is `404 NOT_FOUND`; an id named twice is a
+`422 VALIDATION_ERROR`. At most 1,000 ids.
+
+---
+
 ## Exchange rates
 
 Rates live in `exchange_rates`, one row per currency (about 160 rows):
@@ -504,6 +543,8 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 - **[Ahead of any release]** Import — a personal `.xlsx` template, `.xlsx` or CSV upload, a
   preview before anything is saved, duplicate detection, new categories created on import.
   Fixed template columns replaced the earlier plan of a column-mapping step.
+- **[Ahead of any release]** Arranging budgets and categories into the user's own order,
+  stored on the account.
 
 ### Planned
 

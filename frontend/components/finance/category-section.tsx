@@ -3,10 +3,12 @@
 import { Pencil, Tags } from 'lucide-react';
 import { useState } from 'react';
 
+import { ArrangeActions, ArrangeList } from '@/components/finance/arrange-list';
 import { CategoryEdge } from '@/components/finance/category-edge';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
+import { useArrange } from '@/lib/hooks/use-arrange';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import type { Category } from '@/lib/types/finance';
@@ -40,6 +42,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
   const [editName, setEditName] = useState('');
   const [editColour, setEditColour] = useState(DEFAULT_COLOUR);
   const { panelRef, ...focus } = useRowFocus(items);
+  const arrange = useArrange(items);
 
   async function run(action: () => Promise<unknown>, fallback: string) {
     setBusy(true);
@@ -98,6 +101,25 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
     if (!deleted) focus.cancel();
   }
 
+  /**
+   * The order is the categories' everywhere, not only here: every category
+   * picker and filter lists them as the server does, so they follow it.
+   */
+  async function handleSaveOrder() {
+    if (!arrange.changed) {
+      arrange.stop();
+      return;
+    }
+    const saved = await run(
+      () =>
+        api.put('/finance/categories/order', {
+          ids: arrange.ordered.map((category) => category.id),
+        }),
+      'Could not save that order.'
+    );
+    if (saved) arrange.stop();
+  }
+
   return (
     <Panel
       ref={panelRef}
@@ -105,12 +127,22 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
       error={error}
       className="h-full"
       action={
-        <PanelButton
-          label={adding ? 'Cancel' : 'New category'}
-          onClick={() => setAdding((open) => !open)}
+        <ArrangeActions
+          arranging={arrange.arranging}
+          canArrange={items.length > 1 && !adding && editing === null}
+          busy={busy}
+          noun="categories"
+          onStart={arrange.start}
+          onCancel={arrange.stop}
+          onSave={() => void handleSaveOrder()}
         >
-          {adding ? 'Cancel' : 'New'}
-        </PanelButton>
+          <PanelButton
+            label={adding ? 'Cancel' : 'New category'}
+            onClick={() => setAdding((open) => !open)}
+          >
+            {adding ? 'Cancel' : 'New'}
+          </PanelButton>
+        </ArrangeActions>
       }
     >
       {adding && (
@@ -164,6 +196,21 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
             No categories yet. Create one before setting a budget.
           </PanelEmpty>
         )
+      ) : arrange.arranging ? (
+        <ArrangeList
+          items={arrange.ordered}
+          nameOf={(category) => category.name}
+          rowClassName={() => 'relative overflow-hidden bg-surface-muted'}
+          onMove={arrange.move}
+          disabled={busy}
+        >
+          {(category) => (
+            <>
+              <CategoryEdge colour={category.colour} />
+              <p className="truncate text-sm font-medium">{category.name}</p>
+            </>
+          )}
+        </ArrangeList>
       ) : (
         <ul className="space-y-2 p-3">
           {items.map((category) =>

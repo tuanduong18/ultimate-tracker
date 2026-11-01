@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance import Budget, BudgetPeriod
 from app.schemas.finance import BudgetCreate, BudgetUpdate
-from app.services.finance._common import _applied_changes, _check_currency, _check_scale
+from app.services.finance._common import (
+    _applied_changes,
+    _check_currency,
+    _check_scale,
+    _rearrange,
+)
 from app.services.finance.categories import _owned_categories
 from app.services.finance.errors import BudgetScopeError, InvalidDateRangeError, NotFoundError
 
@@ -70,12 +75,27 @@ def budget_window(budget: Budget, month: date) -> tuple[date, date] | None:
 
 
 async def list_budgets(db: AsyncSession, user_id: uuid.UUID) -> Sequence[Budget]:
+    # In the user's order once they have arranged it; latest start first until
+    # then, and among the ones added since.
     stmt = (
         select(Budget)
         .where(Budget.user_id == user_id)
-        .order_by(Budget.starts_on.desc(), Budget.created_at.desc())
+        .order_by(
+            Budget.position.asc().nulls_first(),
+            Budget.starts_on.desc(),
+            Budget.created_at.desc(),
+        )
     )
     return (await db.scalars(stmt)).all()
+
+
+async def reorder_budgets(
+    db: AsyncSession, user_id: uuid.UUID, budget_ids: Sequence[uuid.UUID]
+) -> None:
+    """Arrange budgets. Usually one month's worth: see ``_rearrange`` for how
+    the budgets of other months keep their places."""
+    _rearrange(await list_budgets(db, user_id), budget_ids, "Budget")
+    await db.commit()
 
 
 async def _get_owned_budget(db: AsyncSession, user_id: uuid.UUID, budget_id: uuid.UUID) -> Budget:

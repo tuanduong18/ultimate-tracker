@@ -72,6 +72,9 @@ export function Panel({ title, action, header, error, children, className, ref }
  * `label` is there because the narrowest panel has room for "New" and not for
  * "New category" — the short word is what gets drawn, and the full one is what
  * a screen reader announces.
+ *
+ * `primary` fills it, for the one header button that finishes a mode the panel
+ * is in (Save order): the way out should be the button that stands out.
  */
 export function PanelButton({
   children,
@@ -80,6 +83,8 @@ export function PanelButton({
   title,
   label,
   opensDialog,
+  primary,
+  ref,
 }: {
   children: ReactNode;
   onClick: () => void;
@@ -88,16 +93,24 @@ export function PanelButton({
   label?: string;
   /** Says so to screen readers before the click, as any dialog opener should. */
   opensDialog?: boolean;
+  primary?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       title={title}
       aria-label={label}
       aria-haspopup={opensDialog ? 'dialog' : undefined}
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-primary-soft disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3"
+      className={clsx(
+        'rounded-lg border px-2.5 py-1 text-xs font-medium whitespace-nowrap disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:px-3',
+        primary
+          ? 'border-primary bg-primary text-primary-fg hover:opacity-90'
+          : 'hover:bg-primary-soft'
+      )}
     >
       {children}
     </button>

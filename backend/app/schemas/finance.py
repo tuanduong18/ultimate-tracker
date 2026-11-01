@@ -85,6 +85,27 @@ def check_amount_scale(amount: Decimal, currency: str) -> None:
         )
 
 
+# --- List order ---------------------------------------------------------------
+
+
+def _distinct(ids: list[uuid.UUID]) -> list[uuid.UUID]:
+    if len(set(ids)) != len(ids):
+        raise ValueError("Each id may appear only once.")
+    return ids
+
+
+class ListOrderUpdate(BaseModel):
+    """A list's new order, as the ids of the rows on screen, first to last.
+
+    May name only part of the list — the Budgets tab shows one month's
+    budgets — in which case those rows swap among the places they already
+    hold and the rest stay put. The cap is far past any one person's list and
+    exists so a request cannot ask for an unbounded IN list.
+    """
+
+    ids: Annotated[list[uuid.UUID], Field(max_length=1_000), AfterValidator(_distinct)]
+
+
 # --- Categories ---------------------------------------------------------------
 
 

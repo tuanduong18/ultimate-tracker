@@ -3,11 +3,13 @@
 import { ChevronLeft, ChevronRight, Pencil, PiggyBank } from 'lucide-react';
 import { useState } from 'react';
 
+import { ArrangeActions, ArrangeList } from '@/components/finance/arrange-list';
 import { BudgetForm, type BudgetValues } from '@/components/finance/budget-form';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
 import { formatDate, formatMonth, formatMonthShort, monthStart, shiftMonth } from '@/lib/dates';
+import { useArrange } from '@/lib/hooks/use-arrange';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { useRowFocus } from '@/lib/hooks/use-row-focus';
 import { budgetTint } from '@/lib/tint';
@@ -137,14 +139,26 @@ function scheduleOf(budget: BudgetProgress): string {
  *
  * Lives in the panel rather than on the page: it chooses which month the
  * budgets are measured in, and nothing else on the page follows it.
+ *
+ * Off while the budgets are being arranged: the order being arranged is this
+ * month's list, and changing month would swap it for another mid-draft.
  */
-function MonthSwitcher({ month, onChange }: { month: string; onChange: (month: string) => void }) {
+function MonthSwitcher({
+  month,
+  onChange,
+  disabled,
+}: {
+  month: string;
+  onChange: (month: string) => void;
+  disabled?: boolean;
+}) {
   const current = monthStart();
   return (
     <div className="flex items-center gap-1">
       <IconButton
         label="Previous month"
         icon={ChevronLeft}
+        disabled={disabled}
         onClick={() => onChange(shiftMonth(month, -1))}
       />
       <p className="min-w-0 flex-1 text-center text-sm font-semibold" aria-live="polite">
@@ -153,13 +167,15 @@ function MonthSwitcher({ month, onChange }: { month: string; onChange: (month: s
       <IconButton
         label="Next month"
         icon={ChevronRight}
+        disabled={disabled}
         onClick={() => onChange(shiftMonth(month, 1))}
       />
       {month !== current && (
         <button
           type="button"
+          disabled={disabled}
           onClick={() => onChange(current)}
-          className="ml-1 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary-soft pointer-coarse:min-h-11"
+          className="ml-1 rounded-lg px-2 py-1 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50 pointer-coarse:min-h-11"
         >
           This month
         </button>
@@ -197,6 +213,7 @@ export function BudgetSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { panelRef, ...focus } = useRowFocus(items);
+  const arrange = useArrange(items);
 
   async function run(action: () => Promise<unknown>, fallback: string): Promise<boolean> {
     setBusy(true);
@@ -264,22 +281,48 @@ export function BudgetSection({
     if (!deleted) focus.cancel();
   }
 
+  /**
+   * Only this month's budgets are on screen, so only they are sent; the
+   * server keeps every other month's budgets where they were among them.
+   */
+  async function handleSaveOrder() {
+    if (!arrange.changed) {
+      arrange.stop();
+      return;
+    }
+    const saved = await run(
+      () => api.put('/finance/budgets/order', { ids: arrange.ordered.map((budget) => budget.id) }),
+      'Could not save that order.'
+    );
+    if (saved) arrange.stop();
+  }
+
   return (
     <Panel
       ref={panelRef}
       title="Budgets"
       error={error}
       className="h-full"
-      header={<MonthSwitcher month={month} onChange={onMonthChange} />}
+      header={<MonthSwitcher month={month} onChange={onMonthChange} disabled={arrange.arranging} />}
       action={
-        <PanelButton
-          onClick={() => {
-            setEditingId(null);
-            setAdding((open) => !open);
-          }}
+        <ArrangeActions
+          arranging={arrange.arranging}
+          canArrange={items.length > 1 && !adding && editingId === null}
+          busy={busy}
+          noun="budgets"
+          onStart={arrange.start}
+          onCancel={arrange.stop}
+          onSave={() => void handleSaveOrder()}
         >
-          {adding ? 'Cancel' : 'New budget'}
-        </PanelButton>
+          <PanelButton
+            onClick={() => {
+              setEditingId(null);
+              setAdding((open) => !open);
+            }}
+          >
+            {adding ? 'Cancel' : 'New budget'}
+          </PanelButton>
+        </ArrangeActions>
       }
     >
       {adding && (
@@ -321,6 +364,16 @@ export function BudgetSection({
             one covers dates you pick.
           </PanelEmpty>
         )
+      ) : arrange.arranging ? (
+        <ArrangeList
+          items={arrange.ordered}
+          nameOf={(budget) => budget.name}
+          rowClassName={(budget) => tints.get(budget.id)}
+          onMove={arrange.move}
+          disabled={busy}
+        >
+          {(budget) => <p className="truncate text-sm font-semibold">{budget.name}</p>}
+        </ArrangeList>
       ) : (
         <ul className="space-y-3 p-3">
           {items.map((budget) =>

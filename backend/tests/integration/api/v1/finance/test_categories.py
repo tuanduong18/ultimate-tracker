@@ -66,3 +66,54 @@ async def test_deleting_a_category_uncategorizes_its_expenses(
     expenses = (await finance_client.get("/api/v1/finance/expenses")).json()
     assert len(expenses) == 1
     assert expenses[0]["category_id"] is None
+
+
+async def test_arranged_categories_list_in_that_order(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+    rent = await make_category(finance_client, name="Rent")
+    travel = await make_category(finance_client, name="Travel")
+
+    resp = await finance_client.put(
+        "/api/v1/finance/categories/order", json={"ids": [travel["id"], food["id"], rent["id"]]}
+    )
+    assert resp.status_code == 204, resp.text
+
+    # A category added afterwards goes first, where its form was, until it is
+    # arranged too.
+    await make_category(finance_client, name="Books")
+    listed = (await finance_client.get("/api/v1/finance/categories")).json()
+    assert [c["name"] for c in listed] == ["Books", "Travel", "Food", "Rent"]
+
+
+async def test_unarranged_categories_list_by_name(finance_client: AsyncClient) -> None:
+    for name in ("Rent", "Food", "Travel"):
+        await make_category(finance_client, name=name)
+
+    listed = (await finance_client.get("/api/v1/finance/categories")).json()
+    assert [c["name"] for c in listed] == ["Food", "Rent", "Travel"]
+
+
+async def test_arranging_someone_elses_category_is_a_404(
+    finance_client: AsyncClient, db_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    mine = await make_category(finance_client, name="Mine")
+    async with db_factory() as session:
+        theirs = Category(user_id=OTHER_USER_ID, name="Theirs")
+        session.add(theirs)
+        await session.commit()
+
+    resp = await finance_client.put(
+        "/api/v1/finance/categories/order", json={"ids": [str(theirs.id), mine["id"]]}
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "NOT_FOUND"
+
+
+async def test_an_order_naming_a_category_twice_is_a_422(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food")
+
+    resp = await finance_client.put(
+        "/api/v1/finance/categories/order", json={"ids": [food["id"], food["id"]]}
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"

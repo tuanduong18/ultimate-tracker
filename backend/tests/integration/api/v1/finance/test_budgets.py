@@ -558,3 +558,42 @@ async def test_an_edit_that_leaves_the_scope_alone_keeps_all_spending(
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["all_spending"] is True
+
+
+async def test_arranging_one_months_budgets_leaves_the_others_in_place(
+    finance_client: AsyncClient, stub_rates: None
+) -> None:
+    food = await make_category(finance_client)
+    august = {"starts_on": "2026-08-01", "ends_on": "2026-08-31"}
+    september = {"starts_on": "2026-09-01", "ends_on": "2026-09-30"}
+    groceries = await make_budget(finance_client, [food["id"]], name="Groceries", **august)
+    trip = await make_budget(finance_client, [food["id"]], name="Trip", **september)
+    eating_out = await make_budget(finance_client, [food["id"]], name="Eating out", **august)
+    url = "/api/v1/finance/budgets/order"
+    # Every budget arranged once, so the order below is the user's, not the default.
+    resp = await finance_client.put(
+        url, json={"ids": [groceries["id"], trip["id"], eating_out["id"]]}
+    )
+    assert resp.status_code == 204, resp.text
+
+    # The August view swaps its two; September's budget keeps its slot between them.
+    resp = await finance_client.put(url, json={"ids": [eating_out["id"], groceries["id"]]})
+    assert resp.status_code == 204, resp.text
+
+    listed = (await finance_client.get("/api/v1/finance/budgets")).json()
+    assert [b["name"] for b in listed] == ["Eating out", "Trip", "Groceries"]
+    progress = (await finance_client.get(AUGUST_PROGRESS)).json()
+    assert [b["name"] for b in progress] == ["Eating out", "Groceries"]
+
+
+async def test_arranging_a_deleted_budget_is_a_404(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client)
+    kept = await make_budget(finance_client, [food["id"]], name="Kept")
+    gone = await make_budget(finance_client, [food["id"]], name="Gone")
+    await finance_client.delete(f"/api/v1/finance/budgets/{gone['id']}")
+
+    resp = await finance_client.put(
+        "/api/v1/finance/budgets/order", json={"ids": [gone["id"], kept["id"]]}
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "NOT_FOUND"
