@@ -21,6 +21,45 @@ updates:
         patterns: ["*"]
         update-types: [major]
 
+  # One group, so every week's bumps arrive as a single PR, like the backend's.
+  #
+  # The ignore list keeps that PR mergeable. An Expo SDK pins React and React
+  # Native exactly and its own packages to patch releases (bundledNativeModules
+  # in the expo package), so a minor or major bump of any of them fails CI's
+  # expo-doctor step — and in a single group, one failing bump blocks the rest.
+  # Those move together in a deliberate SDK upgrade PR instead
+  # (`npx expo install expo@^<next> --fix`); their patch releases still come
+  # through here.
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      mobile:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "expo-*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "react-native-*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "jest-expo"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "eslint-config-expo"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # jest-expo supports jest 29 and 30 only.
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: pip
     directory: /backend
     schedule:

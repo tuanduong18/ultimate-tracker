@@ -40,3 +40,11 @@ repos:
         entry: node frontend/node_modules/prettier/bin/prettier.cjs --write --ignore-unknown --ignore-path frontend/.prettierignore
         files: ^frontend/
         exclude: ^frontend/(package-lock\.json|next-env\.d\.ts)$
+      # Same idea for the Android app: its own locked prettier and ignore file.
+      # Needs `npm ci` in mobile/ first.
+      - id: prettier-mobile
+        name: prettier (mobile/node_modules)
+        language: system
+        entry: node mobile/node_modules/prettier/bin/prettier.cjs --write --ignore-unknown --ignore-path mobile/.prettierignore
+        files: ^mobile/
+        exclude: ^mobile/(package-lock\.json|expo-env\.d\.ts)$

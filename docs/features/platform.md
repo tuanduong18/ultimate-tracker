@@ -392,9 +392,9 @@ when any has changed. No new columns: the check compares values, not timestamps.
 
 ## CI/CD
 
-Three workflows, no deploy workflow — Render and Vercel deploy natively on push to `main`.
-Details in [`DeveloperGuide.md` § 9](../../DeveloperGuide.md#9-cicd-pipeline). A fourth,
-`mobile-ci`, arrives with the Android app.
+Four workflows, no deploy workflow — Render and Vercel deploy natively on push to `main`.
+Details in [`DeveloperGuide.md` § 9](../../DeveloperGuide.md#9-cicd-pipeline). `mobile-ci`
+checks the Android app.
 
 The one rule worth repeating here, because breaking it takes production down: **migrations do not
 run themselves.** Render redeploys the instant a PR merges. Apply additive migrations to

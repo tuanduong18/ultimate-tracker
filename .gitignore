@@ -4,6 +4,7 @@
 !.env.example
 !frontend/.env.example
 !backend/.env.example
+!mobile/.env.example
 # Repo-scoped GitHub CLI config (GH_CONFIG_DIR) — hosts.yml holds an auth token.
 .gh/
 

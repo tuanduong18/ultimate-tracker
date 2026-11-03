@@ -129,7 +129,12 @@ ultimate-tracker/
 │   ├── package.json
 │   └── postcss.config.mjs    # Tailwind 4 is configured in app/globals.css, not a JS config
 │
-├── mobile/                   # planned: the Android app (Expo)
+├── mobile/                   # the Android app (Expo SDK 58) — see platform.md § Android app
+│   ├── src/app/              # Expo Router: every file is a screen, _layout.tsx a navigator
+│   ├── tests/                # Jest — outside src/app/, where every file would be a route
+│   ├── app.json              # name, package, URL scheme, Android 14 floor, config plugins
+│   ├── eas.json              # EAS build profiles: development and preview, both APKs
+│   └── package.json
 │
 ├── backend/
 │   ├── app/
@@ -167,6 +172,7 @@ ultimate-tracker/
 │   ├── workflows/
 │   │   ├── backend-ci.yml
 │   │   ├── frontend-ci.yml
+│   │   ├── mobile-ci.yml
 │   │   └── pr-title.yml        # Conventional Commits check on PR titles
 │   ├── ISSUE_TEMPLATE/         # bug / feature / chore issue forms
 │   ├── pull_request_template.md
@@ -178,8 +184,8 @@ ultimate-tracker/
 └── DeveloperGuide.md
 ```
 
-Env files are per app — `backend/.env` and `frontend/.env.local`, each copied from the
-`.env.example` beside it. There is no root `.env`.
+Env files are per app — `backend/.env`, `frontend/.env.local` and `mobile/.env`, each copied
+from the `.env.example` beside it. There is no root `.env`.
 
 > There is no `deploy.yml` — Render and Vercel deploy natively on push to `main`. Don't re-add one.
 
@@ -448,6 +454,18 @@ in [`docs/features/README.md`](./docs/features/README.md) rather than left impli
 7. Optional, in `backend/`: load real exchange rates once, or the currency pickers offer only
    the 10 fallback currencies: `python -m app.tasks exchange-rates`.
 
+**The Android app** (optional, in `mobile/`) needs an Android phone and an
+[Expo](https://expo.dev) account, and no Android Studio — native builds run on EAS.
+
+1. `npm install`; copy `.env.example` to `.env` and fill it in (the API address must be one the
+   phone can reach — not `localhost`); then `npx eas-cli login` once, and `npx eas-cli init` the
+   first time, which links the app to an Expo project.
+2. Build and install the development client, once, and again only when native code or the
+   config plugins change: `npx eas-cli build --profile development --platform android`. Open
+   the link it prints on the phone to install the APK.
+3. `npm start`, then open the development client on the phone and pick the server it lists.
+   The phone and the computer must be on the same network.
+
 Use `python -m` for every Python tool: Windows Smart App Control blocks the unsigned
 `uvicorn.exe` / `alembic.exe` / `pytest.exe` shims in `.venv/Scripts/` (see the README).
 
@@ -470,7 +488,7 @@ editor with the Render URL and `TASK_SECRET` filled in.
 - Squash merge into `main` to keep a linear, readable history. **Because merges are squashed, the PR title becomes the commit message** — so the PR title is what `pr-title.yml` lints, not the individual commits.
 
 **Ruleset on `main`** (Settings → Rules → Rulesets): restrict deletions, block force pushes,
-require a PR, require the `backend-ci-ok` and `frontend-ci-ok` status checks, require branches
+require a PR, require the `backend-ci-ok`, `frontend-ci-ok` and `mobile-ci-ok` status checks, require branches
 to be up to date, require linear history.
 
 Day-to-day workflow, PR sizing, label scheme, and the migration rules live in
@@ -480,7 +498,7 @@ Day-to-day workflow, PR sizing, label scheme, and the migration rules live in
 
 ## 9. CI/CD Pipeline
 
-Three CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
+Four CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
 
 **`backend-ci.yml`** — when a PR touches `backend/`:
 1. Install dependencies
@@ -497,10 +515,14 @@ Three CI workflows. Deployment is handled natively by Render and Vercel (auto-de
 
 **`pr-title.yml`** — on every PR: lints the title against Conventional Commits, since squash merging makes the title the commit message on `main`.
 
-**`mobile-ci.yml`** *(planned, with the Android app)* — when a PR touches the app's folder: `eslint`,
-`prettier --check`, `tsc --noEmit`, jest, and `expo export --platform android` to catch bundling
-errors without a full native build. Same `changes` → job → gate pattern, with `mobile-ci-ok`
-added to the required checks.
+**`mobile-ci.yml`** — when a PR touches `mobile/`:
+1. Install dependencies
+2. Run `eslint`, `prettier --check`, and `tsc --noEmit`
+3. Run jest
+4. Run `expo-doctor`, which fails when a package is not the version this Expo SDK expects — a
+   Dependabot bump that compiles but would break the native build
+5. Run `expo export --platform android` to catch bundling errors without a native build, which
+   needs EAS
 
 **Why the workflows aren't path-filtered at the top level:** a workflow with a `paths:` filter
 that doesn't trigger reports *no status at all*, so requiring it as a status check would leave
@@ -509,7 +531,7 @@ that does the filtering via `dorny/paths-filter`, gating the real job with an `i
 `backend-ci-ok` / `frontend-ci-ok` job that always runs and reports the outcome. **Those gate
 jobs are the required status checks.**
 
-**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker. npm splits majors into their own group; pip is one group, because `requirements.txt` holds ranges with no lock file and Dependabot cannot classify a bump as major or minor. Security alerts are separate from these PRs; GitHub's preset auto-triage rule (on by default for public repositories) dismisses low-impact alerts on development-only dependencies as soon as they are raised.
+**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker. The frontend's npm splits majors into their own group; the Android app's is one group that skips minor and major bumps of the packages an Expo SDK pins, which move together in a hand-made SDK upgrade (see [CONTRIBUTING.md](./CONTRIBUTING.md#dependencies)); pip is one group, because `requirements.txt` holds ranges with no lock file and Dependabot cannot classify a bump as major or minor. Security alerts are separate from these PRs; GitHub's preset auto-triage rule (on by default for public repositories) dismisses low-impact alerts on development-only dependencies as soon as they are raised.
 
 **Deployment (no workflow needed):**
 - **Backend** — Render auto-deploys on push to `main`: it rebuilds the Docker image and restarts the service.
@@ -536,6 +558,7 @@ Every PR also gets a Vercel preview deployment automatically — useful for visu
 | Backend unit tests | Pytest | Service layer logic (budget calculations, correlation thresholds, overload detection) |
 | Backend integration tests | Pytest + httpx AsyncClient | Full API request/response cycles against Postgres (`TEST_DATABASE_URL`): the schema is built once per run by `alembic upgrade head` and every table is emptied before each test. Postgres rather than SQLite because the guarantees that matter — a renewal charged once under overlapping runs (`SKIP LOCKED`), exact decimals — only exist there |
 | Frontend unit tests | Vitest + React Testing Library | Components and hooks |
+| Android unit tests | Jest (`jest-expo`) + React Native Testing Library | Screens and hooks, in `mobile/tests/` |
 | Frontend E2E (from v0.3) | Playwright | Critical flows: signup → onboarding → log a transaction → see it on dashboard |
 
 Minimum bar: every new service function and API endpoint needs at least one test before merging. Aim for meaningful coverage of business logic (budget math, correlation engine, overload detection) over UI snapshot tests.
@@ -557,9 +580,13 @@ Minimum bar: every new service function and API endpoint needs at least one test
 - Strict TypeScript (`strict: true` in `tsconfig.json`)
 - Naming: `camelCase` for variables/functions, `PascalCase` for components, files match component names
 
+**Android app (TypeScript):** the same rules as the frontend — `prettier` with the same
+`.prettierrc`, strict TypeScript, the same naming — with `eslint-config-expo` in place of the
+Next config.
+
 **Both languages:** `.pre-commit-config.yaml` runs ruff check, ruff format, and prettier on
 staged files, plus `detect-private-key` and friends — ruff at the version CI installs, prettier
-from `frontend/node_modules`. Install with `python -m pre_commit install` (setup in
+from `frontend/node_modules` and `mobile/node_modules`. Install with `python -m pre_commit install` (setup in
 [CONTRIBUTING.md](./CONTRIBUTING.md#local-setup)) — optional, but it catches these before CI does.
 
 **General:**
@@ -607,7 +634,7 @@ anything else, `production` on Render, is a deployment.
 - Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit
 - `/api/v1/tasks/*` is not behind a user JWT: it compares `X-Task-Secret` to `TASK_SECRET` in constant time, and answers `503` with every job disabled while `TASK_SECRET` is unset
 - CORS: backend only accepts requests from the deployed frontend origin and `localhost` in dev. The Android app is not a browser and sends no `Origin`, so CORS neither applies to it nor protects anything from it — the JWT does
-- The Android app ships the same public values as the web bundle (Supabase URL and anon key, API base URL) and nothing secret. Its session is kept in `expo-secure-store`, not plain storage.
+- The Android app ships the same public values as the web bundle (Supabase URL and anon key, API base URL) and nothing secret: every `EXPO_PUBLIC_*` value is compiled into the APK, where anyone holding it can read it. Locally they come from `mobile/.env`; EAS cloud builds never see that file, so the same names are set as EAS environment variables. The signing keystore lives with EAS, never in the repo. Its session is kept in `expo-secure-store`, not plain storage.
 - Row-level security is on for every table in `public`, so Supabase's Data API — open to anyone with the anon key, which ships in the frontend — returns nothing from them. The backend connects as the tables' owner, which RLS does not restrict. The one policy lets a signed-in user read their own `notifications`, for Realtime. A test fails for any table without RLS; see `CONTRIBUTING.md` § Database migrations
 
 ---
