@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "trailingComma": "es5",
+  "arrowParens": "always",
+  // Oxfmt sorts package.json by default; Prettier didn't, and npm keeps its own order.
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".next/",
+    "coverage/",
+    "out/",
+    // Next rewrites these on every build; let it own their formatting.
+    "next-env.d.ts",
+    "tsconfig.json",
+  ],
+}

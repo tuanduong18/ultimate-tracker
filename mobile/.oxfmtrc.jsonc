@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "printWidth": 100,
+  "trailingComma": "es5",
+  "arrowParens": "always",
+  // Oxfmt sorts package.json by default; Prettier didn't, and npm keeps its own order.
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    ".expo/",
+    "dist/",
+    "coverage/",
+    "android/",
+    "ios/",
+    // Expo rewrites this on every start; let it own its formatting.
+    "expo-env.d.ts",
+  ],
+}

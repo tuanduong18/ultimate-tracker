@@ -1,6 +1,6 @@
 # Opt-in local hooks so lint/format failures surface before CI.
 # Install once with:  pip install pre-commit && pre-commit install
-# CI does not run this file — it runs ruff / prettier / eslint directly.
+# CI does not run this file — it runs ruff / oxfmt / oxlint directly.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
@@ -27,24 +27,26 @@ repos:
       - id: ruff-format
         files: ^backend/
 
-  # The frontend's own prettier, not a mirror pinned here: it is whatever
+  # The frontend's own oxfmt, not a mirror pinned here: it is whatever
   # package-lock.json says, so the hook and `npm run format:check` cannot drift.
   # Needs `npm ci` in frontend/ first. pre-commit runs hooks from the repo root,
-  # where frontend/.prettierignore is not picked up on its own — hence
-  # --ignore-path, without which the hook reformats tsconfig.json.
+  # where frontend/.oxfmtrc.jsonc is not picked up on its own — hence -c, without
+  # which the hook formats with oxfmt's defaults (double quotes) and touches the
+  # files the config ignores, such as tsconfig.json. Files oxfmt can't format
+  # (images, SVG) are skipped.
   - repo: local
     hooks:
-      - id: prettier
-        name: prettier (frontend/node_modules)
+      - id: oxfmt
+        name: oxfmt (frontend/node_modules)
         language: system
-        entry: node frontend/node_modules/prettier/bin/prettier.cjs --write --ignore-unknown --ignore-path frontend/.prettierignore
+        entry: node frontend/node_modules/oxfmt/bin/oxfmt -c frontend/.oxfmtrc.jsonc --no-error-on-unmatched-pattern
         files: ^frontend/
         exclude: ^frontend/(package-lock\.json|next-env\.d\.ts)$
-      # Same idea for the Android app: its own locked prettier and ignore file.
+      # Same idea for the Android app: its own locked oxfmt and config.
       # Needs `npm ci` in mobile/ first.
-      - id: prettier-mobile
-        name: prettier (mobile/node_modules)
+      - id: oxfmt-mobile
+        name: oxfmt (mobile/node_modules)
         language: system
-        entry: node mobile/node_modules/prettier/bin/prettier.cjs --write --ignore-unknown --ignore-path mobile/.prettierignore
+        entry: node mobile/node_modules/oxfmt/bin/oxfmt -c mobile/.oxfmtrc.jsonc --no-error-on-unmatched-pattern
         files: ^mobile/
         exclude: ^mobile/(package-lock\.json|expo-env\.d\.ts)$
