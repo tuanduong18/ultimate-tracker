@@ -429,13 +429,8 @@ The reminder is **deleted on its charge day** by the renewal job, or as soon as 
 cleaned up by the next run. No reminder is sent on the
 charge day itself: a run that missed the window does not send a late one.
 
-Delivery is in-app only for now. Email would be a second channel for the same notification row.
+Delivery is in-app; on the Android app the same rows will also reach the phone's notification tray ([platform.md](./platform.md#phone-notifications)). There is no email channel, by choice.
 [Budget alerts](#budget-alerts) use the same mechanism; the two are not built twice.
-
-### Open questions
-
-- Which email provider? Resend is the working assumption. (The scheduler question is settled:
-  Supabase pg_cron + pg_net — see [Background jobs](./platform.md#background-jobs).)
 
 ---
 

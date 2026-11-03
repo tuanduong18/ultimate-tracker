@@ -25,7 +25,7 @@ finds patterns in noise.
 ## What it must do
 
 - **[v0.3]** Weekly digest — a plain-language summary of the week with one actionable suggestion,
-  delivered by email and in-app.
+  delivered in the app.
 - **[v0.3]** Correlation engine — surfaces patterns across domains, in plain language, only once
   enough data exists.
 - **[v0.3]** Insights dashboard — digest archive, saved and dismissed correlations.
@@ -95,7 +95,11 @@ retroactively change their minds.
 ## Delivery
 
 The weekly digest and the subscription renewal reminders share the same scheduled-job
-infrastructure, built in v0.2 for subscriptions and reused here. Email goes through Resend.
+infrastructure, built in v0.2 for subscriptions and reused here.
 
-Both also share a notification preference: a user who has turned off email gets the digest in-app
-only. One preference surface, not one per feature.
+**In the app, not by email.** The digest is a notification like any other — in the bell on both
+clients, and kept on the Insights page as the archive. Email was the original plan and was
+dropped on 2026-11-03: for a handful of users who already open the app daily, an email is one
+more place to look and one more service to run, and a digest read inside the app is one tap
+from the data it talks about. Turning it off is a notification preference, like every other
+kind.

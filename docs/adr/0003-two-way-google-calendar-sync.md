@@ -1,6 +1,6 @@
 # 3. Two-way sync with Google Calendar
 
-- Status: Accepted
+- Status: Accepted, amended 2026-11-03 (conflicts)
 - Date: 2026-09-17
 
 ## Context
@@ -38,8 +38,12 @@ stricter rules than anything else in the codebase:
 
 - **The app owns only the events it created.** Imported Google events are read-only mirrors by
   default. The app never deletes a Google event it did not create.
-- **Google wins conflicts.** If the same event changed on both sides since the last sync,
-  Google's version stands and the app surfaces the overwrite rather than resolving it silently.
+- **The user decides conflicts.** If the same event changed on both sides since the last sync,
+  or one side deleted what the other edited, neither version wins on its own: the event is held
+  in a `conflict` state, untouched on both sides, until the user picks one. *Amended
+  2026-11-03* — this originally read "Google wins conflicts". Letting either side win
+  automatically means silently discarding something the user wrote, on the one feature whose
+  mistakes land outside the app; asking costs a tap on a rare event.
 - **Sync is incremental** via Google's `syncToken`. A full re-list is the recovery path for an
   expired token, not the normal mode.
 - **Every write is idempotent.** Creates use a client-generated event id, so a retried create

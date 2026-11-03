@@ -21,7 +21,7 @@ release, say why it's landing now.
 -->
 
 - [ ] v0.1 — Auth, Finance core, app shell, theming, CI/CD
-- [ ] v0.2 — Subscriptions + reminders, notifications/scheduler, budget alerts, Fitness, focus timer
+- [ ] v0.2 — Subscriptions + reminders, notifications/scheduler, budget alerts, Android app, Fitness, focus timer, screen time
 - [ ] v0.3 — Google Calendar sync + events, sleep/mood/habits, correlation engine, weekly digest, onboarding
 - [ ] v0.4 — Polish, performance, observability, launch
 - [ ] Last — Gaming Performance
@@ -43,6 +43,7 @@ release, say why it's landing now.
 - [ ] Every new service function and endpoint has at least one test
 - [ ] Errors use the standard shape `{"error": {"code": "...", "message": "..."}}`
 - [ ] Frontend API calls go through `lib/api-client.ts`, not raw `fetch()`
+- [ ] User-facing change ships on web and Android, or the lagging client is marked in `docs/features/README.md`
 - [ ] No `any` in TypeScript without an inline comment explaining why
 - [ ] No API response shape changed without updating frontend types and checking usages
 - [ ] Any new major dependency is noted in `README.md`'s tech stack table

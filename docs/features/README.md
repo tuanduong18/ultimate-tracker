@@ -10,14 +10,20 @@ The app is organised into five tracking domains plus the platform that carries t
 **The order below is the order they appear in the sidebar, in the README, and in the
 release plan.** It is deliberate, not alphabetical.
 
-| # | Domain | Spec | Status |
-|---|---|---|---|
-| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Built |
-| 2 | 🏋️ Fitness | [`fitness.md`](./fitness.md) | Not started |
-| 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started |
-| 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started |
-| 5 | 🎮 Gaming Performance | [`gaming.md`](./gaming.md) | Not started — ships last, by design |
-| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built |
+| # | Domain | Spec | Web | Android |
+|---|---|---|---|---|
+| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Built | Not started |
+| 2 | 🏋️ Fitness | [`fitness.md`](./fitness.md) | Not started | Not started |
+| 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started | Not started |
+| 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started | Not started |
+| 5 | 🎮 Gaming Performance | [`gaming.md`](./gaming.md) | Not started — ships last, by design | Not started |
+| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built | Not started |
+
+**Two clients, one feature set.** The web app and the Android app
+([ADR-0004](../adr/0004-android-app-as-second-client.md)) are kept at parity: a feature is
+**Built** only when both columns say so. When one client ships first, its column moves and the
+other's stays behind in the open, rather than the gap living in someone's memory. The backend is
+shared, so a domain's API status is the same for both.
 
 **Gaming Performance is last on purpose.** It is the most interesting domain to build,
 which makes it the easiest one to start early and the most tempting thing to drift into
@@ -41,8 +47,9 @@ These words mean specific things in these documents:
 
 Decisions about *why* the domains are shaped this way live in [`../adr/`](../adr/) —
 notably [ADR-0002](../adr/0002-consolidate-fitness-domains.md) (why Steps and Wellness folded
-into Fitness) and [ADR-0003](../adr/0003-two-way-google-calendar-sync.md) (why the calendar
-syncs both ways).
+into Fitness), [ADR-0003](../adr/0003-two-way-google-calendar-sync.md) (why the calendar
+syncs both ways) and [ADR-0004](../adr/0004-android-app-as-second-client.md) (why there is an
+Android app, and why at parity).
 
 ## How to change a spec
 
