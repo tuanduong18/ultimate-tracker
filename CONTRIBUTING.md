@@ -225,24 +225,23 @@ rather than only in a markdown table.
 ## Dependencies
 
 Dependabot opens **grouped weekly PRs** for pip, npm, GitHub Actions, and Docker
-([`.github/dependabot.yml`](./.github/dependabot.yml)). The frontend's npm bundles minor and
-patch into one PR and puts majors in a separate group, so a breaking major can't hold up routine
+([`.github/dependabot.yml`](./.github/dependabot.yml)). Both npm apps bundle minor and patch
+into one PR and put majors in a separate group, so a breaking major can't hold up routine
 updates; pip is a single group, since without a lock file Dependabot can't tell a major from a
-minor. A major that needs migration work (React, Next, Tailwind, recharts, the Python base
-image) arrives as its own PR — do the migration on that branch, or close it and take the upgrade
-later as a normal PR. The one frontend `ignore` entry holds TypeScript at 6.x until the move to
-7 is tested in its own PR.
+minor. A major that needs migration work (React, Next, Tailwind, TypeScript, recharts, the
+Python base image) arrives as its own PR — do the migration on that branch, or close it and take
+the upgrade later as a normal PR. The frontend has no `ignore` list.
 
 `oxlint` and `oxfmt` have a group of their own in both apps. Oxfmt is still `0.x`, where a
 minor release can change formatting; in its own PR, the reformat (`npm run format`) rides along
 without holding up the other updates.
 
-**The Android app is one group, with an ignore list.** Each week's `mobile/` bumps arrive as a
-single PR. An Expo SDK pins React and React Native exactly and its own packages (`expo-*`,
-`react-native-*`, `jest-expo`) to patch releases, so a minor or major bump
-of any of them fails CI's `expo-doctor` step — and in a single group, one failing bump would
-block the rest. Dependabot therefore sends only their patches. Moving to a new SDK is its own
-PR, done by hand:
+**The Android app has an ignore list,** and each rule stops a PR that would fail CI or quietly
+mislead; the comments in `dependabot.yml` give the evidence for each. An Expo SDK pins React and
+React Native exactly, and its own packages (`expo`, `expo-*`, `jest-expo`) and the React Native
+libraries on its list to patch releases, so anything bigger fails CI's `expo-doctor` step.
+`jest` majors wait for a `jest-expo` that supports them, and `@types/react` moves with the React
+the SDK pins. Dependabot sends their patches; moving to a new SDK is its own PR, done by hand:
 
 ```bash
 cd mobile
