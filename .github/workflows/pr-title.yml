@@ -50,6 +50,7 @@ jobs:
             ci
             deps
             deps-dev
+            mobile
           requireScope: false
           subjectPattern: ^(?![A-Z]).+[^.]$
           subjectPatternError: |
