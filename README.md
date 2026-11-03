@@ -134,7 +134,25 @@ npm run dev
 
 Frontend runs at `http://localhost:3000`.
 
-### 4. Or run everything with Docker Compose
+### 4. Android app (optional)
+
+Needs an Android phone and a free [Expo](https://expo.dev) account; native builds run on EAS,
+so no Android Studio. From the repo root:
+
+```bash
+cd mobile
+npm install
+cp .env.example .env                 # then fill it in; the API address must be reachable from the phone
+npx eas-cli login                    # once
+npx eas-cli init                     # first time only: links the app to an Expo project
+npx eas-cli build --profile development --platform android   # install the APK it links to
+npm start                            # then open the development client on the phone
+```
+
+The development client is rebuilt only when native code changes; everything else reloads
+live. More in [`DeveloperGuide.md` § 7](./DeveloperGuide.md#7-local-development-setup).
+
+### 5. Or run everything with Docker Compose
 
 ```bash
 docker compose up --build
@@ -150,7 +168,7 @@ container can reach): `localhost` inside the backend container is the container 
 ```
 ultimate-tracker/
 ├── frontend/       # Next.js app
-├── mobile/         # Android app (Expo) — planned
+├── mobile/         # Android app (Expo)
 ├── backend/        # FastAPI app
 ├── docs/
 │   ├── features/   # Per-domain feature specifications
@@ -195,6 +213,9 @@ cd backend && python -m pytest
 
 # Frontend
 cd frontend && npm run test -- --run   # without --run, vitest stays in watch mode
+
+# Android app
+cd mobile && npm test
 ```
 
 The backend's integration tests run against Postgres, like production. Create an empty

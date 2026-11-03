@@ -1,0 +1,95 @@
+name: Mobile CI
+
+# Same shape as frontend-ci.yml: no workflow-level `paths:` filter, because a
+# path-filtered workflow that doesn't trigger reports no status at all and would
+# deadlock a required check on PRs that don't touch mobile/. Filtering happens
+# per-job below, and `mobile-ci-ok` always runs so it can be the required check.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Detect mobile changes
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'mobile/**'
+              - '.github/workflows/mobile-ci.yml'
+
+  lint-test-export:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting with prettier
+        run: npm run format:check
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm run test -- --ci
+
+      # Every package at the version this Expo SDK expects. Catches a Dependabot
+      # bump that compiles but would break the native build.
+      - name: Check Expo dependencies
+        run: npx expo-doctor@1
+
+      # Bundles the JavaScript for Android: catches import and Metro errors
+      # without a native build, which needs EAS and minutes CI does not have.
+      - name: Export Android bundle
+        run: npm run export:android
+
+  # Always runs, so it is safe to mark as a required status check in the branch
+  # ruleset. Passes when lint-test-export succeeded or was skipped as irrelevant.
+  mobile-ci-ok:
+    needs: [lint-test-export]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report mobile CI result
+        run: |
+          result="${{ needs.lint-test-export.result }}"
+          echo "lint-test-export: $result"
+          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            exit 1
+          fi

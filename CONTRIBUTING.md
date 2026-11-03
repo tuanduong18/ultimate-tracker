@@ -19,8 +19,8 @@ python -m pip install pre-commit      # into backend/.venv, like every other Pyt
 python -m pre_commit install
 ```
 
-The prettier hook runs the frontend's own copy from `frontend/node_modules`, so install the
-frontend first (`npm ci` in `frontend/`). That way the hook formats with exactly the version in
+The prettier hooks run each app's own copy, from `frontend/node_modules` and
+`mobile/node_modules`, so install both first (`npm ci` in each). That way the hook formats with exactly the version in
 `package-lock.json`, the same one `npm run format:check` uses in CI.
 
 Hooks run `ruff check`, `ruff format`, `prettier`, and a few safety checks (including
@@ -83,7 +83,7 @@ The subject starts lowercase and has no trailing period.
 
 1. Branch off `main`, push, open a PR. The template pre-fills a checklist — fill it in rather
    than deleting it.
-2. Wait for `backend-ci-ok` and `frontend-ci-ok` to go green. Both are required; `main` is
+2. Wait for `backend-ci-ok`, `frontend-ci-ok` and `mobile-ci-ok` to go green. All three are required; `main` is
    protected by a ruleset and won't accept a merge without them.
 3. Check the Vercel preview link for anything user-facing.
 4. **Squash merge.** The branch auto-deletes.
@@ -104,7 +104,7 @@ this project shipping — which is also why the release plan carries an order bu
 
 ### Why CI looks the way it does
 
-Neither workflow uses a top-level `paths:` filter. A path-filtered workflow that doesn't
+No workflow uses a top-level `paths:` filter. A path-filtered workflow that doesn't
 trigger reports *no status at all*, which would leave a frontend-only PR waiting forever on a
 required `backend-ci` check that never runs. Instead each workflow has a `changes` job that
 does the filtering, and a `*-ci-ok` gate job that always runs and reports the result. **Those
@@ -186,6 +186,7 @@ detection — because that's exactly what breaks silently.
 ```bash
 cd backend  && python -m ruff check . && python -m ruff format --check . && python -m mypy app/ && python -m pytest
 cd frontend && npm run lint && npm run format:check && npx tsc --noEmit && npm run test -- --run && npm run build
+cd mobile   && npm run lint && npm run format:check && npx tsc --noEmit && npm test && npx expo-doctor && npm run export:android
 ```
 
 `pytest` needs `TEST_DATABASE_URL` pointing at a throwaway Postgres database whose name contains
@@ -224,12 +225,25 @@ rather than only in a markdown table.
 ## Dependencies
 
 Dependabot opens **grouped weekly PRs** for pip, npm, GitHub Actions, and Docker
-([`.github/dependabot.yml`](./.github/dependabot.yml)). npm bundles minor and patch into one
-PR and puts majors in a separate group, so a breaking major can't hold up routine updates;
-pip is a single group, since without a lock file Dependabot can't tell a major from a minor.
-Nothing is on an `ignore` list: a major that needs migration work (React, Next, Tailwind,
-eslint, recharts, the Python base image) arrives as its own PR — do the migration on that
-branch, or close it and take the upgrade later as a normal PR.
+([`.github/dependabot.yml`](./.github/dependabot.yml)). The frontend's npm bundles minor and
+patch into one PR and puts majors in a separate group, so a breaking major can't hold up routine
+updates; pip is a single group, since without a lock file Dependabot can't tell a major from a
+minor. The frontend and backend have nothing on an `ignore` list: a major that needs migration
+work (React, Next, Tailwind, eslint, recharts, the Python base image) arrives as its own PR — do
+the migration on that branch, or close it and take the upgrade later as a normal PR.
+
+**The Android app is one group, with an ignore list.** Each week's `mobile/` bumps arrive as a
+single PR. An Expo SDK pins React and React Native exactly and its own packages (`expo-*`,
+`react-native-*`, `jest-expo`, `eslint-config-expo`) to patch releases, so a minor or major bump
+of any of them fails CI's `expo-doctor` step — and in a single group, one failing bump would
+block the rest. Dependabot therefore sends only their patches. Moving to a new SDK is its own
+PR, done by hand:
+
+```bash
+cd mobile
+npx expo install expo@^<next SDK> --fix   # moves every SDK-managed package together
+npx expo-doctor
+```
 
 Security alerts are separate from these PRs (Security → Dependabot). GitHub's preset
 auto-triage rule, on by default for public repositories, dismisses low-impact alerts on

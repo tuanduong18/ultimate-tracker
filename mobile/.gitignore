@@ -1,0 +1,49 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# env files: values for local development only (the root .gitignore also covers them).
+# .env.example is the committed template.
+.env
+.env*.local
+
+# EAS signing credentials, if ever downloaded with `eas credentials`. EAS keeps the
+# keystore; a local copy must never be committed.
+credentials.json
+credentials/
+*.keystore
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android

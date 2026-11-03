@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+dist/
+coverage/
+android/
+ios/
+package-lock.json
+# Expo rewrites this on every start; let it own its formatting.
+expo-env.d.ts
