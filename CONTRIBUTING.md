@@ -236,18 +236,24 @@ the upgrade later as a normal PR. The frontend has no `ignore` list.
 minor release can change formatting; in its own PR, the reformat (`npm run format`) rides along
 without holding up the other updates.
 
-**The Android app has an ignore list,** and each rule stops a PR that would fail CI or quietly
-mislead; the comments in `dependabot.yml` give the evidence for each. An Expo SDK pins React and
-React Native exactly, and its own packages (`expo`, `expo-*`, `jest-expo`) and the React Native
-libraries on its list to patch releases, so anything bigger fails CI's `expo-doctor` step.
-`jest` majors wait for a `jest-expo` that supports them, and `@types/react` moves with the React
-the SDK pins. Dependabot sends their patches; moving to a new SDK is its own PR, done by hand:
+**The Android app has an ignore list,** and each rule stops a PR that would fail CI; the
+comments in `dependabot.yml` give the evidence for each. An Expo SDK fixes the versions of its
+native modules and of the tooling it was tested with, and CI's `expo-doctor` step fails when one
+drifts — `npx expo install --check` lists what the SDK expects. React, React Native and
+`@types/jest` are pinned exactly; Expo's own packages (`expo`, `expo-*`, `jest-expo`), the React
+Native libraries on its list, `jest` and `@types/react` allow patches only. Dependabot sends
+those patches; moving to a new SDK is its own PR, done by hand:
 
 ```bash
 cd mobile
 npx expo install expo@^<next SDK> --fix   # moves every SDK-managed package together
 npx expo-doctor
 ```
+
+TypeScript is the exception. `mobile/package.json` excludes it from Expo's check
+(`expo.install.exclude`), so mobile runs TypeScript 7 like the frontend while SDK 58 expects
+`~6.0.3`; `expo install --fix` leaves it alone, and CI's `tsc` step checks it instead. Once an
+SDK expects TypeScript 7 or later, drop the exclude.
 
 Security alerts are separate from these PRs (Security → Dependabot). GitHub's preset
 auto-triage rule, on by default for public repositories, dismisses low-impact alerts on

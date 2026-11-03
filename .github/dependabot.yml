@@ -31,11 +31,17 @@ updates:
   # Grouped like /frontend, so a breaking major waits in its own PR instead of
   # holding up the week's routine updates (as two majors did in #123).
   #
-  # Each ignore rule stops a PR that would fail CI or quietly mislead. An Expo
-  # SDK fixes the versions of the packages on its list (bundledNativeModules.json
-  # in the expo package), and CI's expo-doctor step fails as soon as one drifts.
-  # Those move together in a deliberate SDK upgrade PR instead
+  # Each ignore rule stops a PR that would fail CI. An Expo SDK fixes the
+  # versions of two sets of packages: native modules (bundledNativeModules.json
+  # in the expo package) and the tooling it was tested with ("related packages",
+  # which expo-doctor fetches from Expo's versions API). CI's expo-doctor step
+  # fails as soon as one drifts; `npx expo install --check` lists what the SDK
+  # expects. Those move together in a deliberate SDK upgrade PR instead
   # (`npx expo install expo@^<next> --fix`).
+  #
+  # typescript needs no rule: package.json excludes it from Expo's check
+  # (expo.install.exclude), so it runs ahead of the SDK's ~6.0.3, and CI's tsc
+  # step checks it instead.
   - package-ecosystem: npm
     directory: /mobile
     schedule:
@@ -56,14 +62,15 @@ updates:
         patterns: ["*"]
         update-types: [major]
     ignore:
-      # Expo's list pins these to one exact version (react 19.3.0, react-dom
-      # 19.3.0, react-native 0.88.1), so any update fails expo-doctor, patches
-      # included: react 19.3.1 is already out. They move only when the expo
-      # package changes its list; if an expo patch does, run
+      # Expo pins these to one exact version (react 19.3.0, react-dom 19.3.0,
+      # react-native 0.88.1, @types/jest 30.0.0), so any update fails
+      # expo-doctor, patches included: react 19.3.1 is already out. They move
+      # only when the expo package changes its list; if an expo patch does, run
       # `npx expo install --fix` on that PR's branch.
       - dependency-name: "react"
       - dependency-name: "react-dom"
       - dependency-name: "react-native"
+      - dependency-name: "@types/jest"
       # Every Expo package (expo, the expo-* modules, jest-expo) is versioned
       # with the SDK: 58.x.y belongs to SDK 58. Expo's list allows its modules
       # patch releases only (~58.0.x), and modules do ship minors mid-SDK
@@ -78,14 +85,12 @@ updates:
       # its minors by hand.
       - dependency-name: "react-native-*"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      # jest-expo 58 requires jest ^29 || ^30, so jest 31 can't run until an SDK
-      # upgrade brings a jest-expo that supports it.
+      # Expo's related packages allow these patch releases only (jest ~30.5.2,
+      # @types/react ~19.3.0), so a minor fails expo-doctor. A major couldn't
+      # work anyway: jest-expo 58 requires jest ^29 || ^30, and @types/react 20
+      # would describe a React the SDK doesn't ship.
       - dependency-name: "jest"
-        update-types: ["version-update:semver-major"]
-      # The types for the React that Expo pins. They're not on Expo's list, so
-      # expo-doctor wouldn't object, but a newer minor describes React APIs the
-      # app's runtime doesn't have, and nothing in CI would notice. They move
-      # with React in the SDK upgrade; 19.3 type fixes still come through.
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "@types/react"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
