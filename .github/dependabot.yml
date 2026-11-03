@@ -14,6 +14,11 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # First, so it claims these before the catch-all groups. Oxfmt is 0.x,
+      # where a minor release can change formatting; in its own PR a reformat
+      # can ride along without holding up everything else.
+      oxc:
+        patterns: ["oxlint", "oxfmt"]
       frontend:
         patterns: ["*"]
         update-types: [minor, patch]
@@ -21,9 +26,9 @@ updates:
         patterns: ["*"]
         update-types: [major]
     ignore:
-      # TypeScript 7.0 ships no compiler API, which typescript-eslint (inside
-      # eslint-config-next) needs, so lint crashes on 7.x. Hold at 6.0 until
-      # typescript-eslint supports TypeScript 7.1 (typescript-eslint#10940).
+      # Lint no longer needs the TypeScript compiler API (oxlint parses
+      # TypeScript itself), but `next build` on TypeScript 7 is untested. Hold
+      # at 6.0 until the move to 7 lands in its own PR.
       - dependency-name: "typescript"
         versions: [">= 7"]
 
@@ -46,6 +51,9 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # Same split as /frontend: Oxfmt minors can change formatting.
+      oxc:
+        patterns: ["oxlint", "oxfmt"]
       mobile:
         patterns: ["*"]
     ignore:
@@ -60,18 +68,11 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "jest-expo"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      - dependency-name: "eslint-config-expo"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
       # jest-expo supports jest 29 and 30 only.
       - dependency-name: "jest"
         update-types: ["version-update:semver-major"]
-      # eslint-config-expo's eslint-plugin-react and eslint-plugin-import
-      # support ESLint 9 at most and crash on 10 (eslint-config-next shims
-      # them; eslint-config-expo does not). ESLint moves with the Expo SDK.
-      - dependency-name: "eslint"
-        update-types: ["version-update:semver-major"]
-      # Same TypeScript 7 hold as /frontend: typescript-eslint has no 7.0
-      # support (typescript-eslint#10940).
+      # Same TypeScript 7 hold as /frontend: lint is no longer the blocker, but
+      # tsc, Jest and the Expo export on 7 are untested.
       - dependency-name: "typescript"
         versions: [">= 7"]
 

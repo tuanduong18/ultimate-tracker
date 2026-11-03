@@ -55,7 +55,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Spreadsheets | openpyxl | Pure-Python .xlsx reader and writer for the export, the import template and imports: exact decimals and real date cells, no Excel install needed on the server |
 | Exchange rates | open.er-api.com | No API key, quotes 160+ currencies including VND; ECB-backed alternatives quote ~30 and omit it |
 | CI/CD | GitHub Actions | Lint, test, build, deploy on every PR |
-| Code style | Ruff (Python) + Prettier & ESLint (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
+| Code style | Ruff (Python) + Oxlint & Oxfmt (TypeScript) | One formatter per language, enforced in CI and via pre-commit |
 | Frontend hosting | Vercel (free tier) | Zero-config Next.js deploys |
 | Backend hosting | Render (free tier) | Simple Docker-based deploys for FastAPI |
 | Logging | structlog, JSON lines on Render | Every log call carries named fields, so Render's log search can filter by them. There is no error-reporting service, by choice — the app's users are its author and a few friends, who see failures on screen |

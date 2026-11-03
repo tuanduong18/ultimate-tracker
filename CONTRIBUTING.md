@@ -19,11 +19,11 @@ python -m pip install pre-commit      # into backend/.venv, like every other Pyt
 python -m pre_commit install
 ```
 
-The prettier hooks run each app's own copy, from `frontend/node_modules` and
+The oxfmt hooks run each app's own copy, from `frontend/node_modules` and
 `mobile/node_modules`, so install both first (`npm ci` in each). That way the hook formats with exactly the version in
 `package-lock.json`, the same one `npm run format:check` uses in CI.
 
-Hooks run `ruff check`, `ruff format`, `prettier`, and a few safety checks (including
+Hooks run `ruff check`, `ruff format`, `oxfmt`, and a few safety checks (including
 `detect-private-key`) on staged files only. To run them across the whole repo:
 
 ```bash
@@ -228,13 +228,18 @@ Dependabot opens **grouped weekly PRs** for pip, npm, GitHub Actions, and Docker
 ([`.github/dependabot.yml`](./.github/dependabot.yml)). The frontend's npm bundles minor and
 patch into one PR and puts majors in a separate group, so a breaking major can't hold up routine
 updates; pip is a single group, since without a lock file Dependabot can't tell a major from a
-minor. The frontend and backend have nothing on an `ignore` list: a major that needs migration
-work (React, Next, Tailwind, eslint, recharts, the Python base image) arrives as its own PR — do
-the migration on that branch, or close it and take the upgrade later as a normal PR.
+minor. A major that needs migration work (React, Next, Tailwind, recharts, the Python base
+image) arrives as its own PR — do the migration on that branch, or close it and take the upgrade
+later as a normal PR. The one frontend `ignore` entry holds TypeScript at 6.x until the move to
+7 is tested in its own PR.
+
+`oxlint` and `oxfmt` have a group of their own in both apps. Oxfmt is still `0.x`, where a
+minor release can change formatting; in its own PR, the reformat (`npm run format`) rides along
+without holding up the other updates.
 
 **The Android app is one group, with an ignore list.** Each week's `mobile/` bumps arrive as a
 single PR. An Expo SDK pins React and React Native exactly and its own packages (`expo-*`,
-`react-native-*`, `jest-expo`, `eslint-config-expo`) to patch releases, so a minor or major bump
+`react-native-*`, `jest-expo`) to patch releases, so a minor or major bump
 of any of them fails CI's `expo-doctor` step — and in a single group, one failing bump would
 block the rest. Dependabot therefore sends only their patches. Moving to a new SDK is its own
 PR, done by hand:
@@ -269,7 +274,7 @@ Dependabot proposes range widenings as ordinary PRs, so a major shows up as a de
 than a surprise. Keep the ruff hook's `rev` in `.pre-commit-config.yaml` equal to the ruff CI
 installs (the newest release inside the `requirements.txt` range), or the hook and CI can
 disagree about formatting — when a Dependabot PR widens the ruff range, bump the `rev` in it.
-Prettier needs no such care: the hook uses the frontend's locked copy.
+Oxfmt needs no such care: each hook uses its app's locked copy.
 
 Adding a new **major** dependency by hand means noting it in `README.md`'s tech stack table.
 

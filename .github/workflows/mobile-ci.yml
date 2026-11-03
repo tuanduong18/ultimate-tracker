@@ -60,7 +60,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Check formatting with prettier
+      - name: Check formatting with oxfmt
         run: npm run format:check
 
       - name: Type check

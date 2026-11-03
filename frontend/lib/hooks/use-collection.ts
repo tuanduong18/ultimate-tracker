@@ -90,9 +90,9 @@ export function useCollection<T>(
   // position and the row the user was looking at, to announce a wait that
   // usually lasts less than the blink it caused. The button that started the
   // write already says it is busy.
-  // (react-hooks/set-state-in-effect still warns on the setters below; it fires
-  // on any setState reachable from an effect, which is every data-fetching hook.
-  // The rule is relaxed to a warning in eslint.config.mjs for that reason.)
+  // (react/set-state-in-effect still warns on the setters below; it fires on
+  // any setState reachable from an effect, which is every data-fetching hook.
+  // The rule is relaxed to a warning in .oxlintrc.json for that reason.)
   const load = useCallback(async () => {
     try {
       setItems(await fetchList(path));

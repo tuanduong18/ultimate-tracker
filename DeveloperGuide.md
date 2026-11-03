@@ -509,7 +509,7 @@ Four CI workflows. Deployment is handled natively by Render and Vercel (auto-dep
 
 **`frontend-ci.yml`** — when a PR touches `frontend/`:
 1. Install dependencies
-2. Run `eslint`, `prettier --check`, and `tsc --noEmit`
+2. Run `oxlint`, `oxfmt --check`, and `tsc --noEmit`
 3. Run `npm run test`
 4. Run `npm run build` to catch build-time errors
 
@@ -517,7 +517,7 @@ Four CI workflows. Deployment is handled natively by Render and Vercel (auto-dep
 
 **`mobile-ci.yml`** — when a PR touches `mobile/`:
 1. Install dependencies
-2. Run `eslint`, `prettier --check`, and `tsc --noEmit`
+2. Run `oxlint`, `oxfmt --check`, and `tsc --noEmit`
 3. Run jest
 4. Run `expo-doctor`, which fails when a package is not the version this Expo SDK expects — a
    Dependabot bump that compiles but would break the native build
@@ -574,18 +574,20 @@ Minimum bar: every new service function and API endpoint needs at least one test
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes/Pydantic models
 
 **Frontend (TypeScript):**
-- `eslint` (`next/core-web-vitals`) for correctness, `prettier` for formatting — `eslint-config-prettier` disables the rules that would conflict
+- `oxlint` for correctness, `oxfmt` for formatting. `.oxlintrc.json` lists the rules `next/core-web-vitals` ran (Next.js, React, React Compiler, jsx-a11y); only listed rules run
 - Both enforced in CI via `npm run lint` and `npm run format:check`; fix locally with `npm run format`
-- Print width 100, single quotes, semicolons (`.prettierrc`)
+- Print width 100, single quotes, semicolons (`.oxfmtrc.jsonc`) — the same output Prettier gave
 - Strict TypeScript (`strict: true` in `tsconfig.json`)
 - Naming: `camelCase` for variables/functions, `PascalCase` for components, files match component names
 
-**Android app (TypeScript):** the same rules as the frontend — `prettier` with the same
-`.prettierrc`, strict TypeScript, the same naming — with `eslint-config-expo` in place of the
-Next config.
+**Android app (TypeScript):** the same rules as the frontend — `oxfmt` with the same
+options, strict TypeScript, the same naming — with the rules `eslint-config-expo` ran in place
+of the Next ones. `eslint-plugin-expo`'s env-var rules are not carried over (the plugin needs
+ESLint), so read `EXPO_PUBLIC_*` as `process.env.EXPO_PUBLIC_X` literally: Expo inlines only
+that form at build time.
 
-**Both languages:** `.pre-commit-config.yaml` runs ruff check, ruff format, and prettier on
-staged files, plus `detect-private-key` and friends — ruff at the version CI installs, prettier
+**Both languages:** `.pre-commit-config.yaml` runs ruff check, ruff format, and oxfmt on
+staged files, plus `detect-private-key` and friends — ruff at the version CI installs, oxfmt
 from `frontend/node_modules` and `mobile/node_modules`. Install with `python -m pre_commit install` (setup in
 [CONTRIBUTING.md](./CONTRIBUTING.md#local-setup)) — optional, but it catches these before CI does.
 
