@@ -1,6 +1,6 @@
 # Ultimate Tracker
 
-> A single web app that tracks your money and subscriptions, your training and recovery, your calendar and where your hours actually go, and your gaming performance — then tells you how they connect.
+> One app, on the web and on Android, that tracks your money and subscriptions, your training and recovery, your calendar and where your hours actually go, and your gaming performance — then tells you how they connect.
 
 Most tracking apps live in isolation. Your budget app doesn't know you slept badly. Your fitness app doesn't know you overspent. Ultimate Tracker puts every domain of your daily life in one place specifically so it can surface insights none of those apps can give you alone — *"your focus hours are 40% higher on days you hit your step goal"*, *"you overspend in weeks your gym sessions drop below 2."*
 
@@ -12,8 +12,8 @@ This is a personal project built to be genuinely used daily, while serving as a 
 
 ## Why this exists
 
-- Built for people who work at a desk most of the day — the web is where the habit should form, not a phone notification you swipe away.
-- Manual logging by design. No fragile background services, no OS permission battles — just fast, low-friction input.
+- Built for people who work at a desk most of the day, and carry a phone the rest of it. The web is where you review and plan; the Android app is where you log on the move and where the phone fills in what only it can measure.
+- Fast, low-friction manual logging everywhere — and no typing in what the phone already knows. The phone counts your steps and measures your screen time and sleep, and when the phone replaces a number you typed, it tells you.
 - The headline feature isn't any single tracker. It's the **cross-domain insight engine** that correlates everything once enough data exists.
 
 ---
@@ -25,8 +25,8 @@ Five domains, listed in the order they appear in the app.
 | # | Domain | Status | What it covers |
 |---|---|---|---|
 | 1 | 💰 Finance & Budgeting | Built | Expenses with search, filters, Excel export and import from a template; categories; multi-currency budgets that alert you as they near and reach their cap; spending breakdowns — plus subscriptions that renew into expenses automatically, with reminders |
-| 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps, sleep, mood, habits |
-| 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
+| 2 | 🏋️ Fitness | Planned | Gym / swim / sport sessions, personal records, daily steps (counted by the phone on Android), sleep (detected by the phone), mood, habits |
+| 3 | ⏱️ Time Tracking & Calendar | Planned | Focus timer, entertainment budgets, screen time from your phone, and two-way Google Calendar sync covering timetable, deadlines, dates and events |
 | 4 | ✨ Cross-Domain Insights | Planned | Correlation engine and weekly digest across every domain above |
 | 5 | 🎮 Gaming Performance | Last | Riot / Steam sync, tilt detection, performance trends |
 
@@ -60,7 +60,17 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Backend hosting | Render (free tier) | Simple Docker-based deploys for FastAPI |
 | Logging | structlog, JSON lines on Render | Every log call carries named fields, so Render's log search can filter by them. There is no error-reporting service, by choice — the app's users are its author and a few friends, who see failures on screen |
 
-> **No mobile app.** This is a web-only project. Step counts, app usage, and other data that would normally come from a phone are entered manually for now.
+**Android app (planned for v0.2)** — a second client of the same backend, at parity with the web
+([ADR-0004](./docs/adr/0004-android-app-as-second-client.md)):
+
+| Layer | Choice | Why |
+|---|---|---|
+| App | Expo (React Native) + TypeScript, Expo Router | Same language and React model as the web, so the API client and auth port across; native code only where the hardware needs it |
+| Hardware | The step-counter sensor and `UsageStatsManager` (small Kotlin modules), `expo-background-task`; Health Connect opt-in | Steps, screen time and sleep measured by the phone itself, synced in the background; a watch's data through Health Connect for those who want it |
+| Notifications | `expo-notifications`, local | Reminders and alerts reach the phone's tray — fetched from the server in the background, or raised by the phone itself — with no push service to run |
+| Distribution | EAS Build → signed APK on GitHub Releases, EAS Update over the air | A handful of users, no store listing; most updates need no reinstall |
+
+Until it ships, step counts and app usage are entered by hand on the web.
 
 ---
 
@@ -140,6 +150,7 @@ container can reach): `localhost` inside the backend container is the container 
 ```
 ultimate-tracker/
 ├── frontend/       # Next.js app
+├── mobile/         # Android app (Expo) — planned
 ├── backend/        # FastAPI app
 ├── docs/
 │   ├── features/   # Per-domain feature specifications
@@ -164,14 +175,15 @@ when it is done and the one before it is stable.
 | Release | What ships |
 |---|---|
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD. |
-| **v0.2** | Subscriptions end to end, reminders included — so the notification and scheduler service lands here. Budget breach alerts. Fitness training and steps. Focus timer and entertainment budgets. |
+| **v0.2** | Subscriptions end to end, reminders included — so the notification and scheduler service lands here. Budget breach alerts. The Android app at parity with the web, working offline, with notifications in the phone's tray. Fitness training and steps, with steps counted by the phone. Focus timer, entertainment budgets and screen time. |
 | **v0.3** | Two-way Google Calendar sync and events. Sleep, mood and habits. Correlation engine and weekly digest. Onboarding. |
 | **v0.4** | Polish, performance pass, full observability, public launch. |
 | **Last** | Gaming Performance — Riot and Steam integration, tilt detection. Deliberately after everything else. |
 
 **Where it stands:** v0.1 is done. From v0.2, subscriptions with reminders, in-app
 notifications, the scheduler and budget breach alerts have shipped too, which completes
-Finance; Fitness and the focus timer are what remain of it.
+Finance. Next is the Android app — parity with what exists, then its notifications — and after it Fitness
+and the focus timer, built for both clients at once.
 
 ---
 

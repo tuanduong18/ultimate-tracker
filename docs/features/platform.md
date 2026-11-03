@@ -50,7 +50,8 @@ theming, and the pipeline that keeps it deployable.
 
 - Onboarding flow — the page is a placeholder.
 - Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
-- Notification delivery beyond in-app: no email yet.
+- Notifications in the Android app's tray — planned for v0.2, without server push. No email, by choice.
+- The Android app — planned for v0.2. See [Android app](#android-app).
 - Full data export and account deletion. (Finance's Transactions tab exports expenses to Excel;
   there is no whole-account export.)
 
@@ -110,7 +111,8 @@ feature, is the obvious failure mode. One delivery service, one preference surfa
 |---|---|---|
 | In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. |
 | Scheduler | **Built** | Supabase pg_cron + pg_net calling the job endpoints — see [Background jobs](#background-jobs). |
-| Email | Not built | Resend. Used for the weekly digest and opted-in reminders. |
+| Phone | Planned (v0.2) | The Android app's notification tray: server notifications fetched in the background, plus ones only the phone can raise. No server push. See [Phone notifications](#phone-notifications). |
+| Email | Not planned | Dropped 2026-11-03: the weekly digest is in-app ([insights.md](./insights.md#delivery)), and the phone's tray covers reaching someone outside the app. |
 | Preferences | Not built | Per-channel, per-category, on the profile. One place the user turns things off. |
 
 `notifications` holds `user_id`, a `kind` (CHECKed string), `title`, `body`, an optional
@@ -142,7 +144,66 @@ grant to `authenticated`, which the policy narrows to those rows, and the table 
 `supabase_realtime` publication; the migrations set all three up when they run on Supabase.
 Without the grant, Realtime answers every change with "401 Unauthorized" and the bell only
 catches up on refetch — the case until `23a0df7e12fb`. The backend connects as the table owner, which RLS does not restrict. Refetching on tab
-focus and every five minutes covers a dropped socket.
+focus and every five minutes covers a dropped socket. The Android app subscribes the same way
+while it is open, and refetches when it returns to the foreground.
+
+### Phone notifications
+
+*Planned for v0.2, with the Android app.* Notifications reach the phone's tray **without server
+push** — no Firebase, no push service, no table of device tokens, no outbound call from the
+backend. Each kind of notification has exactly one path to the tray, so none arrives twice.
+
+**Server notifications are fetched.** Everything the jobs write to `notifications` — reminders,
+renewal notices, budget alerts, currency notices, step replacements, calendar conflicts, the
+weekly digest:
+
+- The background task that already runs for steps and screen time, about hourly, also asks
+  `GET /notifications?alerted_after=<newest it has shown>` and shows each new row as a local
+  notification, in full text. While the app is open, Realtime keeps it current, as on the web.
+- **Reminders are scheduled ahead, so they fire offline.** A reminder row becomes one scheduled
+  notification per remaining day until its `due_on`, at 09:00 local — "renews in 3 days", then 2,
+  then 1 — each replacing the last in the tray.
+- **Every successful sync rebuilds the schedule rather than patching it.** The app cancels
+  everything it scheduled from server rows and schedules again from the current list, and
+  removes from the tray any notification whose row is gone, read, snoozed or archived. So
+  cancelling a subscription on the web, or reading or snoozing a reminder there, clears it from
+  the phone at its next sync.
+- **The phone schedules from the server's rows, not from subscriptions' billing dates.** The
+  server stays the one place that decides what to remind about, and the billing-date rules are
+  not written a second time in TypeScript. It only needs the phone to sync once in the three days
+  before a charge.
+- **The one gap is a phone that stays offline.** If a subscription is cancelled on the web and
+  the phone hears nothing before the reminder's time, the reminder fires anyway. No design closes
+  this — a server push would not reach an offline phone either — and a stale reminder costs a
+  tap, where a missed renewal costs money. Tapping it opens the subscription: refreshed if the
+  phone is online, otherwise the cached copy, labelled with when it was last synced.
+
+**Phone notifications are local.** What the phone measures or schedules itself:
+
+- **Entertainment allowance at 80% and at its cap**, from screen time the phone measures —
+  raised while the user is still in the app that crossed it, not an hour later. The server
+  writes the same alert for the web's bell, and the fetch path skips that kind, so the phone
+  shows it once.
+- **The focus timer**: an ongoing notification while it runs, and one when it ends.
+- **Habit reminders and mood / sleep check-in prompts** (v0.3), at the time the user set.
+  Android 14 denies exact alarms by default, so they may arrive a few minutes late; to the
+  minute would need the exact-alarm permission.
+- **Offline sync trouble**: a queued write the server refused, or a clash waiting for an answer
+  (see [Offline on Android](#offline-on-android)).
+
+Tapping any notification opens its subject — a budget alert opens that budget, a replaced step
+count that day. Android channels — Reminders, Notices, Timer, Sync — let the user mute one in
+Android's own settings without losing the others. The notification permission is asked for
+after sign-in, with one line saying why.
+
+**What the backend needs:** `GET /notifications` gains `?alerted_after=`, so the app fetches
+only what is new. Nothing else.
+
+**Cost: a server notification can lag.** It reaches the tray at the phone's next background run
+— up to about two hours after the job writes it (the job and the fetch each run about hourly),
+longer on a phone whose battery saver stops the app. Nothing the app sends is more urgent than
+that. Server push stays possible later, for a feature that needs instant delivery (something
+shared between users, say): it would read the same table, so adding it changes nothing else.
 
 ### Background jobs
 
@@ -183,10 +244,132 @@ sees.
   default), with a quick dark-mode switch in the account menu.
 - **[v0.1, built]** Currencies: display currency (what totals are reported in) and preferred
   currency (what new entries start in).
-- **[v0.2]** Notification preferences, arriving with the notification service.
+- **[v0.2]** Notification preferences, arriving with the notification service — per channel
+  (in-app, phone) and per category.
 - **[v0.3]** Connected accounts — Google Calendar, and later Riot and Steam.
 - **[v0.3]** Onboarding — domain selection and goal setup, under three minutes.
 - **[Future]** Full data export as CSV or JSON, and account deletion.
+
+---
+
+## Android app
+
+*Planned for v0.2.* A second client of the same backend, at parity with the web, adding what
+only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-second-client.md).
+
+- **Where it lives.** `mobile/`, a top-level folder beside `frontend/`. Not `android/`: Expo
+  generates a folder of that name inside the app.
+- **Identity.** Package name `com.tuanduong.ultimatetracker`, shown on the home screen as
+  **Ultimate Tracker**. The package name is permanent — changing it makes a different app,
+  which every phone would have to uninstall and reinstall — so it is fixed here before the
+  first build.
+- **Android 14 or later.** Every user is on a current Android, so the floor is set where
+  Health Connect, for those who switch it on, is part of the system rather than a separate app
+  from the Play Store: one permission flow to build and test, not two. The reference device is
+  a **Xiaomi Redmi Note 13 Pro 5G** on HyperOS.
+- **Permissions, asked when they are needed and each with one line saying why:** notifications
+  after sign-in; *physical activity* for the step counter; **Usage access** for screen time and
+  sleep, granted by hand in Settings (see [Screen time](./time-and-calendar.md#screen-time)).
+  Health Connect's own permissions only if the user switches it on
+  ([fitness.md](./fitness.md#health-connect)).
+- **Sign-in.** The same Supabase project and providers. Email and password as on the web; Google
+  through the system browser with PKCE, returning to `ultimatetracker://auth/callback`, which
+  has to be added to Supabase's Redirect URLs beside the web origins. The session is kept in
+  `expo-secure-store`.
+- **Shell.** The web's phone layout is the starting point: a bottom tab bar with the first four
+  modules plus **More**, and a header with Log, the notification bell and the account menu. It
+  follows Android's own conventions where they differ — the system back gesture, edge-to-edge
+  drawing, 48 dp touch targets.
+- **Timezone** follows the device and syncs to the profile on launch, as the web does in the
+  browser.
+- **Background work** — reading steps, screen time and sleep, fetching notifications and sending the
+  offline outbox — runs on WorkManager through
+  `expo-background-task`: about hourly, best-effort, and delayed further by some phone makers'
+  battery savers. Every sync it calls is an idempotent batch upsert, so a late or repeated run
+  only catches up. The app shows when each sync last succeeded.
+- **Xiaomi's battery saver is the one to beat.** HyperOS stops background work for apps it has
+  not been told to leave alone, which on the reference device means syncs that never run. The
+  app's setup screen walks through the two switches it needs — **Autostart** on, and **Battery
+  saver → No restrictions** — and the sync status shows the gap when they are off, rather than
+  leaving a stale step count looking current.
+- **Notifications.** See [Phone notifications](#phone-notifications).
+- **Offline.** See [Offline on Android](#offline-on-android).
+- **No crash reporting yet.** As on the web, there is no error-reporting service for now; the
+  app shows when each sync last succeeded. Sentry for the Android app — readable traces through
+  uploaded source maps, native crashes, personal data stripped — is planned for the last
+  development phase.
+- **Distribution.** A signed APK, sideloaded — no store listing, no AAB. EAS Build makes it, a
+  GitHub Release hosts it, and EAS Update ships JavaScript-only changes to installed apps on
+  their next launch. A new APK is needed only when native code or permissions change; the app
+  checks the latest GitHub Release and offers it.
+- **Developer verification: not registered, for now.** Since 30 September 2026, apps installed
+  on certified Android devices in Singapore (and Brazil, Indonesia and Thailand; globally from
+  2027) must come from a verified developer — or the phone's owner opts in to unverified ones.
+  The app takes the second route: the APK is sent as a file, and each user, once per phone,
+  turns on **Developer options → Apps from unverified developers** (Google's "advanced flow",
+  which makes them wait 24 hours and click through warnings) or installs over `adb` from a
+  computer. EAS Update's over-the-air updates do not go through the installer, so most releases
+  are unaffected. If that first install becomes a nuisance, a free **limited distribution
+  account** in the Android Developer Console (up to 20 devices, no fee, no ID) registers the
+  package and its signing key, and the step goes away. The rules shifted through 2026; check
+  developer.android.com before relying on any detail here.
+- **Signing key.** Managed by EAS and backed up. Losing it forces every user to uninstall and
+  reinstall; their data lives on the server and survives.
+
+### Offline on Android
+
+*Planned for v0.2, built into the Android app's parity work from the start.* Logging happens on
+the move — on a train, in a basement food court — so the app must accept a write with no
+signal and deliver it later. The web stays online-only.
+
+- **Reads come from a cache.** TanStack Query's cache is persisted on the device, so every screen
+  shows what it last loaded, marked with when that was, instead of an error.
+- **Writes go through an outbox.** Every create, edit and delete is written to a persisted queue
+  on the device first and shown at once, marked *waiting to sync*. The queue is sent in order as
+  soon as the phone is online, and by the background task. Building every form on it from the
+  first parity screen is cheaper than retrofitting it into each one later.
+- **Replays are idempotent.** A create carries a client-generated UUID as the new row's id, so a
+  replay of a create the server already applied returns that row instead of making a second
+  one. A delete of a row that is already gone counts as done.
+- **Edits are checked per field.** An edit sends only the fields it changed, each with the value
+  it was changed from. The server applies it if those fields still hold those values, whatever
+  happened to the rest of the row, and otherwise answers `409 EDIT_CONFLICT` with the current
+  row. Fields that only mean something together — a budget's `all_spending` and its categories
+  — are checked as one. So a phone edit of an expense's amount and a web edit of its category
+  both stand, and a subscription edited offline is not a clash just because the renewal job moved
+  its billing date. A delete carries the row as the phone last saw it, checked the same way.
+- **A real clash is the user's call.** Both versions are kept until the user answers, from a
+  **Needs your attention** list, with a local notification pointing to it. Until then the phone
+  shows its version marked as clashing, and the web shows the server's.
+- **A rejected write is kept, not lost.** If the server refuses a queued write for a reason the
+  phone could not see — the category was deleted, the currency was delisted — it stays in the
+  outbox, flagged, until the user fixes or discards it.
+- **Some things stay online-only.** Anything whose answer only the server can give: spreadsheet
+  import and export, and the converted totals on the dashboard, which show their last cached
+  figures until the phone reconnects.
+
+Every case, phone against web:
+
+| The phone, offline | The web, meanwhile | When the phone comes back online |
+|---|---|---|
+| Edited a row | Edited other fields of it | Both kept. No question. |
+| Edited a field | Edited the same field to a different value | Asked: the phone's value or the web's? |
+| Edited a row | Deleted it | Asked: restore it with the edit, or let it go? |
+| Deleted a row | Edited it | Asked: delete anyway, or keep the web's version? |
+| Deleted a row | Deleted it | Done. |
+| Created an entry | Created the same entry | Both kept. No duplicate detection: it is rare, and the duplicate is in plain sight. |
+| Created an entry in category X | Deleted category X | Refused, and kept in the outbox, flagged, until the user picks another category or none. |
+| Created a category, then entries in it | — | Works: the entries point at the category's phone-made id, and the queue sends the category first. |
+| Renewed a subscription early | The renewal job recorded that charge | Checked at replay: nothing new is recorded, and the phone says it was already renewed. |
+
+**Last write wins was rejected.** It decides by which write reached the server last — after
+hours offline, by when the train left the tunnel — and drops the other edit without telling
+anyone.
+
+**What the backend needs for it:** create endpoints that accept an optional client-supplied
+`id`, treating a repeat by the same user as a no-op; edit and delete endpoints that take the
+original values of the fields they touch and answer `409 EDIT_CONFLICT`, with the current row,
+when any has changed. No new columns: the check compares values, not timestamps.
 
 ---
 
@@ -210,7 +393,8 @@ sees.
 ## CI/CD
 
 Three workflows, no deploy workflow — Render and Vercel deploy natively on push to `main`.
-Details in [`DeveloperGuide.md` § 9](../../DeveloperGuide.md#9-cicd-pipeline).
+Details in [`DeveloperGuide.md` § 9](../../DeveloperGuide.md#9-cicd-pipeline). A fourth,
+`mobile-ci`, arrives with the Android app.
 
 The one rule worth repeating here, because breaking it takes production down: **migrations do not
 run themselves.** Render redeploys the instant a PR merges. Apply additive migrations to

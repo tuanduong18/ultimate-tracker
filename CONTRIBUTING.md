@@ -62,7 +62,9 @@ Both follow [Conventional Commits](https://www.conventionalcommits.org/).
 [`docs/features/`](./docs/features/), enforced by
 [`pr-title.yml`](./.github/workflows/pr-title.yml):
 `finance` · `fitness` · `time` · `insights` · `gaming` · `auth` ·
-`dashboard` · `api` · `db` · `ci` · `deps` · `deps-dev` (Dependabot's dev-dependency PRs)
+`dashboard` · `api` · `db` · `ci` · `deps` · `deps-dev` (Dependabot's dev-dependency PRs) ·
+`mobile` (the Android app's own plumbing — shell, build, release, permissions; a feature in a
+domain keeps that domain's scope on either client)
 
 > `steps` and `wellness` were retired when those domains merged into **Fitness**.
 > Use `fitness`. CI rejects the old names.
@@ -89,6 +91,12 @@ The subject starts lowercase and has no trailing period.
 **Size:** one vertical slice per PR. For a new backend domain that's model → schema → service
 → route → test in a single PR — the full chain, nothing half-wired. Resist bundling two
 domains together; if the PR description needs the word "also", it's probably two PRs.
+
+**Two clients:** a user-facing feature ships on the web and the Android app
+([ADR-0004](./docs/adr/0004-android-app-as-second-client.md)). Both in one PR when the change is
+small; otherwise one PR per client, back to back, with the lagging client's column in
+[`docs/features/README.md`](./docs/features/README.md) showing the gap until it lands. Backend
+first, as always, so neither client waits on an API that isn't there.
 
 **Scope:** every PR names its target release. If something scoped for v0.3 is landing during
 v0.1, say why in the description. Scope creep across releases is the single biggest risk to

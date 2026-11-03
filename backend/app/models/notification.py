@@ -2,8 +2,8 @@
 
 Subscription reminders and renewal notices were the first writers, budget
 alerts the next; the weekly digest is meant to write here too rather than
-growing its own table. Email, when it arrives, is a second channel for the
-same row.
+growing its own table. There is no email channel; the Android app fetches
+these same rows and shows them in the phone's notification tray.
 
 A notification is in one of three places:
 
