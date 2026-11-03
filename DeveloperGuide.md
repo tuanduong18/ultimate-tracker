@@ -171,7 +171,8 @@ Env files are per app — `backend/.env` and `frontend/.env.local`, each copied 
 
 Two things to know before reading any of this:
 
-1. **The tables that exist today are Finance, Profiles, and two platform tables —
+1. **The tables that exist today are Finance (`categories`, `expenses`, `budgets`,
+   `budget_categories`, `subscriptions`), `profiles`, and two platform tables —
    `notifications` and `exchange_rates` — and nothing else.** Everything under
    [Planned tables](#planned-tables) is specified but unbuilt.
 2. **`profiles` mirrors Supabase `auth.users` by UUID.** Auth data is never duplicated — the
@@ -179,12 +180,18 @@ Two things to know before reading any of this:
 
 ### What exists today
 
+Eight tables: five for Finance, `profiles`, and two platform tables. Every user-owned row is
+deleted with its profile (`ON DELETE CASCADE`).
+
 ```mermaid
 erDiagram
     PROFILES ||--o{ CATEGORIES : owns
     PROFILES ||--o{ EXPENSES : logs
     PROFILES ||--o{ BUDGETS : sets
-    CATEGORIES ||--o{ EXPENSES : categorises
+    PROFILES ||--o{ SUBSCRIPTIONS : pays
+    PROFILES ||--o{ NOTIFICATIONS : receives
+    CATEGORIES |o--o{ EXPENSES : categorises
+    CATEGORIES |o--o{ SUBSCRIPTIONS : categorises
     BUDGETS ||--o{ BUDGET_CATEGORIES : covers
     CATEGORIES ||--o{ BUDGET_CATEGORIES : covered_by
 
@@ -199,15 +206,16 @@ erDiagram
     CATEGORIES {
         uuid id PK
         uuid user_id FK
-        string name
+        string name "unique per user"
         string colour "hex, 7 chars"
+        int position "nullable: never arranged"
         timestamp created_at
     }
     EXPENSES {
         uuid id PK
         uuid user_id FK
-        uuid category_id FK "nullable"
-        decimal amount
+        uuid category_id FK "nullable: uncategorised"
+        decimal amount "numeric(20,3), > 0"
         string currency "ISO 4217"
         string description "nullable"
         date spent_on
@@ -223,30 +231,84 @@ erDiagram
         date starts_on
         date ends_on "nullable: an ongoing monthly budget"
         smallint warn_at_percent "nullable: no early warning"
+        bool all_spending "true: no budget_categories rows"
+        int position "nullable: never arranged"
         timestamp created_at
     }
     BUDGET_CATEGORIES {
         uuid budget_id FK
         uuid category_id FK
     }
+    SUBSCRIPTIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid category_id FK "nullable"
+        string name
+        decimal amount
+        string currency
+        string interval_unit "day | week | month | year"
+        smallint interval_count
+        date started_on
+        date trial_ends_on "nullable"
+        date next_billing_on "advanced by the renewal job"
+        date cancelled_on "nullable: still active"
+        text note "nullable"
+        timestamp created_at
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        string kind "CHECKed list"
+        string title
+        text body
+        date due_on "nullable"
+        string dedupe_key "unique per user"
+        timestamp read_at "nullable"
+        timestamp snoozed_at "nullable: reminders only"
+        timestamp archived_at "nullable: in the history"
+        timestamp alerted_at "inbox order"
+        timestamp created_at
+    }
+    EXCHANGE_RATES {
+        string currency PK "ISO 4217"
+        decimal rate_per_usd
+        timestamp updated_at
+        timestamp delisted_at "nullable"
+    }
 ```
 
-Three properties of this schema are easy to get wrong:
+What the schema does not say on its own:
 
 - **Expenses, not transactions.** The domain is expense-only. There is no `type` column with
   `income|expense`, and no `payment_method`.
 - **Budgets come in two kinds** (`period`): **monthly**, a fresh cap each calendar month from
   `starts_on`'s month until `ends_on`'s (or for good), and **custom**, one cap over a fixed
   range. Monthly ones reset by calculation, not by a job — see
-  [finance.md](./docs/features/finance.md#budgets). Either kind applies to **many categories**
-  through `budget_categories`; code that assumes one category per budget is wrong.
+  [finance.md](./docs/features/finance.md#budgets).
+- **A budget covers many categories, or all spending.** Chosen categories go through
+  `budget_categories`; `all_spending` covers every expense, including uncategorised ones and
+  categories created later, and has no join rows. Check the flag before reading the
+  categories — code that assumes one category per budget, or that an empty category list means
+  nothing is covered, is wrong.
 - **Every amount carries its own currency.** Summing raw amounts across rows is meaningless.
-  Conversion into the user's `display_currency` happens server-side in `services/finance/summaries.py`.
-
-Not drawn above: `subscriptions` ([finance.md](./docs/features/finance.md#subscriptions)),
-`exchange_rates`, one USD-based rate per currency, refreshed daily and doubling as the list of supported currencies, that no other table references
-([finance.md](./docs/features/finance.md#exchange-rates)), and `notifications`, one row per in-app
-message, keyed to `profiles` ([platform.md](./docs/features/platform.md#notifications)).
+  Conversion into the user's `display_currency` happens server-side in
+  `services/finance/summaries.py`, using `exchange_rates`. Amounts have three decimal places
+  because some currencies are quoted in thousandths.
+- **Subscriptions bill from an anchor, not from the last charge.** The anchor is
+  `trial_ends_on`, else `started_on`; charge *k* is anchor + *k* intervals, so a 31 Jan monthly
+  plan bills 28 Feb and then 31 Mar. `next_billing_on` is a denormalised copy the renewal job
+  advances, and a cancelled subscription keeps its row with `cancelled_on` set. See
+  [finance.md](./docs/features/finance.md#billing-dates).
+- **`position` is null until the user arranges a list** — categories and budgets, from
+  [Arranging lists](./docs/features/finance.md#arranging-lists). Lists sort nulls first, so a
+  new row appears at the top.
+- **`exchange_rates` is also the list of supported currencies.** One USD-based rate per
+  currency, written only by the daily job; no other table references it. A delisted currency
+  keeps its last rate so old entries still convert, but new entries may not use it
+  ([finance.md](./docs/features/finance.md#exchange-rates)).
+- **`notifications` is the one delivery record** every alert shares; `dedupe_key` is what makes
+  a re-run job harmless. It is the only table with an RLS policy, for Realtime
+  ([platform.md](./docs/features/platform.md#notifications)).
 
 ### Planned tables
 
