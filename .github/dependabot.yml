@@ -25,22 +25,17 @@ updates:
       frontend-major:
         patterns: ["*"]
         update-types: [major]
-    ignore:
-      # Lint no longer needs the TypeScript compiler API (oxlint parses
-      # TypeScript itself), but `next build` on TypeScript 7 is untested. Hold
-      # at 6.0 until the move to 7 lands in its own PR.
-      - dependency-name: "typescript"
-        versions: [">= 7"]
+    # No ignore list: a major arrives alone in frontend-major, so even one that
+    # needs migration work can't hold anything else up.
 
-  # One group, so every week's bumps arrive as a single PR, like the backend's.
+  # Grouped like /frontend, so a breaking major waits in its own PR instead of
+  # holding up the week's routine updates (as two majors did in #123).
   #
-  # The ignore list keeps that PR mergeable. An Expo SDK pins React and React
-  # Native exactly and its own packages to patch releases (bundledNativeModules
-  # in the expo package), so a minor or major bump of any of them fails CI's
-  # expo-doctor step — and in a single group, one failing bump blocks the rest.
+  # Each ignore rule stops a PR that would fail CI or quietly mislead. An Expo
+  # SDK fixes the versions of the packages on its list (bundledNativeModules.json
+  # in the expo package), and CI's expo-doctor step fails as soon as one drifts.
   # Those move together in a deliberate SDK upgrade PR instead
-  # (`npx expo install expo@^<next> --fix`); their patch releases still come
-  # through here.
+  # (`npx expo install expo@^<next> --fix`).
   - package-ecosystem: npm
     directory: /mobile
     schedule:
@@ -56,25 +51,43 @@ updates:
         patterns: ["oxlint", "oxfmt"]
       mobile:
         patterns: ["*"]
+        update-types: [minor, patch]
+      mobile-major:
+        patterns: ["*"]
+        update-types: [major]
     ignore:
+      # Expo's list pins these to one exact version (react 19.3.0, react-dom
+      # 19.3.0, react-native 0.88.1), so any update fails expo-doctor, patches
+      # included: react 19.3.1 is already out. They move only when the expo
+      # package changes its list; if an expo patch does, run
+      # `npx expo install --fix` on that PR's branch.
       - dependency-name: "react"
       - dependency-name: "react-dom"
       - dependency-name: "react-native"
-      - dependency-name: "expo"
+      # Every Expo package (expo, the expo-* modules, jest-expo) is versioned
+      # with the SDK: 58.x.y belongs to SDK 58. Expo's list allows its modules
+      # patch releases only (~58.0.x), and modules do ship minors mid-SDK
+      # (expo-router 56.1.x during SDK 56), so a minor fails expo-doctor and a
+      # major is the next SDK. Patches still come through.
+      - dependency-name: "*expo*"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      - dependency-name: "expo-*"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Expo's list pins its React Native libraries to patches too
+      # (react-native-safe-area-context ~5.10.1, react-native-screens ~4.30.1),
+      # and safe-area-context 5.11.1 is already out. A react-native-* library
+      # added later that isn't on Expo's list is held to patches as well; take
+      # its minors by hand.
       - dependency-name: "react-native-*"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      - dependency-name: "jest-expo"
-        update-types: ["version-update:semver-minor", "version-update:semver-major"]
-      # jest-expo supports jest 29 and 30 only.
+      # jest-expo 58 requires jest ^29 || ^30, so jest 31 can't run until an SDK
+      # upgrade brings a jest-expo that supports it.
       - dependency-name: "jest"
         update-types: ["version-update:semver-major"]
-      # Same TypeScript 7 hold as /frontend: lint is no longer the blocker, but
-      # tsc, Jest and the Expo export on 7 are untested.
-      - dependency-name: "typescript"
-        versions: [">= 7"]
+      # The types for the React that Expo pins. They're not on Expo's list, so
+      # expo-doctor wouldn't object, but a newer minor describes React APIs the
+      # app's runtime doesn't have, and nothing in CI would notice. They move
+      # with React in the SDK upgrade; 19.3 type fixes still come through.
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
   - package-ecosystem: pip
     directory: /backend
