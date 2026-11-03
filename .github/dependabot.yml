@@ -20,6 +20,12 @@ updates:
       frontend-major:
         patterns: ["*"]
         update-types: [major]
+    ignore:
+      # TypeScript 7.0 ships no compiler API, which typescript-eslint (inside
+      # eslint-config-next) needs, so lint crashes on 7.x. Hold at 6.0 until
+      # typescript-eslint supports TypeScript 7.1 (typescript-eslint#10940).
+      - dependency-name: "typescript"
+        versions: [">= 7"]
 
   # One group, so every week's bumps arrive as a single PR, like the backend's.
   #
@@ -59,6 +65,15 @@ updates:
       # jest-expo supports jest 29 and 30 only.
       - dependency-name: "jest"
         update-types: ["version-update:semver-major"]
+      # eslint-config-expo's eslint-plugin-react and eslint-plugin-import
+      # support ESLint 9 at most and crash on 10 (eslint-config-next shims
+      # them; eslint-config-expo does not). ESLint moves with the Expo SDK.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # Same TypeScript 7 hold as /frontend: typescript-eslint has no 7.0
+      # support (typescript-eslint#10940).
+      - dependency-name: "typescript"
+        versions: [">= 7"]
 
   - package-ecosystem: pip
     directory: /backend
