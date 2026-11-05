@@ -63,6 +63,12 @@ jobs:
       - name: Check formatting with oxfmt
         run: npm run format:check
 
+      # Typed routes live in .expo/types (gitignored) and only the dev server writes
+      # them, so without this step tsc types every href as a plain string and a link
+      # to a screen that does not exist passes. This writes them without a server.
+      - name: Generate typed routes
+        run: npx expo customize tsconfig.json
+
       - name: Type check
         run: npx tsc --noEmit
 

@@ -186,7 +186,7 @@ detection — because that's exactly what breaks silently.
 ```bash
 cd backend  && python -m ruff check . && python -m ruff format --check . && python -m mypy app/ && python -m pytest
 cd frontend && npm run lint && npm run format:check && npx tsc --noEmit && npm run test -- --run && npm run build
-cd mobile   && npm run lint && npm run format:check && npx tsc --noEmit && npm test && npx expo-doctor && npm run export:android
+cd mobile   && npm run lint && npm run format:check && npx expo customize tsconfig.json && npx tsc --noEmit && npm test && npx expo-doctor && npm run export:android
 ```
 
 `pytest` needs `TEST_DATABASE_URL` pointing at a throwaway Postgres database whose name contains

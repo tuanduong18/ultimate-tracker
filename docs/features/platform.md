@@ -276,10 +276,18 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
   through the system browser with PKCE, returning to `ultimatetracker://auth/callback`, which
   has to be added to Supabase's Redirect URLs beside the web origins. The session is kept in
   `expo-secure-store`.
-- **Shell.** The web's phone layout is the starting point: a bottom tab bar with the first four
-  modules plus **More**, and a header with Log, the notification bell and the account menu. It
-  follows Android's own conventions where they differ — the system back gesture, edge-to-edge
-  drawing, 48 dp touch targets.
+- **Shell** *(built)*. The web's phone layout, in Android's own parts: Material bottom
+  navigation with the first four modules plus **More**, labels always shown; each tab a native
+  stack whose top app bar carries the screen's title. **More is a screen, not a drawer** — a
+  drawer fights the system back gesture — listing the remaining modules (and, once they exist,
+  profile, settings and sign-out, which live in the web's account menu), with the app's version
+  at its foot. Log and the notification bell join the top bar with the features they open. A
+  module the app does not have yet says so: opened on the web if it is built there, its release
+  and plan if not. 48dp touch targets, Material Symbols icons, the system font.
+- **Theme** *(built)*. The web's eight colour schemes and light / dark / match system, from the
+  same generator, as a TypeScript module (`mobile/src/theme/tokens.ts`). Match system is the
+  default and follows the phone live; choosing a scheme or mode arrives with the Settings
+  screen, which also remembers the choice.
 - **Timezone** follows the device and syncs to the profile on launch, as the web does in the
   browser.
 - **Background work** — reading steps, screen time and sleep, fetching notifications and sending the
