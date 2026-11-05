@@ -66,6 +66,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 | Layer | Choice | Why |
 |---|---|---|
 | App | Expo (React Native) + TypeScript, Expo Router | Same language and React model as the web, so the API client and auth port across; native code only where the hardware needs it |
+| Interface | Native Material tabs and top app bars, Material Symbols, the system font; the web's eight colour schemes and dark mode from the same palette generator | It looks and behaves like the rest of the phone, and like the web app in colour |
 | Hardware | The step-counter sensor and `UsageStatsManager` (small Kotlin modules), `expo-background-task`; Health Connect opt-in | Steps, screen time and sleep measured by the phone itself, synced in the background; a watch's data through Health Connect for those who want it |
 | Notifications | `expo-notifications`, local | Reminders and alerts reach the phone's tray — fetched from the server in the background, or raised by the phone itself — with no push service to run |
 | Distribution | EAS Build → signed APK on GitHub Releases, EAS Update over the air | A handful of users, no store listing; most updates need no reinstall |

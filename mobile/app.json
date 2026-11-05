@@ -11,9 +11,8 @@
     "android": {
       "package": "com.tuanduong.ultimatetracker",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#2d6cb9",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -32,13 +31,15 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 76,
-          "backgroundColor": "#ffffff",
+          "imageWidth": 96,
+          "backgroundColor": "#fbfaf8",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#151312"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
