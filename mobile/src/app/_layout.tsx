@@ -7,10 +7,11 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { SessionProvider, useSession } from '@/auth/session';
+import { saveAppearance, useStoredAppearance } from '@/theme/appearance-store';
 import { AppThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
-// Held until the icon font and the stored session are ready, so the first frame is the right
-// screen with its icons already drawn.
+// Held until the icon font, the stored look and the stored session are ready, so the first
+// frame is the right screen, in the right colours, with its icons already drawn.
 SplashScreen.preventAutoHideAsync();
 
 /**
@@ -22,12 +23,31 @@ SplashScreen.preventAutoHideAsync();
  * transition ever shows a white frame in dark mode.
  */
 export default function RootLayout() {
+  // The session and the stored look are read side by side, not one after the other.
   return (
     <SessionProvider>
-      <AppThemeProvider>
+      <StoredTheme>
         <Root />
-      </AppThemeProvider>
+      </StoredTheme>
     </SessionProvider>
+  );
+}
+
+/**
+ * Nothing renders until the stored look is known — the splash screen stays up meanwhile — so
+ * someone who chose dark never sees a light frame. Each new choice is remembered on this phone.
+ */
+function StoredTheme({ children }: { children: ReactNode }) {
+  const appearance = useStoredAppearance();
+  if (!appearance) return null;
+  return (
+    <AppThemeProvider
+      initialTheme={appearance.theme}
+      initialMode={appearance.mode}
+      onChange={saveAppearance}
+    >
+      {children}
+    </AppThemeProvider>
   );
 }
 

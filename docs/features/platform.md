@@ -294,15 +294,20 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
   navigation with the first four modules plus **More**, labels always shown; each tab a native
   stack whose top app bar carries the screen's title. **More is a screen, not a drawer** — a
   drawer fights the system back gesture — listing the remaining modules and the account (who is
-  signed in, with which provider, and **Log out**; profile and settings join it with their
-  screens — on the web all of these live in the account menu), with the app's version at its
+  signed in, with which provider, **Settings**, and **Log out**; the profile joins it with its
+  screen — on the web all of these live in the account menu), with the app's version at its
   foot. Log and the notification bell join the top bar with the features they open. A
   module the app does not have yet says so: opened on the web if it is built there, its release
   and plan if not. 48dp touch targets, Material Symbols icons, the system font.
 - **Theme** *(built)*. The web's eight colour schemes and light / dark / match system, from the
   same generator, as a TypeScript module (`mobile/src/theme/tokens.ts`). Match system is the
-  default and follows the phone live; choosing a scheme or mode arrives with the Settings
-  screen, which also remembers the choice.
+  default and follows the phone live. **More → Settings** *(built)* asks the web's two questions
+  in its words — Appearance (light, dark, match system) and Colour scheme, each scheme with its
+  two swatches in the mode on screen — as lists of radio rows. A choice applies at once, with no
+  Save, and is remembered **on this phone**, as the web remembers it per browser: the look is a
+  device's business, while the display currency travels with the account on the profile. The
+  stored choice is read before the splash screen hides, so a chosen dark mode never flashes
+  light.
 - **Timezone** *(built)* follows the device and syncs to the profile on launch, as the web does in
   the browser — and again whenever the app comes back to the front, since the phone is the device
   that travels. It calls the API only when the phone's zone differs from the one last synced.
