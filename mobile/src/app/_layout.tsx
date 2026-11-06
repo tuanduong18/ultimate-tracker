@@ -6,13 +6,15 @@ import regularSymbols from 'expo-symbols/androidWeights/regular';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, type ReactNode } from 'react';
 
+import { SessionProvider, useSession } from '@/auth/session';
 import { AppThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
-// Held until the icon font is ready, so the first frame already has its icons.
+// Held until the icon font and the stored session are ready, so the first frame is the right
+// screen with its icons already drawn.
 SplashScreen.preventAutoHideAsync();
 
 /**
- * The root: the app's theme, and the navigation theme derived from it.
+ * The root: who is signed in, the app's theme, and the navigation theme derived from it.
  *
  * Material Symbols come from a font that SymbolView would otherwise load on first use, leaving
  * each icon blank for a beat; loading it here behind the splash screen means no icon ever
@@ -20,8 +22,27 @@ SplashScreen.preventAutoHideAsync();
  * transition ever shows a white frame in dark mode.
  */
 export default function RootLayout() {
+  return (
+    <SessionProvider>
+      <AppThemeProvider>
+        <Root />
+      </AppThemeProvider>
+    </SessionProvider>
+  );
+}
+
+/**
+ * Two guarded groups: the tabs for someone signed in, Log in and Sign up for everyone else.
+ * When the session changes — signing in, logging out, a 401 from the API — the guard moves
+ * the person to the other group by itself, so no screen navigates after an auth call.
+ * The start (`index`) and the sign-in callback sit outside both: the callback must open
+ * whichever side the person is on when the browser hands them back.
+ */
+function Root() {
   const [fontsLoaded, fontError] = useFonts({ [regularSymbols.name]: regularSymbols.font });
-  const ready = fontsLoaded || fontError !== null;
+  const { session, loading } = useSession();
+  const ready = (fontsLoaded || fontError !== null) && !loading;
+  const signedIn = session !== null;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
@@ -30,11 +51,18 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <AppThemeProvider>
-      <ThemedNavigation>
-        <Stack screenOptions={{ headerShown: false }} />
-      </ThemedNavigation>
-    </AppThemeProvider>
+    <ThemedNavigation>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Protected guard={signedIn} redirectTo="/login">
+          <Stack.Screen name="(tabs)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!signedIn} redirectTo="/dashboard">
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Screen name="auth/callback" />
+      </Stack>
+    </ThemedNavigation>
   );
 }
 

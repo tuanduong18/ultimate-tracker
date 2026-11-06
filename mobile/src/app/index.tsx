@@ -1,6 +1,9 @@
 import { Redirect } from 'expo-router';
 
-/** The app opens on the dashboard, as the web does after sign-in. Sign-in will sit in front of it. */
+import { useSession } from '@/auth/session';
+
+/** The start: the overview for someone signed in, Log in for everyone else. */
 export default function Index() {
-  return <Redirect href="/dashboard" />;
+  const { session } = useSession();
+  return <Redirect href={session ? '/dashboard' : '/login'} />;
 }

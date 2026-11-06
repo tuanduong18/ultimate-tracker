@@ -1,15 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 import { Linking } from 'react-native';
 
 import { ModulePlaceholder } from '@/components/module-placeholder';
 import { WEB_APP_URL } from '@/config';
 import { moduleFor } from '@/navigation/modules';
-import { AppThemeProvider } from '@/theme/theme-provider';
 
-function Themed({ children }: { children: ReactNode }) {
-  return <AppThemeProvider>{children}</AppThemeProvider>;
-}
+import { Themed } from '../support/themed';
 
 describe('ModulePlaceholder', () => {
   it('says when an unbuilt module lands and lists what it will do', async () => {

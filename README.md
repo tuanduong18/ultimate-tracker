@@ -67,6 +67,7 @@ Per-domain specifications live in [`docs/features/`](./docs/features/).
 |---|---|---|
 | App | Expo (React Native) + TypeScript, Expo Router | Same language and React model as the web, so the API client and auth port across; native code only where the hardware needs it |
 | Interface | Native Material tabs and top app bars, Material Symbols, the system font; the web's eight colour schemes and dark mode from the same palette generator | It looks and behaves like the rest of the phone, and like the web app in colour |
+| Sign-in | Supabase Auth (`supabase-js`): email, and Google through the system browser with PKCE; the session in Android's encrypted storage | The same accounts as the web, and the backend needs no change to accept the phone |
 | Hardware | The step-counter sensor and `UsageStatsManager` (small Kotlin modules), `expo-background-task`; Health Connect opt-in | Steps, screen time and sleep measured by the phone itself, synced in the background; a watch's data through Health Connect for those who want it |
 | Notifications | `expo-notifications`, local | Reminders and alerts reach the phone's tray — fetched from the server in the background, or raised by the phone itself — with no push service to run |
 | Distribution | EAS Build → signed APK on GitHub Releases, EAS Update over the air | A handful of users, no store listing; most updates need no reinstall |
@@ -137,21 +138,21 @@ Frontend runs at `http://localhost:3000`.
 
 ### 4. Android app (optional)
 
-Needs an Android phone and a free [Expo](https://expo.dev) account; native builds run on EAS,
-so no Android Studio. From the repo root:
+Needs an Android phone with the app's **development build** installed — made on EAS, so no
+Android Studio. From the repo root:
 
 ```bash
 cd mobile
 npm install
 cp .env.example .env                 # then fill it in; the API address must be reachable from the phone
-npx eas-cli login                    # once
-npx eas-cli init                     # first time only: links the app to an Expo project
-npx eas-cli build --profile development --platform android   # install the APK it links to
-npm start                            # then open the development client on the phone
+npm start                            # then open the Ultimate Tracker development build on the phone
 ```
 
-The development client is rebuilt only when native code changes; everything else reloads
-live. More in [`DeveloperGuide.md` § 7](./DeveloperGuide.md#7-local-development-setup).
+For Google sign-in, add `ultimatetracker://**` to Supabase's Redirect URLs
+([setup](./docs/features/platform.md#google-sign-in-setup)). Everything but native code reloads
+live; the build is remade only when native code changes. Expo Go (`npm run start:go`) runs the
+app too, except that Google sign-in doesn't return to it. More in
+[`DeveloperGuide.md` § 7](./DeveloperGuide.md#7-local-development-setup).
 
 ### 5. Or run everything with Docker Compose
 

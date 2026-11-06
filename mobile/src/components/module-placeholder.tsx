@@ -1,6 +1,7 @@
 import { Linking, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/button';
+import { Card } from '@/components/card';
 import { IconBadge } from '@/components/icon';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -23,16 +24,7 @@ export function ModulePlaceholder({ module: entry }: { module: ModuleEntry }) {
 
   return (
     <Screen>
-      <View
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: RADIUS.card,
-          padding: SPACE.xl,
-          gap: SPACE.lg,
-        }}
-      >
+      <Card style={{ padding: SPACE.xl, gap: SPACE.lg }}>
         <IconBadge name={entry.icon} size="lg" />
 
         <View style={{ gap: SPACE.sm }}>
@@ -87,7 +79,7 @@ export function ModulePlaceholder({ module: entry }: { module: ModuleEntry }) {
             onPress={() => Linking.openURL(`${WEB_APP_URL}${entry.webPath}`)}
           />
         )}
-      </View>
+      </Card>
     </Screen>
   );
 }
