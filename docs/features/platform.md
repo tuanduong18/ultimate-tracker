@@ -326,6 +326,10 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
   GitHub Release hosts it, and EAS Update ships JavaScript-only changes to installed apps on
   their next launch. A new APK is needed only when native code or permissions change; the app
   checks the latest GitHub Release and offers it.
+- **Two builds, two jobs.** The **development build** (`eas.json` profile `development`) is where
+  every change is tested: it loads the JavaScript from the computer, so a change shows on the
+  phone as it is saved. The **preview build** (profile `preview`, a standalone APK) is what users
+  install, made once a version's testing on the development build is done.
 - **Developer verification: not registered, for now.** Since 30 September 2026, apps installed
   on certified Android devices in Singapore (and Brazil, Indonesia and Thailand; globally from
   2027) must come from a verified developer — or the phone's owner opts in to unverified ones.

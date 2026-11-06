@@ -476,7 +476,9 @@ in [`docs/features/README.md`](./docs/features/README.md) rather than left impli
 3. Install the development build: the latest one from `npx eas-cli build:list`, or a new one with
    `npx eas-cli build --profile development --platform android` (`npx eas-cli login` once first).
    It is remade only when native code or config plugins change. Builds are rationed on the free
-   tier, so packages with native code wait and land together.
+   tier, so packages with native code wait and land together. The development build is where
+   every change is tested; users get the **preview** build, made once a version's testing is done
+   ([Distribution](./docs/features/platform.md#android-app)).
 4. `npm start`, then open the development build on the phone and pick the server it lists. The
    phone and the computer must be on the same network.
 
