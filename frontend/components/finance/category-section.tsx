@@ -4,7 +4,7 @@ import { Pencil, Tags } from 'lucide-react';
 import { useState } from 'react';
 
 import { ArrangeActions, ArrangeList } from '@/components/finance/arrange-list';
-import { CategoryEdge } from '@/components/finance/category-edge';
+import { CategoryBadge } from '@/components/finance/category-badge';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { api } from '@/lib/api-client';
@@ -200,15 +200,15 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
         <ArrangeList
           items={arrange.ordered}
           nameOf={(category) => category.name}
-          rowClassName={() => 'relative overflow-hidden bg-surface-muted'}
+          rowClassName={() => 'bg-surface-muted'}
           onMove={arrange.move}
           disabled={busy}
         >
           {(category) => (
-            <>
-              <CategoryEdge colour={category.colour} />
+            <span className="flex min-w-0 items-center gap-3">
+              <CategoryBadge colour={category.colour} name={category.name} />
               <p className="truncate text-sm font-medium">{category.name}</p>
-            </>
+            </span>
           )}
         </ArrangeList>
       ) : (
@@ -266,9 +266,9 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
               <li
                 key={category.id}
                 data-row-id={category.id}
-                className="relative flex items-center gap-2 overflow-hidden rounded-lg bg-surface-muted py-2.5 pr-3 pl-4"
+                className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-2.5"
               >
-                <CategoryEdge colour={category.colour} />
+                <CategoryBadge colour={category.colour} name={category.name} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
 
                 <IconButton

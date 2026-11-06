@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { CategoryOptions, firstCategoryId } from '@/components/finance/category-options';
 import { CurrencySelect } from '@/components/finance/currency-select';
 import { amountProblem, type BillingInterval, type Category } from '@/lib/types/finance';
 
@@ -30,14 +31,18 @@ const UNITS: { value: BillingInterval; label: string }[] = [
 
 /**
  * The category a new subscription starts on: the user's "Subscriptions", if
- * they still have one by that name in any case.
+ * they still have one by that name in any case — otherwise the first in their
+ * own order, as a new expense does.
  *
  * Done here rather than by the server so the choice is visible and editable
  * before saving, and so renaming or deleting that category breaks nothing —
- * there is simply nothing to preselect.
+ * the form falls back to the first category.
  */
 export function preselectedCategoryId(categories: Category[]): string {
-  return categories.find((c) => c.name.trim().toLowerCase() === 'subscriptions')?.id ?? '';
+  return (
+    categories.find((c) => c.name.trim().toLowerCase() === 'subscriptions')?.id ??
+    firstCategoryId(categories)
+  );
 }
 
 interface SubscriptionFormProps {
@@ -207,12 +212,7 @@ export function SubscriptionForm({
             value={values.category_id}
             onChange={(e) => set('category_id', e.target.value)}
           >
-            <option value="">Uncategorised</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
+            <CategoryOptions categories={categories} />
           </select>
         </div>
 

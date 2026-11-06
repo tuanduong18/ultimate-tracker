@@ -293,20 +293,24 @@ function ChooseFile({
   );
 }
 
-/** "Lunch", category and date, amount — the row as the expense list will show it. */
+/**
+ * "Lunch", category and date, amount — the row as the expense list will show
+ * it: a row without a description leads with its category instead. No badge,
+ * because a category the import is about to create has no colour yet.
+ */
 function SampleRow({ row }: { row: ImportRow }) {
+  const category = `${row.category ?? 'Uncategorised'}${row.new_category ? ' (new)' : ''}`;
   return (
     <li className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm">
-          {row.description || <span className="text-fg-muted">No description</span>}
-        </p>
+        <p className="truncate text-sm">{row.description || category}</p>
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-          <span className="truncate">
-            {row.category ?? 'Uncategorised'}
-            {row.new_category && ' (new)'}
-          </span>
-          <span aria-hidden>·</span>
+          {row.description && (
+            <>
+              <span className="truncate">{category}</span>
+              <span aria-hidden>·</span>
+            </>
+          )}
           <span className="whitespace-nowrap">{formatDate(row.spent_on)}</span>
         </p>
       </div>

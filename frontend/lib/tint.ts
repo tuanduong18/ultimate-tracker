@@ -2,25 +2,46 @@
  * Data colours: what a category or a budget looks like.
  *
  * A category's colour follows its spend everywhere — a slice in the ring, the
- * edge of a row in the list (CategoryEdge), a dot in the filter — so the same
- * spend is the same colour wherever it appears. Rows are no longer washed in
- * it: see CategoryEdge for why.
+ * badge at the start of a row (CategoryBadge), a dot in the filter — and it is
+ * the same colour in light and dark mode, so the same spend is the same colour
+ * wherever and whenever it appears.
  */
 
 /** The neutral used when nothing has a colour, matching the API's own default. */
 export const NEUTRAL_COLOUR = '#94a3b8';
 
+/** The two inks a glyph can take on a category colour: they don't change with the mode. */
+export const INK_LIGHT = '#ffffff';
+export const INK_DARK = '#000000';
+
+function luminance(hex: string): number {
+  const value = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((channel) => {
+    const c = channel / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** The WCAG contrast ratio between two `#rrggbb` colours. */
+export function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /**
- * `#rrggbb` at some opacity.
+ * What to draw on a category colour: white or black, whichever contrasts more.
  *
- * Colours are `^#[0-9a-fA-F]{6}$`, enforced by the API, so anything else here
- * came from a bug rather than from a user and is better invisible than wrong.
+ * Category colours are the user's, so no fixed ink is readable on all of them —
+ * that is why text used to stay off them. But one of pure white and pure black
+ * always reaches at least 4.58:1 against any colour (the worst case is a
+ * mid-grey, where the two tie), which passes WCAG AA for text. Pure, not the
+ * theme's near-white and near-black: those lose enough at the tie to dip under
+ * 4.5. A colour that isn't `#rrggbb` (a bug, not a user) gets dark ink.
  */
-export function withAlpha(hex: string, alpha: number): string {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!match) return 'transparent';
-  const value = parseInt(match[1], 16);
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+export function inkOn(hex: string): typeof INK_LIGHT | typeof INK_DARK {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return INK_DARK;
+  return contrastRatio(hex, INK_LIGHT) >= contrastRatio(hex, INK_DARK) ? INK_LIGHT : INK_DARK;
 }
 
 /**

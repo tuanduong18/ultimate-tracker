@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { CategoryOptions } from '@/components/finance/category-options';
 import { CurrencySelect } from '@/components/finance/currency-select';
 import { amountProblem, type Category } from '@/lib/types/finance';
 
@@ -136,12 +137,7 @@ export function ExpenseForm({
             value={values.category_id}
             onChange={(e) => set('category_id', e.target.value)}
           >
-            <option value="">Uncategorised</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
+            <CategoryOptions categories={categories} />
           </select>
         </div>
       </div>

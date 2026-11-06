@@ -75,7 +75,17 @@ describe('ExpenseSection', () => {
     expect(screen.getByText('Food')).toBeInTheDocument();
     // category_id: null is a real state — a deleted category leaves it behind.
     expect(screen.getByText('Uncategorised')).toBeInTheDocument();
-    expect(screen.getByText('No description')).toBeInTheDocument();
+  });
+
+  it('leads a row without a description with its category, never "No description"', async () => {
+    get.mockResolvedValue([{ ...LUNCH, description: null }]);
+    render(<Harness />);
+
+    // The category is the row's title, said once — not repeated in the line under it.
+    expect(await screen.findAllByText('Food')).toHaveLength(1);
+    expect(screen.queryByText('No description')).not.toBeInTheDocument();
+    // The buttons name the expense by its category and date instead.
+    expect(screen.getByRole('button', { name: /^Edit Food expense, / })).toBeInTheDocument();
   });
 
   it('prefills the edit form from the row and patches it', async () => {
