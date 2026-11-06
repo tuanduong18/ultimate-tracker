@@ -1,6 +1,7 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
+import type { Appearance } from '@/theme/appearance-store';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -32,23 +33,41 @@ const AppThemeContext = createContext<AppTheme | null>(null);
  * reads them. Components read `colors` and never branch on the mode — a component that seems
  * to need to know the mode is missing a token.
  *
- * The choice lives in memory for now: the Settings screen, which brings the scheme and mode
- * pickers, also brings remembering them, read before the splash screen hides so a stored dark
- * mode never flashes light.
+ * The provider only holds the choice. The root layout reads the stored one before the splash
+ * screen hides (so a stored dark mode never flashes light) and passes it in as the initial
+ * value, with `onChange` to remember each new choice — tests leave both out.
  */
 export function AppThemeProvider({
   children,
   initialTheme = DEFAULT_THEME,
   initialMode = DEFAULT_MODE,
+  onChange,
 }: {
   children: ReactNode;
   initialTheme?: ThemeId;
   initialMode?: ModePreference;
+  onChange?: (appearance: Appearance) => void;
 }) {
   const systemScheme = useColorScheme();
-  const [theme, setTheme] = useState<ThemeId>(initialTheme);
-  const [modePreference, setModePreference] = useState<ModePreference>(initialMode);
+  const [theme, setThemeState] = useState<ThemeId>(initialTheme);
+  const [modePreference, setModeState] = useState<ModePreference>(initialMode);
   const mode = resolveMode(modePreference, systemScheme);
+
+  const setTheme = useCallback(
+    (next: ThemeId) => {
+      setThemeState(next);
+      onChange?.({ theme: next, mode: modePreference });
+    },
+    [modePreference, onChange]
+  );
+
+  const setModePreference = useCallback(
+    (next: ModePreference) => {
+      setModeState(next);
+      onChange?.({ theme, mode: next });
+    },
+    [theme, onChange]
+  );
 
   const value = useMemo<AppTheme>(
     () => ({
@@ -59,7 +78,7 @@ export function AppThemeProvider({
       setTheme,
       setModePreference,
     }),
-    [theme, modePreference, mode]
+    [theme, modePreference, mode, setTheme, setModePreference]
   );
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;

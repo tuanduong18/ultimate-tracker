@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import { useSession } from '@/auth/session';
@@ -10,6 +10,7 @@ import { Card, RowDivider } from '@/components/card';
 import { IconBadge } from '@/components/icon';
 import { NavRow } from '@/components/nav-row';
 import { Screen } from '@/components/screen';
+import { Section } from '@/components/section';
 import { Text } from '@/components/text';
 import { supabase } from '@/lib/supabase';
 import { MORE } from '@/navigation/modules';
@@ -63,18 +64,10 @@ export default function More() {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View style={{ gap: SPACE.sm }}>
-      <Text variant="caption" tone="fgMuted" accessibilityRole="header">
-        {title}
-      </Text>
-      {children}
-    </View>
-  );
-}
-
-/** Who is signed in, how, and the way out. */
+/**
+ * Who is signed in and how, the settings for this phone, and the way out — in that order, so
+ * Log out sits last, away from the row people tap most.
+ */
 function AccountCard() {
   const { session } = useSession();
   const [leaving, setLeaving] = useState(false);
@@ -110,6 +103,13 @@ function AccountCard() {
           </Text>
         </View>
       </View>
+      <RowDivider />
+      <NavRow
+        href="/more/settings"
+        label="Settings"
+        blurb="How the app looks on this phone"
+        icon="settings"
+      />
       <RowDivider />
       <ActionRow
         label={leaving ? 'Logging out…' : 'Log out'}
