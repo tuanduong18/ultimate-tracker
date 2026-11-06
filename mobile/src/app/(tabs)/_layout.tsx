@@ -1,5 +1,6 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
+import { useTimezoneSync } from '@/auth/timezone-sync';
 import { TABBED } from '@/navigation/modules';
 import { useAppTheme } from '@/theme/theme-provider';
 
@@ -15,9 +16,13 @@ import { useAppTheme } from '@/theme/theme-provider';
  * More is a tab of its own, not a drawer: a drawer over the tabs fights the system back
  * gesture, while a screen behaves the way Android users expect — and its pushed screens keep
  * the tab bar.
+ *
+ * Only signed-in people reach the tabs, so this is also where the profile's timezone is kept
+ * in step with the phone's.
  */
 export default function TabsLayout() {
   const { colors } = useAppTheme();
+  useTimezoneSync();
   return (
     <NativeTabs
       backgroundColor={colors.surface}

@@ -93,6 +93,11 @@ The code is provider-agnostic; turning Google on is configuration in two console
 3. **Supabase** → Authentication → URL Configuration → *Redirect URLs*: add
    `http://localhost:3000/**` and the production origin followed by `/**`. The app sends users
    back to `/login?next=…`, and Supabase refuses any redirect not on this list.
+4. **For the Android app**, on the same list: `ultimatetracker://**`, the app's link scheme. The
+   app uses the same Google client: the browser signs in with Supabase exactly as the web does,
+   and only the last redirect goes to the app instead of a page, so Google Cloud needs no Android
+   client. (`exp://**`, Expo Go's scheme, isn't needed: Google sign-in stalls in Expo Go after the
+   account is chosen even with it on the list, and works on the development build.)
 
 A Google account whose verified email matches an existing email-and-password account is linked
 to it by Supabase — same user id, so the same profile and data.
@@ -272,24 +277,35 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
   sleep, granted by hand in Settings (see [Screen time](./time-and-calendar.md#screen-time)).
   Health Connect's own permissions only if the user switches it on
   ([fitness.md](./fitness.md#health-connect)).
-- **Sign-in.** The same Supabase project and providers. Email and password as on the web; Google
-  through the system browser with PKCE, returning to `ultimatetracker://auth/callback`, which
-  has to be added to Supabase's Redirect URLs beside the web origins. The session is kept in
-  `expo-secure-store`.
+- **Sign-in** *(built)*. The same Supabase project, providers and words as the web: Log in and
+  Sign up with email and password, and Continue with Google. Google opens in the system browser
+  (Custom Tabs, so the user's own Google session and password manager) using **PKCE** — the
+  redirect carries only a one-time code, exchanged once by the app — and returns to
+  `auth/callback` on the app's link scheme, which must be on Supabase's Redirect URLs
+  ([setup](#google-sign-in-setup)). A sign-up confirmation email links back into the app too, so
+  opening it on the phone confirms and signs in at once; opened elsewhere it still confirms, and
+  Log in works after. The session is kept in Android's encrypted storage (`expo-secure-store`),
+  split into chunks because a session is larger than one stored value may be. Signed-out users
+  only ever see Log in and Sign up; the splash screen stays up until the stored session has been
+  read, so the tabs never flash. A 401 from the API logs out, as on the web. Sign-in failures are
+  shown in plain words rather than the auth server's ("That email and password don't match an
+  account"); the web still shows the server's message.
 - **Shell** *(built)*. The web's phone layout, in Android's own parts: Material bottom
   navigation with the first four modules plus **More**, labels always shown; each tab a native
   stack whose top app bar carries the screen's title. **More is a screen, not a drawer** — a
-  drawer fights the system back gesture — listing the remaining modules (and, once they exist,
-  profile, settings and sign-out, which live in the web's account menu), with the app's version
-  at its foot. Log and the notification bell join the top bar with the features they open. A
+  drawer fights the system back gesture — listing the remaining modules and the account (who is
+  signed in, with which provider, and **Log out**; profile and settings join it with their
+  screens — on the web all of these live in the account menu), with the app's version at its
+  foot. Log and the notification bell join the top bar with the features they open. A
   module the app does not have yet says so: opened on the web if it is built there, its release
   and plan if not. 48dp touch targets, Material Symbols icons, the system font.
 - **Theme** *(built)*. The web's eight colour schemes and light / dark / match system, from the
   same generator, as a TypeScript module (`mobile/src/theme/tokens.ts`). Match system is the
   default and follows the phone live; choosing a scheme or mode arrives with the Settings
   screen, which also remembers the choice.
-- **Timezone** follows the device and syncs to the profile on launch, as the web does in the
-  browser.
+- **Timezone** *(built)* follows the device and syncs to the profile on launch, as the web does in
+  the browser — and again whenever the app comes back to the front, since the phone is the device
+  that travels. It calls the API only when the phone's zone differs from the one last synced.
 - **Background work** — reading steps, screen time and sleep, fetching notifications and sending the
   offline outbox — runs on WorkManager through
   `expo-background-task`: about hourly, best-effort, and delayed further by some phone makers'
@@ -310,6 +326,10 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
   GitHub Release hosts it, and EAS Update ships JavaScript-only changes to installed apps on
   their next launch. A new APK is needed only when native code or permissions change; the app
   checks the latest GitHub Release and offers it.
+- **Two builds, two jobs.** The **development build** (`eas.json` profile `development`) is where
+  every change is tested: it loads the JavaScript from the computer, so a change shows on the
+  phone as it is saved. The **preview build** (profile `preview`, a standalone APK) is what users
+  install, made once a version's testing on the development build is done.
 - **Developer verification: not registered, for now.** Since 30 September 2026, apps installed
   on certified Android devices in Singapore (and Brazil, Indonesia and Thailand; globally from
   2027) must come from a verified developer — or the phone's owner opts in to unverified ones.

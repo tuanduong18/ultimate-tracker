@@ -17,7 +17,7 @@ release plan.** It is deliberate, not alphabetical.
 | 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started | Not started |
 | 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started | Not started |
 | 5 | 🎮 Gaming Performance | [`gaming.md`](./gaming.md) | Not started — ships last, by design | Not started |
-| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built | Partly built — theme and shell |
+| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built | Partly built — theme, shell and sign-in |
 
 **Two clients, one feature set.** The web app and the Android app
 ([ADR-0004](../adr/0004-android-app-as-second-client.md)) are kept at parity: a feature is
