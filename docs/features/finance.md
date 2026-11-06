@@ -69,6 +69,11 @@ filters locally. One person's expenses stay in the thousands (a few a day is a t
 a year), so filtering on the keystroke needs no request, and the backend stays plain CRUD.
 Rows are drawn 50 at a time behind **Show N more**, with "Showing 50 of 312".
 
+**A row leads with what the expense was**: its description, or — when it has none — its
+category, with the line under it shortened to the date. A badge in front carries the category's
+colour and initial, as subscriptions do, so a column of expenses can be skimmed by category.
+There is no "No description" placeholder.
+
 - **Search** works like Ctrl+F: one case-insensitive phrase, found anywhere in what a row shows
   — description, category name (including "Uncategorised", also matched as "Uncategorized"),
   the date as displayed and as `YYYY-MM-DD`, and the formatted amount. Each field is matched on
@@ -312,8 +317,9 @@ Renewal expenses are ordinary rows in `expenses` with no link back to the subscr
 expense table stays independent of this feature. They are told apart by category, which is why
 every profile is seeded with a "Subscriptions" category. The server never picks it by name: an
 omitted `category_id` means uncategorized, and the subscription form preselects the user's
-category named "Subscriptions" (case-insensitive) when one exists. Renaming or deleting that
-category therefore breaks nothing — the form simply has nothing to preselect.
+category named "Subscriptions" (case-insensitive) when one exists, and otherwise the first in
+their order, as a new expense does. Renaming or deleting that
+category therefore breaks nothing — the form falls back to the first category.
 
 Cancelling sets `cancelled_on` rather than deleting the row. A hard delete exists for mistakes;
 expenses already written survive it.
@@ -456,7 +462,10 @@ order worth reading them in.
   every other row keeps its place; then the whole list is numbered from 0
   (`_common._rearrange`). Arranging October cannot shuffle September's budgets.
 - **The order is the list's everywhere.** Category pickers and filters list categories as the
-  API does, so they follow the arrangement. Budget colours do not: they are handed out by
+  API does, so they follow the arrangement. In a picker **Uncategorised comes last**, and a new
+  expense starts on the **first category** in the user's order (Uncategorised only when they
+  have none) — the top of their own order is the likeliest choice, and the default shows in the
+  form before anything is saved. Budget colours do not: they are handed out by
   creation date, so moving a card never recolours it.
 
 ### Endpoints

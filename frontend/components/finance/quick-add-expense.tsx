@@ -3,6 +3,7 @@
 import { CircleCheck, Plus } from 'lucide-react';
 import { useId, useState } from 'react';
 
+import { firstCategoryId } from '@/components/finance/category-options';
 import { ExpenseForm, expensePayload, type ExpenseValues } from '@/components/finance/expense-form';
 import { PanelNote } from '@/components/finance/panel';
 import { SheetDialog, SheetHeader } from '@/components/shared/sheet-dialog';
@@ -11,7 +12,7 @@ import { todayIso } from '@/lib/dates';
 import { announceExpensesChange } from '@/lib/finance-events';
 import { describeError } from '@/lib/hooks/use-collection';
 import { useFinanceBasics } from '@/lib/hooks/use-finance-basics';
-import { formatMoney, type Expense } from '@/lib/types/finance';
+import { formatMoney, type Category, type Expense } from '@/lib/types/finance';
 
 /**
  * The Add expense button, beside the Finance title on every Finance tab.
@@ -59,8 +60,15 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
   );
 }
 
-function blankExpense(currency: string): ExpenseValues {
-  return { amount: '', currency, category_id: '', description: '', spent_on: todayIso() };
+/** A new expense: today, the default currency, and the first category in the person's order. */
+function blankExpense(currency: string, categories: Category[]): ExpenseValues {
+  return {
+    amount: '',
+    currency,
+    category_id: firstCategoryId(categories),
+    description: '',
+    spent_on: todayIso(),
+  };
 }
 
 /**
@@ -103,8 +111,10 @@ function AddExpenseBody({ titleId, onDone }: { titleId: string; onDone: () => vo
             <CircleCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-positive" />
             <span>
               <span className="font-medium">
-                {formatMoney(added.amount, added.currency)}
-                {added.description ? ` · ${added.description}` : ''}
+                {formatMoney(added.amount, added.currency)} ·{' '}
+                {added.description ||
+                  categories.items.find((category) => category.id === added.category_id)?.name ||
+                  'Uncategorised'}
               </span>
               <span className="block text-fg-muted">Added to your expenses.</span>
             </span>
@@ -138,7 +148,7 @@ function AddExpenseBody({ titleId, onDone }: { titleId: string; onDone: () => vo
           <ExpenseForm
             key={round}
             idPrefix={`quick-expense-${round}`}
-            initial={blankExpense(defaultCurrency)}
+            initial={blankExpense(defaultCurrency, categories.items)}
             categories={categories.items}
             currencies={currencies}
             busy={busy}

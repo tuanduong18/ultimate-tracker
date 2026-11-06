@@ -12,7 +12,7 @@ import { QuickAddExpense } from '@/components/finance/quick-add-expense';
 import { ApiError } from '@/lib/api-client';
 import { EXPENSES_CHANGED } from '@/lib/finance-events';
 import type { Expense } from '@/lib/types/finance';
-import { FOOD } from '@/tests/support/finance';
+import { FOOD, RENT } from '@/tests/support/finance';
 
 const LUNCH: Expense = {
   id: 'e1',
@@ -62,7 +62,7 @@ describe('QuickAddExpense', () => {
     expect(within(dialog).getByLabelText('Amount')).toHaveFocus();
   });
 
-  it('posts the amount as a string and a blank category as null, then says so', async () => {
+  it('posts the amount as a string, on the first category, then says so', async () => {
     post.mockResolvedValue(LUNCH);
     const heard = vi.fn();
     window.addEventListener(EXPENSES_CHANGED, heard);
@@ -78,7 +78,7 @@ describe('QuickAddExpense', () => {
         // A string, not 12.5: the trailing zero is the currency's scale.
         amount: '12.50',
         currency: 'SGD',
-        category_id: null,
+        category_id: FOOD.id,
         description: 'Lunch',
         spent_on: '2026-08-12',
       })
@@ -88,6 +88,42 @@ describe('QuickAddExpense', () => {
     expect(await within(dialog).findByRole('status')).toHaveTextContent(/Lunch/);
     expect(heard).toHaveBeenCalledTimes(1);
     window.removeEventListener(EXPENSES_CHANGED, heard);
+  });
+
+  it('lists the categories in the user’s order with Uncategorised last', async () => {
+    get.mockImplementation((path: string) => {
+      if (path === '/finance/categories') return Promise.resolve([RENT, FOOD]);
+      if (path === '/finance/currencies') return Promise.resolve(['SGD']);
+      if (path === '/auth/me') return Promise.resolve({ preferred_currency: 'SGD' });
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+    const dialog = await openDialog();
+
+    const select = within(dialog).getByLabelText('Category') as HTMLSelectElement;
+    expect([...select.options].map((option) => option.text)).toEqual([
+      RENT.name,
+      FOOD.name,
+      'Uncategorised',
+    ]);
+    expect(select).toHaveValue(RENT.id);
+  });
+
+  it('posts Uncategorised as null when chosen, and names it in the confirmation', async () => {
+    post.mockResolvedValue({ ...LUNCH, description: null, category_id: null });
+    const dialog = await openDialog();
+
+    fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: '12.50' } });
+    fireEvent.change(within(dialog).getByLabelText('Category'), { target: { value: '' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add expense' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/expenses',
+        expect.objectContaining({ category_id: null })
+      )
+    );
+    // No description, so the confirmation names what it was filed under instead.
+    expect(await within(dialog).findByRole('status')).toHaveTextContent(/Uncategorised/);
   });
 
   it('offers another, starting from an empty form', async () => {

@@ -4,7 +4,7 @@ import { Pencil, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 
-import { CategoryEdge } from '@/components/finance/category-edge';
+import { CategoryBadge } from '@/components/finance/category-badge';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { ExpenseForm, expensePayload, type ExpenseValues } from '@/components/finance/expense-form';
 import { IconButton, Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
@@ -41,10 +41,18 @@ interface ExpenseSectionProps {
 /**
  * The expense list, as both the dashboard panel and the full page.
  *
- * One component rather than two because the row — date, description, category
- * swatch, amount, and edit/delete on the same line — is the part that has to
- * stay identical between them, and that is exactly the part that drifts when
- * the same markup is written twice.
+ * One component rather than two because the row — category badge, what it
+ * was, category and date, amount, and edit/delete on the same line — is the
+ * part that has to stay identical between them, and that is exactly the part
+ * that drifts when the same markup is written twice.
+ *
+ * **The row leads with what the expense was** (2026-11-06): its description,
+ * or — when it has none — its category, with the line under it shortened to the
+ * date. It used to say "No description" in grey, which on a list of quick
+ * entries was most rows saying nothing; a blank line instead would leave the
+ * row's most prominent place empty and give a screen reader nothing to name it
+ * by. The badge in front carries the category's colour and initial, large
+ * enough to skim a column by.
  *
  * It edits and deletes but does not add: adding is the Add expense beside the
  * Finance title, on every tab. A second "Add expense" here would put two
@@ -136,8 +144,13 @@ export function ExpenseSection({
         ))
       ) : (
         <ul className="space-y-2 p-3">
-          {shown.map((expense) =>
-            editingId === expense.id ? (
+          {shown.map((expense) => {
+            const category = byId.get(expense.category_id ?? '');
+            const categoryName = category?.name ?? 'Uncategorised';
+            // What the row's buttons call it: its description, or its category and date.
+            const name =
+              expense.description || `${categoryName} expense, ${formatDate(expense.spent_on)}`;
+            return editingId === expense.id ? (
               <li key={expense.id} className="overflow-hidden rounded-lg border border-border">
                 <ExpenseForm
                   idPrefix={`expense-${expense.id}`}
@@ -162,18 +175,18 @@ export function ExpenseSection({
               <li
                 key={expense.id}
                 data-row-id={expense.id}
-                className="relative flex items-center gap-3 overflow-hidden rounded-lg bg-surface-muted py-2.5 pr-3 pl-4"
+                className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-2.5"
               >
-                <CategoryEdge colour={byId.get(expense.category_id ?? '')?.colour} />
+                <CategoryBadge colour={category?.colour} name={categoryName} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">
-                    {expense.description || <span className="text-fg-muted">No description</span>}
-                  </p>
+                  <p className="truncate text-sm">{expense.description || categoryName}</p>
                   <p className="flex items-center gap-1.5 text-xs text-fg-muted">
-                    <span className="truncate">
-                      {byId.get(expense.category_id ?? '')?.name ?? 'Uncategorised'}
-                    </span>
-                    <span aria-hidden>·</span>
+                    {expense.description && (
+                      <>
+                        <span className="truncate">{categoryName}</span>
+                        <span aria-hidden>·</span>
+                      </>
+                    )}
                     <span className="whitespace-nowrap">{formatDate(expense.spent_on)}</span>
                   </p>
                 </div>
@@ -183,19 +196,19 @@ export function ExpenseSection({
                 </span>
 
                 <IconButton
-                  label={`Edit ${expense.description || 'expense'}`}
+                  label={`Edit ${name}`}
                   icon={Pencil}
                   onClick={() => setEditingId(expense.id)}
                 />
                 <DeleteButton
-                  label={`Delete ${expense.description || 'expense'}`}
+                  label={`Delete ${name}`}
                   prompt="Delete this expense?"
                   busy={busy}
                   onConfirm={() => void handleDelete(expense.id)}
                 />
               </li>
-            )
-          )}
+            );
+          })}
         </ul>
       )}
       {!loading && shown.length > 0 && footer}

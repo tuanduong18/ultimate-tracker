@@ -3,6 +3,7 @@
 import { BellRing, CalendarCheck, Check, Pencil, Repeat } from 'lucide-react';
 import { useState } from 'react';
 
+import { CategoryBadge } from '@/components/finance/category-badge';
 import { ConfirmButton } from '@/components/finance/confirm-button';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
@@ -16,7 +17,6 @@ import { daysUntil, formatDate, todayIso } from '@/lib/dates';
 import { announceExpensesChange } from '@/lib/finance-events';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
 import { useRowFocus } from '@/lib/hooks/use-row-focus';
-import { NEUTRAL_COLOUR, withAlpha } from '@/lib/tint';
 import { formatInterval, formatMoney, type Category, type Subscription } from '@/lib/types/finance';
 import { announceNotificationsChange } from '@/lib/types/notification';
 
@@ -27,10 +27,6 @@ import { announceNotificationsChange } from '@/lib/types/notification';
 const REMINDER_DAYS = 3;
 
 /** "netflix" → "N"; the first letter or digit, so "(Old) Plan" still gets one. */
-function initialOf(name: string): string {
-  return (name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
-}
-
 function inDays(days: number): string {
   if (days === 0) return 'today';
   if (days === 1) return 'tomorrow';
@@ -307,12 +303,8 @@ export function SubscriptionSection({
               >
                 {/* The service's initial, like an app icon on a statement: the
                     quickest way to find "Netflix" in a list is its shape. */}
-                <span
-                  aria-hidden
-                  className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-semibold"
-                  style={{ backgroundColor: withAlpha(category?.colour ?? NEUTRAL_COLOUR, 0.28) }}
-                >
-                  {initialOf(subscription.name)}
+                <span className="mt-0.5">
+                  <CategoryBadge colour={category?.colour} name={subscription.name} />
                 </span>
 
                 <div className="min-w-0 flex-1">

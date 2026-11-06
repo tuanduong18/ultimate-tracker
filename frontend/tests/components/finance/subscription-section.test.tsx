@@ -173,9 +173,17 @@ describe('SubscriptionSection', () => {
     expect(screen.getByLabelText('Category')).toHaveValue(SUBSCRIPTIONS.id);
   });
 
-  it('starts uncategorised when there is no Subscriptions category', async () => {
+  it('starts on the first category in the user’s order when there is no Subscriptions category', async () => {
     get.mockResolvedValue([]);
     render(<Harness categories={[FOOD]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New subscription' }));
+    expect(screen.getByLabelText('Category')).toHaveValue(FOOD.id);
+  });
+
+  it('starts uncategorised only when there are no categories at all', async () => {
+    get.mockResolvedValue([]);
+    render(<Harness categories={[]} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New subscription' }));
     expect(screen.getByLabelText('Category')).toHaveValue('');
