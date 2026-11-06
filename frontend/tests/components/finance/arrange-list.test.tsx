@@ -29,11 +29,18 @@ const FOOD = category('c1', 'Food');
 const RENT = category('c2', 'Rent');
 const TRAVEL = category('c3', 'Travel');
 
-/** The rows' names, top to bottom. */
+/**
+ * The rows' names, top to bottom — the text a person reads, without the parts
+ * hidden from assistive technology (the category badge's initial).
+ */
 function order(): string[] {
   return within(screen.getByRole('list'))
     .getAllByRole('listitem')
-    .map((row) => row.textContent ?? '');
+    .map((row) => {
+      const visible = row.cloneNode(true) as HTMLElement;
+      visible.querySelectorAll('[aria-hidden="true"]').forEach((node) => node.remove());
+      return visible.textContent ?? '';
+    });
 }
 
 async function startArranging() {

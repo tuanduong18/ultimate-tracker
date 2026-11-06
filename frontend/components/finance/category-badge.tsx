@@ -1,4 +1,4 @@
-import { NEUTRAL_COLOUR, withAlpha } from '@/lib/tint';
+import { inkOn, NEUTRAL_COLOUR } from '@/lib/tint';
 
 /** The first letter or digit of a name, upper-cased — "?" when it has none. */
 export function initialOf(name: string): string {
@@ -6,18 +6,20 @@ export function initialOf(name: string): string {
 }
 
 /**
- * A row's leading badge: an initial on a light wash of the category's colour,
- * like an app icon on a bank statement — the quickest way down a list is by
- * shape and colour, before reading. Subscriptions show the service's initial
- * ("N" for Netflix); expenses show the category's ("F" for Food).
+ * A row's leading badge: the category's own colour, with an initial on it, like
+ * an app icon on a bank statement — the quickest way down a list is by shape
+ * and colour, before reading. Subscriptions show the service's initial ("N" for
+ * Netflix); expenses and categories show the category's ("F" for Food).
  *
- * The wash is 28% of the category colour with `fg` text, the one strength
- * measured readable (≥ 6:1) for any colour a user can pick, black and white
- * included. The row names its category in words too, so the colour never
- * carries meaning alone — which is why the badge is hidden from screen readers.
+ * **The colour is the category's, solid, in both modes** — the same colour as
+ * its slice in the chart and its dot in the filter. (It was a 28% wash at
+ * first, which came out pale on light and muddy on dark and so never matched
+ * the chart; the user caught it, 2026-11-06.) The initial takes white or black
+ * by `inkOn`, whichever contrasts more, which reaches 4.58:1 or better on any
+ * colour a user can pick.
  *
- * Replaced the 4px `CategoryEdge` on expense rows (2026-11-06): a sliver down
- * the edge was too thin to skim a column of expenses by.
+ * The row names its category in words too, so the colour never carries meaning
+ * alone — which is why the badge is hidden from screen readers.
  */
 export function CategoryBadge({
   colour,
@@ -27,11 +29,12 @@ export function CategoryBadge({
   /** What the initial is taken from: the service, or the category. */
   name: string;
 }) {
+  const background = colour ?? NEUTRAL_COLOUR;
   return (
     <span
       aria-hidden
       className="flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-semibold"
-      style={{ backgroundColor: withAlpha(colour ?? NEUTRAL_COLOUR, 0.28) }}
+      style={{ backgroundColor: background, color: inkOn(background) }}
     >
       {initialOf(name)}
     </span>
