@@ -19,8 +19,8 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
 
 **Built:**
 
-- Categories — full CRUD, each with a name, a colour and an optional symbol (stored by the API;
-  the apps' symbol picker is next — see [Category symbols](#category-symbols)).
+- Categories — full CRUD, each with a name, a colour and an optional symbol picked from a shared
+  list (see [Category symbols](#category-symbols)).
 - Expenses — full CRUD, each with its own currency, amount, optional category, date and note.
 - Transactions tab — every expense, searchable and filterable, exportable to Excel, and
   importable from a spreadsheet. See [Transactions](#transactions) and [Import](#import).
@@ -443,8 +443,11 @@ Delivery is in-app; on the Android app the same rows will also reach the phone's
 
 ## Category symbols
 
-**Status: stored by the API; the web's picker and badges are next, the phone's come with its
-Finance screens.** Until then badges show the category's initial.
+**Status: built on the web; the phone's come with its Finance screens.** The category form (new
+and edit) has a **Symbol** grid — the 30 symbols and *None* — beside a preview of the badge, and
+expense and category rows draw the symbol in the category's badge. Subscription badges keep the
+service's initial ("N" for Netflix): one shared "Subscriptions" symbol would make every
+subscription look alike. The web's half of the dictionary is `frontend/lib/category-symbols.ts`.
 
 A category can carry a symbol beside its colour: `categories.icon`, nullable `String(32)`.
 

@@ -60,10 +60,68 @@ describe('CategorySection', () => {
       expect(post).toHaveBeenCalledWith('/finance/categories', {
         name: 'Food',
         colour: '#94a3b8',
+        // None picked: the badge keeps the initial.
+        icon: null,
       })
     );
     expect(await screen.findByText('Food')).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws each symbol, and the initial for none or for a key this app does not know', async () => {
+    get.mockResolvedValue([
+      { ...FOOD, icon: 'food' },
+      { ...RENT, icon: null },
+      { ...FOOD, id: 'c3', name: 'Car wash', icon: 'car-wash' },
+    ]);
+    const { container } = render(<Harness />);
+    await screen.findByText('Food');
+
+    // Each row leads with its badge: the symbol's key when it draws one, else its initial.
+    const symbols = [...container.querySelectorAll('li')].map((row) => {
+      const badge = row.firstElementChild;
+      return badge?.getAttribute('data-symbol') ?? badge?.textContent;
+    });
+    expect(symbols).toEqual(['food', 'R', 'C']);
+  });
+
+  it('creates a category with the symbol picked', async () => {
+    get.mockResolvedValueOnce([]).mockResolvedValueOnce([{ ...FOOD, icon: 'groceries' }]);
+    post.mockResolvedValue({ ...FOOD, icon: 'groceries' });
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New category' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Food' } });
+    // A radio group: the person picks by name, and a screen reader hears it.
+    expect(screen.getByRole('radio', { name: 'No symbol — show the initial' })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: 'Groceries' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        '/finance/categories',
+        expect.objectContaining({ name: 'Food', icon: 'groceries' })
+      )
+    );
+  });
+
+  it('edits with the current symbol chosen, and None clears it', async () => {
+    get.mockResolvedValue([{ ...FOOD, icon: 'food' }]);
+    patch.mockResolvedValue({ ...FOOD, icon: null });
+    render(<Harness />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Food' }));
+    expect(screen.getByRole('radio', { name: 'Food' })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'No symbol — show the initial' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith(
+        '/finance/categories/c1',
+        expect.objectContaining({ icon: null })
+      )
+    );
   });
 
   it('turns a duplicate name into something a person can act on', async () => {

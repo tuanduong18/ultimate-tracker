@@ -23,11 +23,13 @@ export const FOOD: Category = {
   id: 'c1',
   name: 'Food',
   colour: '#22c55e',
+  icon: null,
   created_at: '2026-08-01T00:00:00Z',
 };
 export const RENT: Category = {
   id: 'c2',
   name: 'Rent',
   colour: '#ef4444',
+  icon: null,
   created_at: '2026-08-01T00:00:00Z',
 };

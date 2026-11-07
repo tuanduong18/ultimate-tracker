@@ -7,6 +7,7 @@ import { ArrangeActions, ArrangeList } from '@/components/finance/arrange-list';
 import { CategoryBadge } from '@/components/finance/category-badge';
 import { DeleteButton } from '@/components/finance/delete-button';
 import { IconButton, Panel, PanelButton, PanelEmpty, PanelNote } from '@/components/finance/panel';
+import { SymbolPicker } from '@/components/finance/symbol-picker';
 import { api } from '@/lib/api-client';
 import { useArrange } from '@/lib/hooks/use-arrange';
 import { describeError, type Collection } from '@/lib/hooks/use-collection';
@@ -37,10 +38,12 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [colour, setColour] = useState(DEFAULT_COLOUR);
+  const [icon, setIcon] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColour, setEditColour] = useState(DEFAULT_COLOUR);
+  const [editIcon, setEditIcon] = useState<string | null>(null);
   const { panelRef, ...focus } = useRowFocus(items);
   const arrange = useArrange(items);
 
@@ -63,27 +66,32 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const created = await run(
-      () => api.post('/finance/categories', { name, colour }),
+      () => api.post('/finance/categories', { name, colour, icon }),
       'Could not create that category.'
     );
     if (created) {
       setName('');
       setColour(DEFAULT_COLOUR);
+      setIcon(null);
       focus.returnToAction();
       setAdding(false);
     }
   }
 
   /**
-   * Save both fields, because a category is its name *and* its colour.
-   *
-   * The colour is the one thing about a category that shows up somewhere other
-   * than this list — it is the slice in the pie and the wash on a budget card —
-   * so being unable to change it after creation is the gap worth closing here.
+   * Save all three, because a category is its name, its colour *and* its
+   * symbol — the colour and symbol are what it looks like everywhere else (the
+   * badge on every expense row, the slice in the chart), so each must stay
+   * changeable after creation. An explicit null symbol clears it.
    */
   async function handleEdit(id: string) {
     const saved = await run(
-      () => api.patch(`/finance/categories/${id}`, { name: editName, colour: editColour }),
+      () =>
+        api.patch(`/finance/categories/${id}`, {
+          name: editName,
+          colour: editColour,
+          icon: editIcon,
+        }),
       'Could not update that category.'
     );
     if (saved) {
@@ -164,6 +172,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+          <SymbolPicker idPrefix="new-category" value={icon} onChange={setIcon} name={name} />
           <div className="flex items-end gap-2">
             <div>
               <label className="block text-xs text-fg-muted" htmlFor="category-colour">
@@ -177,6 +186,8 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                 onChange={(e) => setColour(e.target.value)}
               />
             </div>
+            {/* What the badge will look like, as the choices are made. */}
+            <CategoryBadge colour={colour} name={name || '?'} icon={icon} />
             <button
               type="submit"
               disabled={busy}
@@ -206,7 +217,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
         >
           {(category) => (
             <span className="flex min-w-0 items-center gap-3">
-              <CategoryBadge colour={category.colour} name={category.name} />
+              <CategoryBadge colour={category.colour} name={category.name} icon={category.icon} />
               <p className="truncate text-sm font-medium">{category.name}</p>
             </span>
           )}
@@ -241,6 +252,12 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                     onChange={(e) => setEditName(e.target.value)}
                   />
                 </div>
+                <SymbolPicker
+                  idPrefix={`edit-${category.id}`}
+                  value={editIcon}
+                  onChange={setEditIcon}
+                  name={editName}
+                />
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -268,7 +285,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                 data-row-id={category.id}
                 className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-2.5"
               >
-                <CategoryBadge colour={category.colour} name={category.name} />
+                <CategoryBadge colour={category.colour} name={category.name} icon={category.icon} />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{category.name}</span>
 
                 <IconButton
@@ -278,6 +295,7 @@ export function CategorySection({ categories, onChange }: CategorySectionProps) 
                     setEditing(category.id);
                     setEditName(category.name);
                     setEditColour(category.colour);
+                    setEditIcon(category.icon);
                   }}
                 />
                 <DeleteButton
