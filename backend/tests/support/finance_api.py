@@ -5,9 +5,15 @@ from typing import Any
 from httpx import AsyncClient
 
 
-async def make_category(client: AsyncClient, name: str = "Food") -> dict[str, Any]:
-    resp = await client.post("/api/v1/finance/categories", json={"name": name})
-    assert resp.status_code == 201
+async def make_category(
+    client: AsyncClient, name: str = "Food", icon: str | None = None
+) -> dict[str, Any]:
+    # The symbol is sent only when given, so the default exercises "no icon at all".
+    payload: dict[str, Any] = {"name": name}
+    if icon is not None:
+        payload["icon"] = icon
+    resp = await client.post("/api/v1/finance/categories", json=payload)
+    assert resp.status_code == 201, resp.text
     return dict(resp.json())
 
 

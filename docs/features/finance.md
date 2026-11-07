@@ -19,7 +19,8 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
 
 **Built:**
 
-- Categories — full CRUD, each with a name and a colour.
+- Categories — full CRUD, each with a name, a colour and an optional symbol (stored by the API;
+  the apps' symbol picker is next — see [Category symbols](#category-symbols)).
 - Expenses — full CRUD, each with its own currency, amount, optional category, date and note.
 - Transactions tab — every expense, searchable and filterable, exportable to Excel, and
   importable from a spreadsheet. See [Transactions](#transactions) and [Import](#import).
@@ -437,6 +438,51 @@ charge day itself: a run that missed the window does not send a late one.
 
 Delivery is in-app; on the Android app the same rows will also reach the phone's notification tray ([platform.md](./platform.md#phone-notifications)). There is no email channel, by choice.
 [Budget alerts](#budget-alerts) use the same mechanism; the two are not built twice.
+
+---
+
+## Category symbols
+
+**Status: stored by the API; the web's picker and badges are next, the phone's come with its
+Finance screens.** Until then badges show the category's initial.
+
+A category can carry a symbol beside its colour: `categories.icon`, nullable `String(32)`.
+
+- **It stores our own key** — `food`, `home` — never an icon library's name. The web draws
+  lucide icons and the phone Material Symbols; each app maps the key to its own set in code, so
+  either can change icon sets without touching this data.
+- **The API checks only the key's shape**, `^[a-z][a-z0-9-]{0,31}$`, not membership of the list:
+  adding a symbol needs no backend deploy. Add it to both apps in the same change; an app that
+  meets a key it doesn't know shows the category's initial, as it does for no symbol (null).
+- **`PATCH` with `"icon": null` clears it**; leaving the field out keeps it.
+- **The starter categories come with symbols**: Food → `food`, Rent → `home`, Education →
+  `education`, Entertainment → `entertainment`, Subscriptions → `subscriptions`, Other →
+  `other`. Categories created by an import start without one.
+- **Why not a table of icons**: the web has to map keys to icon components in code anyway (only
+  the imported ones reach the bundle), a table would be a second copy of that map, and the phone
+  would show whatever a row said before its own release was tested. Considered and dropped,
+  2026-11-06.
+
+The list — key, web (lucide), phone (Material Symbol) — all 30 checked against the installed
+packages:
+
+| Key | Web | Phone | Key | Web | Phone |
+|---|---|---|---|---|---|
+| `food` | `Utensils` | `restaurant` | `fitness` | `Dumbbell` | `fitness_center` |
+| `groceries` | `ShoppingCart` | `shopping_cart` | `education` | `GraduationCap` | `school` |
+| `coffee` | `Coffee` | `local_cafe` | `books` | `BookOpen` | `menu_book` |
+| `home` | `House` | `home` | `entertainment` | `Clapperboard` | `movie` |
+| `bills` | `Receipt` | `receipt_long` | `games` | `Gamepad2` | `sports_esports` |
+| `utilities` | `Zap` | `bolt` | `music` | `Music` | `music_note` |
+| `phone` | `Smartphone` | `smartphone` | `subscriptions` | `Repeat` | `autorenew` |
+| `internet` | `Wifi` | `wifi` | `shopping` | `ShoppingBag` | `shopping_bag` |
+| `transport` | `Bus` | `directions_bus` | `clothes` | `Shirt` | `checkroom` |
+| `car` | `Car` | `directions_car` | `gifts` | `Gift` | `redeem` |
+| `fuel` | `Fuel` | `local_gas_station` | `pets` | `PawPrint` | `pets` |
+| `travel` | `Plane` | `flight` | `kids` | `Baby` | `child_care` |
+| `health` | `HeartPulse` | `health_and_safety` | `beauty` | `Sparkles` | `spa` |
+| `insurance` | `Shield` | `shield` | `savings` | `PiggyBank` | `savings` |
+| `work` | `Briefcase` | `work` | `other` | `Tag` | `sell` |
 
 ---
 

@@ -71,7 +71,7 @@ class Category(Base):
 
     A starter set is seeded when the profile is first created — see
     DEFAULT_CATEGORIES in app.services.finance.categories. Users are free to rename,
-    recolour or delete any of them.
+    recolour, change the symbol of, or delete any of them.
     """
 
     __tablename__ = "categories"
@@ -83,6 +83,12 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     # Hex colour for charts, e.g. "#22c55e".
     colour: Mapped[str] = mapped_column(String(7), nullable=False, default="#94a3b8")
+    # A key from the shared symbol list (docs/features/finance.md § Category symbols),
+    # e.g. "food", which each app maps to its own icon set — lucide on the web,
+    # Material Symbols on the phone. Our own keys rather than a library's icon names,
+    # so either app can change icon sets without touching this data. Null when the
+    # user hasn't picked one: the apps then show the category's initial.
+    icon: Mapped[str | None] = mapped_column(String(32))
     position: Mapped[int | None] = _position_column()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

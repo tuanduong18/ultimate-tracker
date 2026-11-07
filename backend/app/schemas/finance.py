@@ -52,6 +52,13 @@ IntervalCount = Annotated[int, Field(ge=1, le=999)]
 WarnAtPercent = Annotated[int, Field(ge=1, le=99)]
 # Hex colour for charts, matching the String(7) column.
 Colour = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^#[0-9a-fA-F]{6}$")]
+# A category symbol key, matching the String(32) column. Only the shape is checked,
+# not membership of the apps' list: adding a symbol to the list then needs no
+# backend deploy, and an app that meets a key it doesn't know yet shows the
+# category's initial instead.
+IconKey = Annotated[
+    str, StringConstraints(strip_whitespace=True, pattern=r"^[a-z][a-z0-9-]{0,31}$")
+]
 # The column is unbounded Text; the cap is a schema-level guard on user input.
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 Amount = Annotated[
@@ -112,11 +119,14 @@ class ListOrderUpdate(BaseModel):
 class CategoryCreate(BaseModel):
     name: CategoryName
     colour: Colour = "#94a3b8"
+    icon: IconKey | None = None
 
 
 class CategoryUpdate(BaseModel):
     name: CategoryName | None = None
     colour: Colour | None = None
+    # Omitted keeps the symbol; an explicit null clears it (see update_category).
+    icon: IconKey | None = None
 
 
 class CategoryRead(BaseModel):
@@ -125,6 +135,9 @@ class CategoryRead(BaseModel):
     id: uuid.UUID
     name: str
     colour: str
+    # Optional, not str: every category made before symbols existed has none, and a
+    # required field would fail every response that embeds a category.
+    icon: str | None
     created_at: datetime
 
 

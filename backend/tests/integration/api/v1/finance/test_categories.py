@@ -3,6 +3,7 @@
 Full route -> service -> DB path against Postgres.
 """
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.support.finance_api import (
@@ -18,9 +19,82 @@ async def test_category_create_and_list(finance_client: AsyncClient) -> None:
     created = await make_category(finance_client, name="  Food  ")
     assert created["name"] == "Food"
     assert created["colour"] == "#94a3b8"
+    assert created["icon"] is None
 
     listed = (await finance_client.get("/api/v1/finance/categories")).json()
     assert [c["name"] for c in listed] == ["Food"]
+
+
+async def test_a_category_keeps_the_symbol_it_was_created_with(
+    finance_client: AsyncClient,
+) -> None:
+    created = await make_category(finance_client, name="Food", icon="food")
+    assert created["icon"] == "food"
+
+    listed = (await finance_client.get("/api/v1/finance/categories")).json()
+    assert [(c["name"], c["icon"]) for c in listed] == [("Food", "food")]
+
+
+@pytest.mark.parametrize(
+    "icon",
+    [
+        "Food",  # capitals
+        "has space",
+        "-food",  # must start with a letter
+        "1food",
+        "café",  # ASCII only
+        "a" * 33,  # one over the column's 32
+        "",
+    ],
+)
+async def test_a_badly_formed_symbol_is_a_422(finance_client: AsyncClient, icon: str) -> None:
+    resp = await finance_client.post(
+        "/api/v1/finance/categories", json={"name": "Food", "icon": icon}
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_a_well_formed_symbol_the_apps_dont_know_yet_is_accepted(
+    finance_client: AsyncClient,
+) -> None:
+    # Only the shape is checked, so a symbol added to the apps' list needs no backend
+    # deploy; an app that doesn't know it shows the category's initial instead.
+    created = await make_category(finance_client, name="Car wash", icon="car-wash")
+    assert created["icon"] == "car-wash"
+
+
+async def test_renaming_a_category_keeps_its_symbol(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food", icon="food")
+    resp = await finance_client.patch(
+        f"/api/v1/finance/categories/{food['id']}", json={"name": "Meals"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Meals"
+    assert resp.json()["icon"] == "food"
+
+
+async def test_patching_a_new_symbol_replaces_the_old_one(finance_client: AsyncClient) -> None:
+    food = await make_category(finance_client, name="Food", icon="food")
+    resp = await finance_client.patch(
+        f"/api/v1/finance/categories/{food['id']}", json={"icon": "groceries"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["icon"] == "groceries"
+
+
+async def test_patching_the_symbol_to_null_clears_it(finance_client: AsyncClient) -> None:
+    # The trap: update_category drops explicit nulls for every field not listed as
+    # nullable, so without "icon" in that set this PATCH would change nothing.
+    food = await make_category(finance_client, name="Food", icon="food")
+    resp = await finance_client.patch(
+        f"/api/v1/finance/categories/{food['id']}", json={"icon": None}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["icon"] is None
+
+    listed = (await finance_client.get("/api/v1/finance/categories")).json()
+    assert listed[0]["icon"] is None
 
 
 async def test_duplicate_category_name_is_a_409(finance_client: AsyncClient) -> None:
