@@ -20,15 +20,20 @@ from app.services.finance.errors import (
 # empty finance page unable to create a budget at all, since BudgetCreate
 # requires at least one category. Distinct colours so the first chart is
 # readable without anyone picking swatches.
-DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
-    ("Food", "#22c55e"),
-    ("Rent", "#ef4444"),
-    ("Education", "#3b82f6"),
-    ("Entertainment", "#a855f7"),
+#
+# Each entry is (name, colour, symbol). The symbol must be a key on the apps'
+# shared list (docs/features/finance.md § Category symbols) — "home" for Rent,
+# since a house fits however people name it — or the apps fall back to the
+# initial. tests/integration/services/test_profile.py pins the pairs.
+DEFAULT_CATEGORIES: tuple[tuple[str, str, str], ...] = (
+    ("Food", "#22c55e", "food"),
+    ("Rent", "#ef4444", "home"),
+    ("Education", "#3b82f6", "education"),
+    ("Entertainment", "#a855f7", "entertainment"),
     # Where subscription renewals belong. The server never picks it by name;
     # the subscription form preselects it, so renaming or deleting it is safe.
-    ("Subscriptions", "#f59e0b"),
-    ("Other", "#94a3b8"),
+    ("Subscriptions", "#f59e0b", "subscriptions"),
+    ("Other", "#94a3b8", "other"),
 )
 
 
@@ -40,7 +45,8 @@ def build_default_categories(user_id: uuid.UUID) -> list[Category]:
     categories would be a state nothing else in the app expects.
     """
     return [
-        Category(user_id=user_id, name=name, colour=colour) for name, colour in DEFAULT_CATEGORIES
+        Category(user_id=user_id, name=name, colour=colour, icon=icon)
+        for name, colour, icon in DEFAULT_CATEGORIES
     ]
 
 
@@ -72,7 +78,7 @@ async def _get_owned_category(
 
 
 async def create_category(db: AsyncSession, user_id: uuid.UUID, data: CategoryCreate) -> Category:
-    category = Category(user_id=user_id, name=data.name, colour=data.colour)
+    category = Category(user_id=user_id, name=data.name, colour=data.colour, icon=data.icon)
     db.add(category)
     try:
         await db.commit()
@@ -87,7 +93,10 @@ async def update_category(
     db: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID, data: CategoryUpdate
 ) -> Category:
     category = await _get_owned_category(db, user_id, category_id)
-    for field, value in _applied_changes(data, frozenset()).items():
+    # "icon" is the one field an explicit null may reach: it clears the symbol.
+    # Name and colour are NOT NULL, so a null aimed at them is dropped rather than
+    # turned into a 500 (see _applied_changes).
+    for field, value in _applied_changes(data, frozenset({"icon"})).items():
         setattr(category, field, value)
     try:
         await db.commit()

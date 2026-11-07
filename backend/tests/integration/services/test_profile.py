@@ -93,6 +93,26 @@ async def _category_names(
         return [c.name for c in rows.all()]
 
 
+async def test_the_starter_categories_come_with_their_symbols(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # Each must be a key on the apps' shared symbol list (finance.md § Category
+    # symbols): a key the apps don't know draws the category's initial instead.
+    async with db_factory() as db:
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+        rows = await db.scalars(select(Category).where(Category.user_id == TEST_USER_ID))
+        icons = {category.name: category.icon for category in rows.all()}
+
+    assert icons == {
+        "Education": "education",
+        "Entertainment": "entertainment",
+        "Food": "food",
+        "Other": "other",
+        "Rent": "home",
+        "Subscriptions": "subscriptions",
+    }
+
+
 async def test_a_new_profile_is_seeded_with_the_default_categories(
     db_factory: async_sessionmaker[AsyncSession],
 ) -> None:
