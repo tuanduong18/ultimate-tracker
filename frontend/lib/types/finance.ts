@@ -13,6 +13,12 @@ export interface Category {
   name: string;
   /** Hex, e.g. "#22c55e". */
   colour: string;
+  /**
+   * A key from the shared symbol list ("food"), drawn by `symbolFor` in
+   * lib/category-symbols.ts; null when none was picked, and then the badge
+   * shows the category's initial.
+   */
+  icon: string | null;
   created_at: string;
 }
 

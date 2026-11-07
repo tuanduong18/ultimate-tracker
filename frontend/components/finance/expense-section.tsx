@@ -177,7 +177,11 @@ export function ExpenseSection({
                 data-row-id={expense.id}
                 className="flex items-center gap-3 rounded-lg bg-surface-muted px-3 py-2.5"
               >
-                <CategoryBadge colour={category?.colour} name={categoryName} />
+                <CategoryBadge
+                  colour={category?.colour}
+                  name={categoryName}
+                  icon={category?.icon}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{expense.description || categoryName}</p>
                   <p className="flex items-center gap-1.5 text-xs text-fg-muted">

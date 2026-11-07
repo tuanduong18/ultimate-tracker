@@ -23,6 +23,7 @@ const category = (id: string, name: string): Category => ({
   id,
   name,
   colour: '#22c55e',
+  icon: null,
   created_at: '2026-08-01T00:00:00Z',
 });
 const FOOD = category('c1', 'Food');
