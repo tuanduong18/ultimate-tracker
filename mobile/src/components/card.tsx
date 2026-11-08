@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { View, type ViewProps } from 'react-native';
 
 import { RADIUS } from '@/theme/scale';
@@ -33,4 +34,43 @@ export function Card({ style, ...props }: ViewProps) {
 export function RowDivider() {
   const { colors } = useAppTheme();
   return <View style={{ height: 1, backgroundColor: colors.border }} />;
+}
+
+/**
+ * One row of a card that a virtualised list draws a row at a time (Transactions, where a single
+ * `Card` around hundreds of rows would render them all): the first row takes the card's top edge
+ * and corners, the last its bottom ones, and every row but the last ends in the divider hairline,
+ * so the rows read as one card.
+ */
+export function CardListItem({
+  index,
+  count,
+  children,
+}: {
+  index: number;
+  count: number;
+  children: ReactNode;
+}) {
+  const { colors } = useAppTheme();
+  const first = index === 0;
+  const last = index === count - 1;
+  return (
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderTopWidth: first ? 1 : 0,
+        borderBottomWidth: 1,
+        borderTopLeftRadius: first ? RADIUS.card : 0,
+        borderTopRightRadius: first ? RADIUS.card : 0,
+        borderBottomLeftRadius: last ? RADIUS.card : 0,
+        borderBottomRightRadius: last ? RADIUS.card : 0,
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </View>
+  );
 }

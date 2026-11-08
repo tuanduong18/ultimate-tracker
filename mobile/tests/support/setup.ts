@@ -15,6 +15,11 @@ jest.mock('react-native-keyboard-controller', () =>
   jest.requireActual('react-native-keyboard-controller/jest')
 );
 
+// Android's date picker is a native dialog; a test that opens one mocks it itself (date-field).
+jest.mock('@react-native-community/datetimepicker', () => ({
+  DateTimePickerAndroid: { open: jest.fn(), dismiss: jest.fn() },
+}));
+
 // Zero insets, as on a phone with no notch and no navigation bar.
 jest.mock(
   'react-native-safe-area-context',

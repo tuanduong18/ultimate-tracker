@@ -5,6 +5,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 import { api } from '@/lib/api-client';
 import type { DateRange } from '@/lib/dates';
@@ -197,6 +198,31 @@ export function useFinanceWrite<TArgs, TResult = unknown>(
   return useMutation({
     mutationFn: (args: TArgs) => write(args),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: financeKeys.all }),
+  });
+}
+
+/**
+ * Deleting what an open screen is showing: the delete runs, and the reload waits until that
+ * screen has closed. Reloading first would pull the deleted thing out from under its own form,
+ * which would flash "That expense no longer exists" as it slid away. The server has already
+ * confirmed the delete by then, and the list behind refetches as the form leaves.
+ */
+export function useFinanceDelete(path: string) {
+  const queryClient = useQueryClient();
+  const deleted = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (deleted.current) void queryClient.invalidateQueries({ queryKey: financeKeys.all });
+    },
+    [queryClient]
+  );
+
+  return useMutation({
+    mutationFn: () => api.delete<void>(path),
+    onSuccess: () => {
+      deleted.current = true;
+    },
   });
 }
 
