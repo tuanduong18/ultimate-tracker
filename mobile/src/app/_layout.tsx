@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import regularSymbols from 'expo-symbols/androidWeights/regular';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, type ReactNode } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { SessionProvider, useSession } from '@/auth/session';
 import { QueryProvider } from '@/lib/query';
@@ -24,16 +26,22 @@ SplashScreen.preventAutoHideAsync();
  * transition ever shows a white frame in dark mode.
  */
 export default function RootLayout() {
-  // The session and the stored look are read side by side, not one after the other. The query
-  // cache sits inside the session so it can empty itself when the person signs out.
+  // Gestures (dragging a row to arrange it) and the keyboard (keeping a form's Save above it)
+  // are handled natively from the root down. The session and the stored look are read side by
+  // side, not one after the other; the query cache sits inside the session so it can empty
+  // itself when the person signs out.
   return (
-    <SessionProvider>
-      <QueryProvider>
-        <StoredTheme>
-          <Root />
-        </StoredTheme>
-      </QueryProvider>
-    </SessionProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <SessionProvider>
+          <QueryProvider>
+            <StoredTheme>
+              <Root />
+            </StoredTheme>
+          </QueryProvider>
+        </SessionProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }
 

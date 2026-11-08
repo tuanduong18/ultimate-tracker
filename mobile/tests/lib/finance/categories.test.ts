@@ -1,6 +1,7 @@
 import {
   ALL_CATEGORIES,
   firstCategoryId,
+  initialOf,
   isEmptySelection,
   isNarrowed,
   preselectedCategoryId,
@@ -47,5 +48,15 @@ describe('category selection', () => {
   it('knows when nothing at all is chosen', () => {
     expect(isEmptySelection({ ids: [], uncategorized: false })).toBe(true);
     expect(isEmptySelection({ ids: [], uncategorized: true })).toBe(false);
+  });
+});
+
+describe('initialOf', () => {
+  it('takes the first letter or digit, upper-cased, past any emoji or punctuation', () => {
+    expect(initialOf('food')).toBe('F');
+    expect(initialOf('  ☕ coffee')).toBe('C');
+    expect(initialOf('7-Eleven')).toBe('7');
+    expect(initialOf('Ăn uống')).toBe('Ă');
+    expect(initialOf('!!!')).toBe('?');
   });
 });

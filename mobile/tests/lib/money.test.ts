@@ -1,4 +1,4 @@
-import { amountProblem, formatMoney, sumAmounts } from '@/lib/money';
+import { amountProblem, currencyName, formatMoney, sumAmounts } from '@/lib/money';
 
 describe('formatMoney', () => {
   it('writes an API amount in its own currency', () => {
@@ -55,5 +55,12 @@ describe('sumAmounts', () => {
   it('is zero for nothing, and skips a malformed row rather than returning NaN', () => {
     expect(sumAmounts([])).toBe('0');
     expect(sumAmounts(['10.00', 'oops', '5.00'])).toBe('15.00');
+  });
+});
+
+describe('currencyName', () => {
+  it('names a currency in the phone’s language, and stays quiet when it can’t', () => {
+    expect(currencyName('SGD')).toMatch(/Singapore/);
+    expect(currencyName('ZZZ')).toBeNull();
   });
 });

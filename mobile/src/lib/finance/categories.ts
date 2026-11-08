@@ -9,6 +9,11 @@ import type { Category } from '@/lib/finance/types';
 /** What a row says when its expense has no category — the word the web draws too. */
 export const UNCATEGORISED = 'Uncategorised';
 
+/** The first letter or digit of a name, upper-cased — "?" when it has none. A badge's fallback. */
+export function initialOf(name: string): string {
+  return (name.match(/[\p{L}\p{N}]/u)?.[0] ?? '?').toUpperCase();
+}
+
 /**
  * Where a new expense starts: the top of the person's own order, so the category they put
  * first is one tap away — or Uncategorised ('') only when they have none.

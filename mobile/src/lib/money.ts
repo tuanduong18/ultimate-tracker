@@ -38,6 +38,31 @@ export function formatMoney(amount: string, currency: string): string {
   }
 }
 
+let currencyNames: Intl.DisplayNames | null | undefined;
+
+/**
+ * A currency's name in the phone's language ("Singapore Dollar"), or null where the engine can't
+ * say — Hermes may not have `Intl.DisplayNames`, and then the code alone has to do.
+ */
+export function currencyName(code: string): string | null {
+  if (currencyNames === undefined) {
+    try {
+      currencyNames =
+        typeof Intl.DisplayNames === 'function'
+          ? new Intl.DisplayNames(undefined, { type: 'currency' })
+          : null;
+    } catch {
+      currencyNames = null;
+    }
+  }
+  try {
+    const name = currencyNames?.of(code);
+    return name && name !== code ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * What is wrong with a typed amount for *any* currency, or null.
  *
