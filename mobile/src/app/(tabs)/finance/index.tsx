@@ -80,6 +80,13 @@ export default function Finance() {
             />
             <RowDivider />
             <NavRow
+              href="/finance/subscriptions"
+              label="Subscriptions"
+              blurb="What renews, when, and renewing early"
+              icon="autorenew"
+            />
+            <RowDivider />
+            <NavRow
               href="/finance/categories"
               label="Categories"
               blurb="Names, symbols, colours and their order"

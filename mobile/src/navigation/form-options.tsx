@@ -11,6 +11,7 @@ export const FORM_ROUTES = [
   '(forms)/arrange-categories',
   '(forms)/budget',
   '(forms)/arrange-budgets',
+  '(forms)/subscription',
 ] as const;
 
 /**
