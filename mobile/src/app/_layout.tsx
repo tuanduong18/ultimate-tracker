@@ -7,6 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, type ReactNode } from 'react';
 
 import { SessionProvider, useSession } from '@/auth/session';
+import { QueryProvider } from '@/lib/query';
 import { saveAppearance, useStoredAppearance } from '@/theme/appearance-store';
 import { AppThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
@@ -23,12 +24,15 @@ SplashScreen.preventAutoHideAsync();
  * transition ever shows a white frame in dark mode.
  */
 export default function RootLayout() {
-  // The session and the stored look are read side by side, not one after the other.
+  // The session and the stored look are read side by side, not one after the other. The query
+  // cache sits inside the session so it can empty itself when the person signs out.
   return (
     <SessionProvider>
-      <StoredTheme>
-        <Root />
-      </StoredTheme>
+      <QueryProvider>
+        <StoredTheme>
+          <Root />
+        </StoredTheme>
+      </QueryProvider>
     </SessionProvider>
   );
 }
