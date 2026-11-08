@@ -38,6 +38,13 @@ export type ResolvedMode = 'light' | 'dark';
 
 export const DEFAULT_MODE: ModePreference = 'system';
 
+/**
+ * Material's scrim: what dims the screen behind a sheet. Black at 32% in light and dark alike —
+ * it darkens whatever is behind it rather than being a colour of its own, so it is fixed rather
+ * than generated with the tokens.
+ */
+export const SCRIM = 'rgba(0, 0, 0, 0.32)';
+
 /** Every colour a component may use: the neutral base for the mode plus the scheme's accent. */
 export type Colors = {
   [K in keyof typeof NEUTRAL.light | keyof (typeof ACCENTS)['pastel-blue']['light']]: string;

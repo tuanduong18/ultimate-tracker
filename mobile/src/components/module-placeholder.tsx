@@ -6,7 +6,7 @@ import { IconBadge } from '@/components/icon';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { WEB_APP_URL } from '@/config';
-import type { ModuleEntry } from '@/navigation/modules';
+import type { PlaceholderEntry } from '@/navigation/modules';
 import { RADIUS, SPACE } from '@/theme/scale';
 import { useAppTheme } from '@/theme/theme-provider';
 
@@ -18,7 +18,7 @@ import { useAppTheme } from '@/theme/theme-provider';
  * somewhere useful today rather than at a blank screen. A module built nowhere yet says when it
  * lands and what it will do, from the release plan. Neither shows a mock-up of data nobody has.
  */
-export function ModulePlaceholder({ module: entry }: { module: ModuleEntry }) {
+export function ModulePlaceholder({ module: entry }: { module: PlaceholderEntry }) {
   const { colors } = useAppTheme();
   const onWeb = entry.status === 'web';
 

@@ -1,5 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Appearance as SystemAppearance, useColorScheme } from 'react-native';
 
 import type { Appearance } from '@/theme/appearance-store';
 import {
@@ -12,6 +20,7 @@ import {
   type ResolvedMode,
   type ThemeId,
 } from '@/theme/themes';
+import { BUDGET_TINTS } from '@/theme/tokens';
 
 interface AppTheme {
   theme: ThemeId;
@@ -19,6 +28,12 @@ interface AppTheme {
   /** What `modePreference` resolves to right now; `system` follows the phone live. */
   mode: ResolvedMode;
   colors: Colors;
+  /**
+   * The budget cards' pastels for the mode, handed out by creation order — part of the theme so
+   * a card never has to ask which mode it is in. The same in every scheme: their job is to differ
+   * from each other, which tints of one scheme's hue couldn't.
+   */
+  budgetTints: readonly string[];
   setTheme: (theme: ThemeId) => void;
   setModePreference: (mode: ModePreference) => void;
 }
@@ -53,6 +68,13 @@ export function AppThemeProvider({
   const [modePreference, setModeState] = useState<ModePreference>(initialMode);
   const mode = resolveMode(modePreference, systemScheme);
 
+  // Android draws some parts itself — the date picker, confirmation dialogs — from the native
+  // theme, which is DayNight (plugins/with-android-theme.js). Telling it the chosen mode keeps
+  // those in step when the person overrides the phone; `unspecified` hands it back to the phone.
+  useEffect(() => {
+    SystemAppearance.setColorScheme(modePreference === 'system' ? 'unspecified' : modePreference);
+  }, [modePreference]);
+
   const setTheme = useCallback(
     (next: ThemeId) => {
       setThemeState(next);
@@ -75,6 +97,7 @@ export function AppThemeProvider({
       modePreference,
       mode,
       colors: resolveColors(theme, mode),
+      budgetTints: BUDGET_TINTS[mode],
       setTheme,
       setModePreference,
     }),

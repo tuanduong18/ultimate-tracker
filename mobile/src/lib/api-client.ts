@@ -1,5 +1,8 @@
+import { ApiError, type ApiErrorBody } from '@/lib/api-error';
 import { API_BASE_URL } from '@/lib/env';
 import { supabase } from '@/lib/supabase';
+
+export { ApiError, type ApiErrorBody };
 
 /**
  * The single typed entry point for the FastAPI backend — the phone's copy of the web's
@@ -8,28 +11,6 @@ import { supabase } from '@/lib/supabase';
  *
  * File transfer (`download`, `upload`) arrives with the import and export screens.
  */
-
-export interface ApiErrorBody {
-  code: string;
-  message: string;
-  /** Only VALIDATION_ERROR carries this: the raw per-field reasons the UI needs. */
-  details?: unknown;
-}
-
-/** Error thrown for any non-2xx response, carrying the backend's error shape. */
-export class ApiError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details?: unknown;
-
-  constructor(status: number, body: ApiErrorBody) {
-    super(body.message);
-    this.name = 'ApiError';
-    this.code = body.code;
-    this.status = status;
-    this.details = body.details;
-  }
-}
 
 interface RequestOptions {
   method?: string;

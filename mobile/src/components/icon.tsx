@@ -14,22 +14,27 @@ export type IconName = NonNullable<
  * A Material Symbol — Android's own icon set, so icons look like the rest of the phone rather
  * than like the web's. Always decorative: the control around it carries the accessible name,
  * so the glyph is hidden from screen readers.
+ *
+ * Coloured by a theme `tone`. `ink` is the one way past the tokens, and only for data colours:
+ * the white or black `inkOn` picks for a glyph on a category's own colour, which no token can be.
  */
 export function Icon({
   name,
   size = 24,
   tone = 'fg',
+  ink,
   style,
 }: {
   name: IconName;
   size?: number;
   tone?: keyof Colors;
+  ink?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useAppTheme();
   return (
     <View accessible={false} importantForAccessibility="no-hide-descendants" style={style}>
-      <SymbolView name={{ android: name }} size={size} tintColor={colors[tone]} />
+      <SymbolView name={{ android: name }} size={size} tintColor={ink ?? colors[tone]} />
     </View>
   );
 }

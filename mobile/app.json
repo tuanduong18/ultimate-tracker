@@ -42,7 +42,10 @@
       "expo-asset",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "./plugins/with-android-theme"
     ],
     "experiments": {
       "typedRoutes": true

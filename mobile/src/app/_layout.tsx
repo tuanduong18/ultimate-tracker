@@ -5,8 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 import regularSymbols from 'expo-symbols/androidWeights/regular';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect, useMemo, type ReactNode } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { SessionProvider, useSession } from '@/auth/session';
+import { QueryProvider } from '@/lib/query';
+import { FORM_ROUTES, useFormScreenOptions } from '@/navigation/form-options';
 import { saveAppearance, useStoredAppearance } from '@/theme/appearance-store';
 import { AppThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
@@ -23,13 +27,22 @@ SplashScreen.preventAutoHideAsync();
  * transition ever shows a white frame in dark mode.
  */
 export default function RootLayout() {
-  // The session and the stored look are read side by side, not one after the other.
+  // Gestures (dragging a row to arrange it) and the keyboard (keeping a form's Save above it)
+  // are handled natively from the root down. The session and the stored look are read side by
+  // side, not one after the other; the query cache sits inside the session so it can empty
+  // itself when the person signs out.
   return (
-    <SessionProvider>
-      <StoredTheme>
-        <Root />
-      </StoredTheme>
-    </SessionProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
+        <SessionProvider>
+          <QueryProvider>
+            <StoredTheme>
+              <Root />
+            </StoredTheme>
+          </QueryProvider>
+        </SessionProvider>
+      </KeyboardProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -61,6 +74,7 @@ function StoredTheme({ children }: { children: ReactNode }) {
 function Root() {
   const [fontsLoaded, fontError] = useFonts({ [regularSymbols.name]: regularSymbols.font });
   const { session, loading } = useSession();
+  const formOptions = useFormScreenOptions();
   const ready = (fontsLoaded || fontError !== null) && !loading;
   const signedIn = session !== null;
 
@@ -76,6 +90,10 @@ function Root() {
         <Stack.Screen name="index" />
         <Stack.Protected guard={signedIn} redirectTo="/login">
           <Stack.Screen name="(tabs)" />
+          {/* Adding and editing open over the tabs, as Material's full-screen dialogs. */}
+          {FORM_ROUTES.map((name) => (
+            <Stack.Screen key={name} name={name} options={formOptions} />
+          ))}
         </Stack.Protected>
         <Stack.Protected guard={!signedIn} redirectTo="/dashboard">
           <Stack.Screen name="(auth)" />
