@@ -70,6 +70,16 @@ export default function Finance() {
             </Card>
           )}
         </Section>
+        <Section title="Plan and organise">
+          <Card>
+            <NavRow
+              href="/finance/categories"
+              label="Categories"
+              blurb="Names, symbols, colours and their order"
+              icon="sell"
+            />
+          </Card>
+        </Section>
       </Screen>
       <Fab label="Add expense" onPress={() => router.push('/expense')} />
     </View>

@@ -5,7 +5,11 @@ import { IconButton } from '@/components/button';
 import { useAppTheme } from '@/theme/theme-provider';
 
 /** Every add-or-edit screen, registered in the root stack above the tabs (src/app/(forms)). */
-export const FORM_ROUTES = ['(forms)/expense'] as const;
+export const FORM_ROUTES = [
+  '(forms)/expense',
+  '(forms)/category',
+  '(forms)/arrange-categories',
+] as const;
 
 /**
  * Closing a form: ✕ rather than a back arrow, because a full-screen modal is left, not gone back
