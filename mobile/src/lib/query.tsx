@@ -1,4 +1,10 @@
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { addEventListener as onNetworkChange } from '@react-native-community/netinfo';
+import {
+  focusManager,
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
@@ -27,6 +33,13 @@ focusManager.setEventListener((handleFocus) => {
   });
   return () => subscription.remove();
 });
+
+// The phone's own word on whether it has a connection: with none, loads wait rather than fail
+// and spend their retries, and they run again the moment it comes back — a lift, a tunnel, a
+// flight. An unknown state counts as online, so a phone that won't say is never stuck offline.
+onlineManager.setEventListener((setOnline) =>
+  onNetworkChange((state) => setOnline(state.isConnected !== false))
+);
 
 /**
  * Ask again only when asking again could help: a dropped connection or a server still waking
