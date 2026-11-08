@@ -1,5 +1,13 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Appearance as SystemAppearance, useColorScheme } from 'react-native';
 
 import type { Appearance } from '@/theme/appearance-store';
 import {
@@ -52,6 +60,13 @@ export function AppThemeProvider({
   const [theme, setThemeState] = useState<ThemeId>(initialTheme);
   const [modePreference, setModeState] = useState<ModePreference>(initialMode);
   const mode = resolveMode(modePreference, systemScheme);
+
+  // Android draws some parts itself — the date picker, confirmation dialogs — from the native
+  // theme, which is DayNight (plugins/with-android-theme.js). Telling it the chosen mode keeps
+  // those in step when the person overrides the phone; `unspecified` hands it back to the phone.
+  useEffect(() => {
+    SystemAppearance.setColorScheme(modePreference === 'system' ? 'unspecified' : modePreference);
+  }, [modePreference]);
 
   const setTheme = useCallback(
     (next: ThemeId) => {
