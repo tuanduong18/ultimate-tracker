@@ -43,6 +43,24 @@ export interface Expense {
  */
 export type BudgetPeriod = 'monthly' | 'custom';
 
+/** A budget as stored — what /budgets returns, and what the edit form starts from. */
+export interface Budget {
+  id: string;
+  name: string;
+  amount: string;
+  currency: string;
+  period: BudgetPeriod;
+  /** For a monthly budget, the 1st of its first month. */
+  starts_on: string;
+  /** Null for an ongoing monthly budget; always set for a custom one. */
+  ends_on: string | null;
+  warn_at_percent: number | null;
+  all_spending: boolean;
+  /** Embedded by the API; empty when `all_spending`. */
+  categories: Category[];
+  created_at: string;
+}
+
 /**
  * A budget with spend measured against it — what /budgets/progress returns for one month.
  *

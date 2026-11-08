@@ -9,6 +9,8 @@ export const FORM_ROUTES = [
   '(forms)/expense',
   '(forms)/category',
   '(forms)/arrange-categories',
+  '(forms)/budget',
+  '(forms)/arrange-budgets',
 ] as const;
 
 /**

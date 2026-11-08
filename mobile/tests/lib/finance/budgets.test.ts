@@ -2,6 +2,7 @@ import {
   barPercent,
   isOverspent,
   scheduleOf,
+  tintOrder,
   warnOptions,
   withoutSign,
 } from '@/lib/finance/budgets';
@@ -45,5 +46,19 @@ describe('warnOptions', () => {
     expect(warnOptions(80)).toEqual([50, 75, 80, 90]);
     expect(warnOptions(null)).toEqual([50, 75, 80, 90]);
     expect(warnOptions(60)).toEqual([50, 60, 75, 80, 90]);
+  });
+});
+
+describe('tintOrder', () => {
+  it('colours by creation order, not list order, wrapping past the pastels', () => {
+    const order = tintOrder(
+      [
+        { id: 'new', created_at: '2026-11-02T00:00:00Z' },
+        { id: 'old', created_at: '2026-01-01T00:00:00Z' },
+        { id: 'mid', created_at: '2026-06-01T00:00:00Z' },
+      ],
+      2
+    );
+    expect([order.get('old'), order.get('mid'), order.get('new')]).toEqual([0, 1, 0]);
   });
 });

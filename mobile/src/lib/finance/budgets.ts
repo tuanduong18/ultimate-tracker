@@ -41,6 +41,18 @@ export function scheduleOf(
   return budget.ends_on ? `${from} – ${formatMonthShort(budget.ends_on)}` : `Since ${from}`;
 }
 
+/**
+ * Each budget's place in creation order, which picks its card's pastel: arranging the list, or a
+ * month that shows only some budgets, never recolours a card. Wraps once past the pastels.
+ */
+export function tintOrder(
+  budgets: readonly Pick<BudgetProgress, 'id' | 'created_at'>[],
+  tints: number
+): Map<string, number> {
+  const byAge = [...budgets].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return new Map(byAge.map((budget, index) => [budget.id, index % tints]));
+}
+
 /** The early-warning choices the form offers: a share of the cap, or none. */
 export const WARN_AT = [50, 75, 80, 90] as const;
 

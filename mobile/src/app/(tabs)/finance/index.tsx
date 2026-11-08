@@ -73,6 +73,13 @@ export default function Finance() {
         <Section title="Plan and organise">
           <Card>
             <NavRow
+              href="/finance/budgets"
+              label="Budgets"
+              blurb="Caps per month or over dates, and how they’re going"
+              icon="savings"
+            />
+            <RowDivider />
+            <NavRow
               href="/finance/categories"
               label="Categories"
               blurb="Names, symbols, colours and their order"

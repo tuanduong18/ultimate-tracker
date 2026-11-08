@@ -12,6 +12,7 @@ import type { DateRange } from '@/lib/dates';
 import { describeError } from '@/lib/describe-error';
 import { selectionQuery, type CategorySelection } from '@/lib/finance/categories';
 import type {
+  Budget,
   BudgetProgress,
   Category,
   CategoryBreakdown,
@@ -35,6 +36,7 @@ export const financeKeys = {
   all: ['finance'] as const,
   categories: ['finance', 'categories'] as const,
   expenses: ['finance', 'expenses'] as const,
+  budgets: ['finance', 'budgets'] as const,
   budgetProgress: (month: string) => ['finance', 'budgets', 'progress', month] as const,
   subscriptions: ['finance', 'subscriptions'] as const,
   currencies: ['finance', 'currencies'] as const,
@@ -97,6 +99,14 @@ export function useBudgetProgress(month: string) {
     queryKey: financeKeys.budgetProgress(month),
     queryFn: () => api.get<BudgetProgress[]>(`/finance/budgets/progress?month=${month}`),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Every budget as stored, whichever months it covers — what the edit form starts from. */
+export function useBudgets() {
+  return useQuery({
+    queryKey: financeKeys.budgets,
+    queryFn: () => api.get<Budget[]>('/finance/budgets'),
   });
 }
 
