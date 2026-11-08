@@ -17,6 +17,23 @@ beforeEach(() => {
     '/finance/expenses': Array.from({ length: 7 }, (_, i) =>
       expense(`e${i}`, { description: `Expense ${i}` })
     ),
+    '/finance/summary': {
+      currency: 'SGD',
+      starts_on: '',
+      ends_on: '',
+      spent: '70.00',
+      budgeted: '0',
+      remaining: '0',
+    },
+    '/finance/subscriptions': [],
+    '/finance/summary/by-category': { currency: 'SGD', starts_on: '', ends_on: '', categories: [] },
+    '/finance/summary/by-period': {
+      currency: 'SGD',
+      starts_on: '',
+      ends_on: '',
+      granularity: 'day',
+      buckets: [],
+    },
   });
 });
 
@@ -28,6 +45,15 @@ describe('Finance', () => {
     expect(screen.getByRole('button', { name: /^Expense 4, / })).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /^Expense 5, / })).toBeNull();
     expect(screen.getByText('All transactions')).toBeOnTheScreen();
+  });
+
+  it('opens on this month’s spending, and leads into every part of Finance', async () => {
+    await renderScreen(<Finance />);
+
+    expect(await screen.findByText('Spent this month')).toBeOnTheScreen();
+    for (const part of ['Budgets', 'Subscriptions', 'Categories']) {
+      expect(screen.getByText(part)).toBeOnTheScreen();
+    }
   });
 
   it('adds an expense from the floating button', async () => {

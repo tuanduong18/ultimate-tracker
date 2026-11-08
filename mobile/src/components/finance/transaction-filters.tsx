@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { CheckChips, ChoiceChips } from '@/components/chips';
+import { ChoiceChips } from '@/components/chips';
 import { DateField } from '@/components/date-field';
 import { FilterButton } from '@/components/filter-button';
-import { categoryOptions, NO_CATEGORY } from '@/components/finance/category-chips';
+import { CategorySelectionChips } from '@/components/finance/category-selection';
 import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import { TextField } from '@/components/text-field';
-import { ALL_CATEGORIES } from '@/lib/finance/categories';
 import {
   amountLabel,
   amountUnreadable,
@@ -89,7 +88,12 @@ export function TransactionFilterBar({
         <DatesFilter filters={filters} onChange={onChange} />
       </Sheet>
       <Sheet visible={open === 'categories'} onClose={close} title="Categories" footer={done}>
-        <CategoriesFilter filters={filters} onChange={onChange} categories={categories} />
+        <CategorySelectionChips
+          label="Show expenses in"
+          selection={filters.categories}
+          onChange={(selection) => onChange({ ...filters, categories: selection })}
+          categories={categories}
+        />
       </Sheet>
       <Sheet visible={open === 'amount'} onClose={close} title="Amount" footer={done}>
         <AmountFilter
@@ -149,60 +153,6 @@ function DatesFilter({
         emptyLabel="Any end"
         minimum={filters.start || undefined}
         onChange={(end) => onChange({ ...filters, end })}
-      />
-    </>
-  );
-}
-
-/**
- * Which categories to show. `ids: null` is every category, including ones made later; ticking
- * boxes pins a list. Toggling Uncategorised pins the current list too, as the web does.
- */
-function CategoriesFilter({
-  filters,
-  onChange,
-  categories,
-}: {
-  filters: TransactionFilters;
-  onChange: (filters: TransactionFilters) => void;
-  categories: readonly Category[];
-}) {
-  const selection = filters.categories;
-  const chosen = selection.ids ?? categories.map((category) => category.id);
-  const selected = selection.uncategorized ? [...chosen, NO_CATEGORY] : chosen;
-
-  function toggle(id: string) {
-    if (id === NO_CATEGORY) {
-      onChange({
-        ...filters,
-        categories: { ids: chosen, uncategorized: !selection.uncategorized },
-      });
-      return;
-    }
-    const ids = chosen.includes(id) ? chosen.filter((other) => other !== id) : [...chosen, id];
-    onChange({ ...filters, categories: { ...selection, ids } });
-  }
-
-  return (
-    <>
-      <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
-        <Button
-          label="Select all"
-          variant="text"
-          onPress={() => onChange({ ...filters, categories: ALL_CATEGORIES })}
-        />
-        <Button
-          label="Clear"
-          variant="text"
-          accessibilityLabel="Clear every category"
-          onPress={() => onChange({ ...filters, categories: { ids: [], uncategorized: false } })}
-        />
-      </View>
-      <CheckChips
-        label="Show expenses in"
-        options={categoryOptions(categories)}
-        selected={selected}
-        onToggle={toggle}
       />
     </>
   );

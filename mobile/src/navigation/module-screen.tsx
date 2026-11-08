@@ -10,6 +10,8 @@ import { moduleFor } from '@/navigation/modules';
  */
 export function ModuleScreen({ moduleKey }: { moduleKey: string }) {
   const entry = moduleFor(moduleKey);
+  // A module the app has (Finance) owns its route files outright; reaching here is a wiring bug.
+  if (entry.status === 'app') throw new Error(`${entry.label} has its own screens`);
   return (
     <>
       <Stack.Screen options={{ title: entry.label }} />

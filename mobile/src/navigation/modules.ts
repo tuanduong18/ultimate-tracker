@@ -5,9 +5,9 @@ import type { IconName } from '@/components/icon';
  * frontend/components/shared/nav-items.ts. Labels, blurbs and order match the web, so the two
  * clients read as one app; what each says about its own state is the phone's.
  *
- * `web`: built on the web, not yet in the app. `soon`: built on neither yet — its release and
- * plans come from the release plan in docs/features, so nothing here promises more than the
- * specs do.
+ * `app`: built in the app, with its own screens. `web`: built on the web, not yet in the app.
+ * `soon`: built on neither yet — its release and plans come from the release plan in
+ * docs/features, so nothing here promises more than the specs do.
  */
 export const MODULES = [
   {
@@ -23,8 +23,7 @@ export const MODULES = [
     label: 'Finance',
     blurb: 'Expenses, budgets and subscriptions',
     icon: 'account_balance_wallet',
-    status: 'web',
-    webPath: '/finance',
+    status: 'app',
   },
   {
     key: 'fitness',
@@ -87,9 +86,13 @@ interface ModuleBase {
 
 export type ModuleEntry = ModuleBase &
   (
+    | { status: 'app' }
     | { status: 'web'; webPath: string }
     | { status: 'soon'; release: string; planned: readonly string[] }
   );
+
+/** A module the app doesn't have screens for yet: what a placeholder can show. */
+export type PlaceholderEntry = Exclude<ModuleEntry, { status: 'app' }>;
 
 export type Module = (typeof MODULES)[number];
 

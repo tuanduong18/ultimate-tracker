@@ -1,29 +1,42 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { Card, RowDivider } from '@/components/card';
 import { Fab } from '@/components/fab';
 import { ExpenseRow } from '@/components/finance/expense-row';
+import { RangeControl } from '@/components/finance/range-control';
+import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
+import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
+import { SummaryTiles } from '@/components/finance/summary-tiles';
 import { NavRow } from '@/components/nav-row';
 import { Screen } from '@/components/screen';
 import { Section } from '@/components/section';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
-import { loadError, useCategories, useExpenses } from '@/lib/finance/queries';
+import { monthRange, type DateRange } from '@/lib/dates';
+import { ALL_CATEGORIES, type CategorySelection } from '@/lib/finance/categories';
+import { financeKeys, loadError, useCategories, useExpenses } from '@/lib/finance/queries';
 
 /** How many of the newest expenses the Overview lists before "All transactions". */
 const LATEST = 5;
 
 /**
- * Finance's first screen: what was spent lately and the way into each part of Finance, with
- * Add expense under the thumb. The phone's Overview, twin of the web's Finance tab of that name;
- * the web's tabs become the rows here, each opening its own screen in this tab's stack — the
- * back gesture then always goes one level up, which tabs inside a tab would muddle.
+ * Finance's first screen — the phone's Overview, twin of the web's Finance tab of that name:
+ * this month's spending and the next charge, the latest expenses, where the money went and how
+ * it moved, then the way into each part of Finance. Add expense is under the thumb throughout.
+ *
+ * The web's tabs become rows here, each opening its own screen in this tab's stack, so the back
+ * gesture always goes one level up — tabs inside a tab would muddle that. Pulling down reloads
+ * everything on the screen.
  */
 export default function Finance() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const expenses = useExpenses();
   const categories = useCategories();
+  const [range, setRange] = useState<DateRange>(() => monthRange());
+  const [selection, setSelection] = useState<CategorySelection>(ALL_CATEGORIES);
   const byId = useMemo(
     () => new Map((categories.data ?? []).map((c) => [c.id, c])),
     [categories.data]
@@ -33,7 +46,12 @@ export default function Finance() {
   return (
     <View style={{ flex: 1 }}>
       <Stack.Screen options={{ title: 'Finance' }} />
-      <Screen withFab onRefresh={() => Promise.all([expenses.refetch(), categories.refetch()])}>
+      <Screen
+        withFab
+        onRefresh={() => queryClient.refetchQueries({ queryKey: financeKeys.all, type: 'active' })}
+      >
+        <SummaryTiles />
+
         <Section title="Latest expenses">
           {expenses.isPending ? (
             <LoadingState rows={3} />
@@ -70,6 +88,19 @@ export default function Finance() {
             </Card>
           )}
         </Section>
+
+        <Section title="Spending">
+          <RangeControl
+            range={range}
+            onRange={setRange}
+            selection={selection}
+            onSelection={setSelection}
+            categories={categories.data ?? []}
+          />
+          <SpendByCategoryChart range={range} selection={selection} />
+          <SpendByPeriodChart range={range} selection={selection} />
+        </Section>
+
         <Section title="Plan and organise">
           <Card>
             <NavRow

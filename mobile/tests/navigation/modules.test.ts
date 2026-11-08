@@ -22,10 +22,14 @@ describe('modules', () => {
       if (entry.status === 'soon') {
         expect(entry.release).not.toBe('');
         expect(entry.planned.length).toBeGreaterThan(0);
-      } else {
+      } else if (entry.status === 'web') {
         expect(entry.webPath).toMatch(/^\//);
       }
     }
+  });
+
+  it('has Finance in the app now, with its own screens rather than a placeholder', () => {
+    expect(moduleFor('finance').status).toBe('app');
   });
 
   it('refuses an unknown module rather than rendering a blank screen', () => {
