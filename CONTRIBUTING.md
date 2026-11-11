@@ -177,6 +177,28 @@ only when the browser must read a table itself — `notifications`, for Realtime
 
 ---
 
+## Generated files
+
+Three kinds of file are written by scripts in [`tools/`](./tools/README.md), never by hand. CI
+regenerates each and fails if the committed copy differs.
+
+| File | Regenerate with | When |
+|---|---|---|
+| `docs/api/openapi.json` | `cd backend && python ../tools/api/dump_openapi.py` | a request or response shape, a path or an enum changed |
+| `frontend/lib/types/api.gen.ts`, `mobile/src/lib/types/api.gen.ts` | `node tools/api/gen-types.mjs` | the line above changed |
+| the token section of `frontend/app/globals.css`, `mobile/src/theme/tokens.ts` | `node tools/design/palette.mjs --write` | a colour, scheme or mode changed |
+
+**An API change is three commits' worth of files in one PR:** the backend code, the regenerated
+schema, and the regenerated types — after which `tsc` in each client lists every place that
+used the old shape. That is the point: both clients alias their API types from `api.gen.ts`
+([ADR-0005](./docs/adr/0005-generated-api-types.md)), so they cannot quietly disagree with the
+backend. Write a new domain's client types as aliases too, not as a second copy of the shape.
+
+A Dependabot PR that bumps FastAPI or Pydantic can change the schema file on its own. If
+`backend-ci` fails there on the schema check, regenerate on that branch and read the diff.
+
+---
+
 ## Testing
 
 Every new service function and API endpoint needs at least one test before it's done. This
@@ -184,9 +206,10 @@ matters most for the code that looks trivial — budget math, correlation thresh
 detection — because that's exactly what breaks silently.
 
 ```bash
-cd backend  && python -m ruff check . && python -m ruff format --check . && python -m mypy app/ && python -m pytest
+cd backend  && python ../tools/api/dump_openapi.py --check && python -m ruff check . && python -m ruff format --check . && python -m mypy app/ && python -m pytest
 cd frontend && npm run lint && npm run format:check && npx tsc --noEmit && npm run test -- --run && npm run build
 cd mobile   && npm run lint && npm run format:check && npx expo customize tsconfig.json && npx tsc --noEmit && npm test && npx expo-doctor && npm run export:android
+node tools/api/gen-types.mjs --check && node tools/design/palette.mjs --check && node tools/design/contrast.mjs --quiet
 ```
 
 `pytest` needs `TEST_DATABASE_URL` pointing at a throwaway Postgres database whose name contains
@@ -224,8 +247,11 @@ rather than only in a markdown table.
 
 ## Dependencies
 
-Dependabot opens **grouped weekly PRs** for pip, npm, GitHub Actions, and Docker
-([`.github/dependabot.yml`](./.github/dependabot.yml)). Both npm apps bundle minor and patch
+Dependabot opens **grouped monthly PRs** for pip, npm, GitHub Actions, and Docker
+([`.github/dependabot.yml`](./.github/dependabot.yml)). Monthly rather than weekly because five
+ecosystems on a weekly schedule made dependency bumps about two in five of all commits; the
+schedule covers version updates only, and a security fix still opens its own PR the day an
+advisory has one. Both npm apps bundle minor and patch
 into one PR and put majors in a separate group, so a breaking major can't hold up routine
 updates; pip is a single group, since without a lock file Dependabot can't tell a major from a
 minor. A major that needs migration work (React, Next, Tailwind, TypeScript, recharts, the

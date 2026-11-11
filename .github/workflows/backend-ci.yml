@@ -33,6 +33,9 @@ jobs:
             backend:
               - 'backend/**'
               - '.github/workflows/backend-ci.yml'
+              # The committed API schema and the script that writes it.
+              - 'docs/api/**'
+              - 'tools/api/**'
 
   lint-and-test:
     needs: changes
@@ -79,6 +82,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      # docs/api/openapi.json is what both clients are typed against. A route or
+      # schema changed without regenerating it would leave them checking against
+      # an API that no longer exists.
+      - name: Check the committed OpenAPI schema is current
+        run: python ../tools/api/dump_openapi.py --check
 
       - name: Lint with ruff
         run: ruff check .

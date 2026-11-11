@@ -1,0 +1,3615 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ultimate Tracker API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Return service status and database connectivity.",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Api V1 Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Read Me",
+        "description": "Return the authenticated user's profile, creating it on first access.",
+        "operationId": "read_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update Me",
+        "description": "Update the authenticated user's preferences.",
+        "operationId": "update_me_api_v1_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "description": "``view=inbox`` (default): the bell. ``view=history``: snoozed reminders\nand archived notices. Newest first.",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "inbox",
+                "history"
+              ],
+              "type": "string",
+              "default": "inbox",
+              "title": "View"
+            }
+          },
+          {
+            "name": "unread_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unread Only"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationRead"
+                  },
+                  "title": "Response List Notifications Api V1 Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notification_id}": {
+      "patch": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Update Notification",
+        "operationId": "update_notification_api_v1_notifications__notification_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Delete Notification",
+        "operationId": "delete_notification_api_v1_notifications__notification_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/exchange-rates": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Refresh Exchange Rates",
+        "description": "Fetch today's rates from the upstream and store them.",
+        "operationId": "refresh_exchange_rates_api_v1_tasks_exchange_rates_post",
+        "parameters": [
+          {
+            "name": "x-task-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRateRefreshRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/subscriptions": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Run Subscriptions",
+        "description": "Record charges that have come due as expenses, then update every\nreminder's countdown. Schedule it every couple of hours.",
+        "operationId": "run_subscriptions_api_v1_tasks_subscriptions_post",
+        "parameters": [
+          {
+            "name": "x-task-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionJobRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/budgets": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Run Budgets",
+        "description": "Alert on budgets that reached their warning or their cap, and clear\nalerts that no longer apply. Schedule it hourly.",
+        "operationId": "run_budgets_api_v1_tasks_budgets_post",
+        "parameters": [
+          {
+            "name": "x-task-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Task-Secret"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetJobRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/categories": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "List Categories",
+        "operationId": "list_categories_api_v1_finance_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Categories Api V1 Finance Categories Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Create Category",
+        "operationId": "create_category_api_v1_finance_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/categories/order": {
+      "put": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Reorder Categories",
+        "description": "Arrange the categories: GET /categories lists them in this order from now on.",
+        "operationId": "reorder_categories_api_v1_finance_categories_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListOrderUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/categories/{category_id}": {
+      "patch": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Update Category",
+        "operationId": "update_category_api_v1_finance_categories__category_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Delete Category",
+        "operationId": "delete_category_api_v1_finance_categories__category_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Category Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/expenses": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "List Expenses",
+        "operationId": "list_expenses_api_v1_finance_expenses_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseRead"
+                  },
+                  "title": "Response List Expenses Api V1 Finance Expenses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Create Expense",
+        "operationId": "create_expense_api_v1_finance_expenses_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/expenses/export": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Export Expenses",
+        "description": "The listed expenses as an .xlsx file, newest first.\n\nA POST because the body can carry thousands of ids, more than a URL holds;\nit changes nothing. Ids that are not the caller's are left out silently.",
+        "operationId": "export_expenses_api_v1_finance_expenses_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/expenses/import/template": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Download Import Template",
+        "description": "An empty .xlsx to fill in and import, with drop-downs of the caller's\ncategories and the supported currencies.",
+        "operationId": "download_import_template_api_v1_finance_expenses_import_template_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/expenses/import/preview": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Preview Expense Import",
+        "description": "Read an .xlsx or CSV file and say what importing it would do: the rows\nready to import, likely duplicates, and the problems keeping rows out.\nSaves nothing.",
+        "operationId": "preview_expense_import_api_v1_finance_expenses_import_preview_post",
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseImportPreviewRead"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/expenses/import": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Import Expenses",
+        "description": "Import the ready rows of the same file the preview read, in one\ntransaction, creating the categories they name that don't exist yet.\n\nRows with problems are left out. So are likely duplicates, unless\n`include_duplicates` is true.",
+        "operationId": "import_expenses_api_v1_finance_expenses_import_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_duplicates",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Duplicates"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseImportResultRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/expenses/{expense_id}": {
+      "patch": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Update Expense",
+        "operationId": "update_expense_api_v1_finance_expenses__expense_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "expense_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Expense Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Delete Expense",
+        "operationId": "delete_expense_api_v1_finance_expenses__expense_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "expense_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Expense Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/budgets": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "List Budgets",
+        "operationId": "list_budgets_api_v1_finance_budgets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BudgetRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Budgets Api V1 Finance Budgets Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Create Budget",
+        "operationId": "create_budget_api_v1_finance_budgets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/budgets/progress": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Read Budget Progress",
+        "description": "The budgets that apply to a month, with spend measured against each cap.\n\nA monthly budget is measured over that month alone; a custom one over its\nwhole range, in every month it touches. Separate from GET /budgets rather\nthan folded into it: this one converts currencies, and the forms that only\nneed the list of budgets should not pay for an exchange-rate lookup.",
+        "operationId": "read_budget_progress_api_v1_finance_budgets_progress_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Any day in the month to report on; defaults to the user's current month.",
+              "title": "Month"
+            },
+            "description": "Any day in the month to report on; defaults to the user's current month."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BudgetProgressRead"
+                  },
+                  "title": "Response Read Budget Progress Api V1 Finance Budgets Progress Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/budgets/order": {
+      "put": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Reorder Budgets",
+        "description": "Arrange budgets — usually one month's, as the Budgets tab shows them.\nBudgets left out keep their places; both budget lists follow this order.",
+        "operationId": "reorder_budgets_api_v1_finance_budgets_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListOrderUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/budgets/{budget_id}": {
+      "patch": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Update Budget",
+        "operationId": "update_budget_api_v1_finance_budgets__budget_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "budget_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Budget Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Delete Budget",
+        "operationId": "delete_budget_api_v1_finance_budgets__budget_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "budget_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Budget Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/subscriptions": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "List Subscriptions",
+        "description": "Live subscriptions first, soonest charge first; cancelled ones last.",
+        "operationId": "list_subscriptions_api_v1_finance_subscriptions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubscriptionRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Subscriptions Api V1 Finance Subscriptions Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Create Subscription",
+        "operationId": "create_subscription_api_v1_finance_subscriptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/finance/subscriptions/{subscription_id}": {
+      "patch": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Update Subscription",
+        "description": "Partial update. Send cancelled_on to cancel, or null to resume.",
+        "operationId": "update_subscription_api_v1_finance_subscriptions__subscription_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Subscription Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Delete Subscription",
+        "operationId": "delete_subscription_api_v1_finance_subscriptions__subscription_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Subscription Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/subscriptions/{subscription_id}/renew": {
+      "post": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Renew Subscription",
+        "description": "Renew ahead of the next charge: log it as an expense today and move the\nsubscription on to the charge after. 409 when a cancellation stops it.",
+        "operationId": "renew_subscription_api_v1_finance_subscriptions__subscription_id__renew_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Subscription Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/currencies": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "List Currencies",
+        "description": "Currency codes new entries may use: those the rate provider still quotes.\n\nServed rather than duplicated in the frontend so the picker cannot drift\nfrom what the services actually validate against. A delisted currency is\nleft out; the picker still shows it on a row already stored in it.\nUnauthenticated on purpose: it is identical for everyone.",
+        "operationId": "list_currencies_api_v1_finance_currencies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Currencies Api V1 Finance Currencies Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/summary": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Read Summary",
+        "description": "Spent, budgeted and remaining for a date range, in the display currency.",
+        "operationId": "read_summary_api_v1_finance_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/summary/by-category": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Read Category Breakdown",
+        "description": "Spend per category over a date range, in the display currency.\n\nBoth filter parameters are optional and default to everything. `category_ids`\nabsent means every category, including any created since the caller last\nlooked; `include_uncategorized` switches off the bucket holding spend whose\ncategory was deleted, which has no id to name it by.",
+        "operationId": "read_category_breakdown_api_v1_finance_summary_by_category_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "category_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category Ids"
+            }
+          },
+          {
+            "name": "include_uncategorized",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Uncategorized"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryBreakdownRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/finance/summary/by-period": {
+      "get": {
+        "tags": [
+          "finance"
+        ],
+        "summary": "Read Period Breakdown",
+        "description": "Spend per day or per calendar week over a range, in the display currency.\n\nThe bar chart picks the granularity from how long the range is, so that a\nweek shows seven bars and a quarter shows thirteen rather than ninety.\n\nBoth filter parameters are optional and default to everything. `category_ids`\nabsent means every category, including any created since the caller last\nlooked; `include_uncategorized` switches off the bucket holding spend whose\ncategory was deleted, which has no id to name it by.",
+        "operationId": "read_period_breakdown_api_v1_finance_summary_by_period_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "day",
+                "week"
+              ],
+              "type": "string",
+              "default": "week",
+              "title": "Granularity"
+            }
+          },
+          {
+            "name": "category_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category Ids"
+            }
+          },
+          {
+            "name": "include_uncategorized",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Include Uncategorized"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodBreakdownRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BillingInterval": {
+        "type": "string",
+        "enum": [
+          "day",
+          "week",
+          "month",
+          "year"
+        ],
+        "title": "BillingInterval",
+        "description": "Unit of a subscription's billing cycle; paired with an interval count."
+      },
+      "BucketSpendRead": {
+        "properties": {
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "spent": {
+            "type": "string",
+            "title": "Spent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "starts_on",
+          "ends_on",
+          "spent"
+        ],
+        "title": "BucketSpendRead",
+        "description": "One bar: what a single day or week cost.\n\nThe range is inclusive and, for weeks, can be shorter than seven days where\nthe bucket is clipped by the ends of the window — label the bar with it\nrather than assuming every bar covers the same span."
+      },
+      "BudgetCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod",
+            "default": "custom"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "all_spending": {
+            "type": "boolean",
+            "title": "All Spending",
+            "default": false
+          },
+          "category_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Category Ids",
+            "default": []
+          },
+          "warn_at_percent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 99.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warn At Percent",
+            "default": 80
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "amount",
+          "currency",
+          "starts_on"
+        ],
+        "title": "BudgetCreate"
+      },
+      "BudgetJobRead": {
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "title": "Checked"
+          },
+          "alerted": {
+            "type": "integer",
+            "title": "Alerted"
+          },
+          "cleared": {
+            "type": "integer",
+            "title": "Cleared"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checked",
+          "alerted",
+          "cleared"
+        ],
+        "title": "BudgetJobRead"
+      },
+      "BudgetPeriod": {
+        "type": "string",
+        "enum": [
+          "custom",
+          "monthly"
+        ],
+        "title": "BudgetPeriod",
+        "description": "How a budget's window is measured."
+      },
+      "BudgetProgressRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "spent": {
+            "type": "string",
+            "title": "Spent"
+          },
+          "remaining": {
+            "type": "string",
+            "title": "Remaining"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "warn_at_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warn At Percent"
+          },
+          "window_starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Window Starts On"
+          },
+          "window_ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Window Ends On"
+          },
+          "all_spending": {
+            "type": "boolean",
+            "title": "All Spending"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryRead"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "currency",
+          "amount",
+          "spent",
+          "remaining",
+          "period",
+          "starts_on",
+          "ends_on",
+          "warn_at_percent",
+          "window_starts_on",
+          "window_ends_on",
+          "all_spending",
+          "categories",
+          "created_at"
+        ],
+        "title": "BudgetProgressRead",
+        "description": "A budget with what has been spent against it.\n\n``currency`` is the budget own currency rather than the display currency:\nspending is converted *into* the cap so the percentage means something\nfixed. Two budgets in a list may therefore be quoted in different currencies."
+      },
+      "BudgetRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "warn_at_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warn At Percent"
+          },
+          "all_spending": {
+            "type": "boolean",
+            "title": "All Spending"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryRead"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "currency",
+          "period",
+          "starts_on",
+          "ends_on",
+          "warn_at_percent",
+          "all_spending",
+          "categories",
+          "created_at"
+        ],
+        "title": "BudgetRead"
+      },
+      "BudgetUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetPeriod"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "all_spending": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "All Spending"
+          },
+          "category_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Ids"
+          },
+          "warn_at_percent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 99.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warn At Percent"
+          }
+        },
+        "type": "object",
+        "title": "BudgetUpdate"
+      },
+      "CategoryBreakdownRead": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategorySpendRead"
+            },
+            "type": "array",
+            "title": "Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "starts_on",
+          "ends_on",
+          "categories"
+        ],
+        "title": "CategoryBreakdownRead"
+      },
+      "CategoryCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Colour",
+            "default": "#94a3b8"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CategoryCreate"
+      },
+      "CategoryRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "colour": {
+            "type": "string",
+            "title": "Colour"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "colour",
+          "icon",
+          "created_at"
+        ],
+        "title": "CategoryRead"
+      },
+      "CategorySpendRead": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "colour": {
+            "type": "string",
+            "title": "Colour"
+          },
+          "spent": {
+            "type": "string",
+            "title": "Spent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id",
+          "name",
+          "colour",
+          "spent"
+        ],
+        "title": "CategorySpendRead",
+        "description": "One slice: what a single category cost over the range."
+      },
+      "CategoryUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          }
+        },
+        "type": "object",
+        "title": "CategoryUpdate"
+      },
+      "ExchangeRateRefreshRead": {
+        "properties": {
+          "currencies": {
+            "type": "integer",
+            "title": "Currencies"
+          },
+          "delisted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Delisted"
+          },
+          "relisted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Relisted"
+          },
+          "notified": {
+            "type": "integer",
+            "title": "Notified"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currencies",
+          "delisted",
+          "relisted",
+          "notified"
+        ],
+        "title": "ExchangeRateRefreshRead"
+      },
+      "ExpenseCreate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "spent_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Spent On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "spent_on"
+        ],
+        "title": "ExpenseCreate"
+      },
+      "ExpenseExportRequest": {
+        "properties": {
+          "expense_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 50000,
+            "title": "Expense Ids"
+          },
+          "filters": {
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Filters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expense_ids"
+        ],
+        "title": "ExpenseExportRequest",
+        "description": "What the Transactions tab is showing: its rows by id, its filters in words.\n\nIds rather than filters because the tab filters in the browser; sending\nthe result keeps the filtering in one place. The cap is decades of daily\nspending, and exists so one request cannot ask for an unbounded IN list."
+      },
+      "ExpenseImportPreviewRead": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowRead"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ImportProblemRead"
+            },
+            "type": "array",
+            "title": "Problems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rows",
+          "problems"
+        ],
+        "title": "ExpenseImportPreviewRead",
+        "description": "What importing a file would do. Nothing has been saved."
+      },
+      "ExpenseImportResultRead": {
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "title": "Imported"
+          },
+          "duplicates_skipped": {
+            "type": "integer",
+            "title": "Duplicates Skipped"
+          },
+          "problem_rows_skipped": {
+            "type": "integer",
+            "title": "Problem Rows Skipped"
+          },
+          "categories_created": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "imported",
+          "duplicates_skipped",
+          "problem_rows_skipped",
+          "categories_created"
+        ],
+        "title": "ExpenseImportResultRead"
+      },
+      "ExpenseRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "spent_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Spent On"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "currency",
+          "category_id",
+          "description",
+          "spent_on",
+          "created_at"
+        ],
+        "title": "ExpenseRead"
+      },
+      "ExpenseUpdate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "spent_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spent On"
+          }
+        },
+        "type": "object",
+        "title": "ExpenseUpdate"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImportProblemRead": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "column": {
+            "type": "string",
+            "title": "Column"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "column",
+          "message"
+        ],
+        "title": "ImportProblemRead",
+        "description": "Why one cell keeps its row out of the import."
+      },
+      "ImportRowRead": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "spent_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Spent On"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "new_category": {
+            "type": "boolean",
+            "title": "New Category"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "spent_on",
+          "description",
+          "category",
+          "new_category",
+          "amount",
+          "currency",
+          "duplicate"
+        ],
+        "title": "ImportRowRead",
+        "description": "One expense a file would import, as the importer read it."
+      },
+      "ListOrderUpdate": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "title": "Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "ListOrderUpdate",
+        "description": "A list's new order, as the ids of the rows on screen, first to last.\n\nMay name only part of the list — the Budgets tab shows one month's\nbudgets — in which case those rows swap among the places they already\nhold and the rest stay put. The cap is far past any one person's list and\nexists so a request cannot ask for an unbounded IN list."
+      },
+      "NotificationKind": {
+        "type": "string",
+        "enum": [
+          "subscription_renewal",
+          "trial_ending",
+          "subscription_renewed",
+          "currency_delisted",
+          "budget_warning",
+          "budget_exceeded"
+        ],
+        "title": "NotificationKind"
+      },
+      "NotificationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due On"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "snoozed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed At"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "alerted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Alerted At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "body",
+          "due_on",
+          "read_at",
+          "snoozed_at",
+          "archived_at",
+          "alerted_at",
+          "created_at"
+        ],
+        "title": "NotificationRead"
+      },
+      "NotificationUpdate": {
+        "properties": {
+          "read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read"
+          },
+          "snoozed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snoozed"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          }
+        },
+        "type": "object",
+        "title": "NotificationUpdate",
+        "description": "Exactly one action: mark read or unread, snooze or unsnooze a reminder,\nor move a notice to the history."
+      },
+      "PeriodBreakdownRead": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week"
+            ],
+            "title": "Granularity"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/BucketSpendRead"
+            },
+            "type": "array",
+            "title": "Buckets"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "starts_on",
+          "ends_on",
+          "granularity",
+          "buckets"
+        ],
+        "title": "PeriodBreakdownRead"
+      },
+      "ProfileRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "display_currency": {
+            "type": "string",
+            "title": "Display Currency"
+          },
+          "preferred_currency": {
+            "type": "string",
+            "title": "Preferred Currency"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "timezone",
+          "display_currency",
+          "preferred_currency",
+          "created_at"
+        ],
+        "title": "ProfileRead"
+      },
+      "ProfileUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "display_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Currency"
+          },
+          "preferred_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Currency"
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdate",
+        "description": "All-optional: apply with model_dump(exclude_unset=True).\n\nOnly display_name may be sent as null (or blank), which clears it."
+      },
+      "SubscriptionCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "interval_unit": {
+            "$ref": "#/components/schemas/BillingInterval"
+          },
+          "interval_count": {
+            "type": "integer",
+            "maximum": 999.0,
+            "minimum": 1.0,
+            "title": "Interval Count",
+            "default": 1
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "started_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Started On"
+          },
+          "trial_ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends On"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "amount",
+          "currency",
+          "interval_unit",
+          "started_on"
+        ],
+        "title": "SubscriptionCreate"
+      },
+      "SubscriptionJobRead": {
+        "properties": {
+          "renewed": {
+            "type": "integer",
+            "title": "Renewed"
+          },
+          "reminders_created": {
+            "type": "integer",
+            "title": "Reminders Created"
+          },
+          "reminders_updated": {
+            "type": "integer",
+            "title": "Reminders Updated"
+          },
+          "reminders_removed": {
+            "type": "integer",
+            "title": "Reminders Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "renewed",
+          "reminders_created",
+          "reminders_updated",
+          "reminders_removed"
+        ],
+        "title": "SubscriptionJobRead"
+      },
+      "SubscriptionRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "interval_unit": {
+            "$ref": "#/components/schemas/BillingInterval"
+          },
+          "interval_count": {
+            "type": "integer",
+            "title": "Interval Count"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "started_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Started On"
+          },
+          "trial_ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends On"
+          },
+          "next_billing_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Next Billing On"
+          },
+          "cancelled_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled On"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "currency",
+          "interval_unit",
+          "interval_count",
+          "category_id",
+          "started_on",
+          "trial_ends_on",
+          "next_billing_on",
+          "cancelled_on",
+          "note",
+          "created_at"
+        ],
+        "title": "SubscriptionRead"
+      },
+      "SubscriptionUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "interval_unit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillingInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "interval_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 999.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval Count"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "started_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started On"
+          },
+          "trial_ends_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends On"
+          },
+          "cancelled_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled On"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "SubscriptionUpdate"
+      },
+      "SummaryRead": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Ends On"
+          },
+          "spent": {
+            "type": "string",
+            "title": "Spent"
+          },
+          "budgeted": {
+            "type": "string",
+            "title": "Budgeted"
+          },
+          "remaining": {
+            "type": "string",
+            "title": "Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "starts_on",
+          "ends_on",
+          "spent",
+          "budgeted",
+          "remaining"
+        ],
+        "title": "SummaryRead",
+        "description": "Totals for a date range, expressed in the profile's display currency.\n\nExpenses and budgets keep whatever currency they were recorded in; only\nthese totals are converted, and at today's rates — so a figure for last\nmonth can move as rates move. That is the documented trade-off in\napp.services.exchange_rates, not a bug."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

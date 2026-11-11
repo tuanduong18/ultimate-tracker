@@ -1,15 +1,11 @@
+import type * as Api from '@/lib/types/api.gen';
+
 /**
- * The signed-in user's profile, as returned by /auth/me — the same shape as the web's
- * frontend/lib/types/profile.ts.
+ * The signed-in user's profile, as returned by /auth/me. Its fields come from the backend's
+ * schema (api.gen.ts), the same generated file the web imports.
+ *
+ * - `display_name`: what the app calls the user, or null when they have not chosen one.
+ * - `display_currency`: the currency every figure on the finance summary is converted into.
+ * - `preferred_currency`: the currency new expenses, budgets and subscriptions start in.
  */
-export interface Profile {
-  id: string;
-  /** What the app calls the user, or null when they have not chosen one. */
-  display_name: string | null;
-  timezone: string;
-  /** The currency every figure on the finance summary is converted into. */
-  display_currency: string;
-  /** The currency new expenses, budgets and subscriptions start in. */
-  preferred_currency: string;
-  created_at: string;
-}
+export type Profile = Api.ProfileRead;

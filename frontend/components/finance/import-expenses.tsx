@@ -1,7 +1,7 @@
 'use client';
 
 import { CircleCheck, Download, Upload } from 'lucide-react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 import { PanelButton } from '@/components/finance/panel';
 import { SheetDialog, SheetHeader } from '@/components/shared/sheet-dialog';
@@ -345,8 +345,12 @@ function Review({
   const heading = useRef<HTMLHeadingElement>(null);
 
   // Once, as the review appears: the input that had focus has just gone.
-  // An effect rather than autoFocus, which React honours on form controls only.
-  useEffect(() => heading.current?.focus(), []);
+  // An effect rather than autoFocus, which React honours on form controls only —
+  // and a layout effect, which runs in the same commit that removed the input.
+  // A plain effect runs a beat later after an async update (the upload), and
+  // in that beat focus sat on <body>: what a screen reader announces, and what
+  // made the focus test fail under load.
+  useLayoutEffect(() => heading.current?.focus(), []);
   const included = preview.rows.filter((row) => withDuplicates || !row.duplicate);
   const duplicates = preview.rows.filter((row) => row.duplicate).length;
   const problemRows = new Set(preview.problems.map((problem) => problem.row)).size;

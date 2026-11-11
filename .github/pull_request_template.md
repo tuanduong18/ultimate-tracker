@@ -45,7 +45,7 @@ release, say why it's landing now.
 - [ ] Frontend API calls go through `lib/api-client.ts`, not raw `fetch()`
 - [ ] User-facing change ships on web and Android, or the lagging client is marked in `docs/features/README.md`
 - [ ] No `any` in TypeScript without an inline comment explaining why
-- [ ] No API response shape changed without updating frontend types and checking usages
+- [ ] If an API path, schema or enum changed: `docs/api/openapi.json` and both `api.gen.ts` files regenerated (`tools/README.md`), and every usage `tsc` flagged is fixed on both clients
 - [ ] Any new major dependency is noted in `README.md`'s tech stack table
 - [ ] No secrets, `.env` files, or hardcoded keys
 

@@ -1,36 +1,25 @@
-/**
- * Mirrors NotificationRead in backend/app/schemas/notification.py.
- *
- * Named AppNotification because the browser already owns `Notification` (the
- * Web Notifications API), and shadowing it invites the wrong import.
- */
-export type NotificationKind =
-  | 'subscription_renewal'
-  | 'trial_ending'
-  | 'subscription_renewed'
-  | 'currency_delisted'
-  /** A budget reached its early-warning share of the cap. */
-  | 'budget_warning'
-  /** A budget reached its cap. */
-  | 'budget_exceeded';
+import type * as Api from '@/lib/types/api.gen';
 
-export interface AppNotification {
-  id: string;
-  kind: NotificationKind;
-  /** Reminders carry their countdown here, rewritten by the backend each day. */
-  title: string;
-  body: string;
-  /** The day the announced thing happens, YYYY-MM-DD; null for undated notices. */
-  due_on: string | null;
-  read_at: string | null;
-  /** A reminder muted until its charge. */
-  snoozed_at: string | null;
-  /** A notice moved to the history. */
-  archived_at: string | null;
-  /** When it last asked for attention; lists are ordered by it. */
-  alerted_at: string;
-  created_at: string;
-}
+/**
+ * What a notification is about. The values are the backend's (api.gen.ts):
+ *
+ * - `budget_warning`: a budget reached its early-warning share of the cap.
+ * - `budget_exceeded`: a budget reached its cap.
+ */
+export type NotificationKind = Api.NotificationKind;
+
+/**
+ * NotificationRead from the backend's schema, under another name: the browser
+ * already owns `Notification` (the Web Notifications API), and shadowing it
+ * invites the wrong import.
+ *
+ * - `title`: reminders carry their countdown here, rewritten by the backend each day.
+ * - `due_on`: the day the announced thing happens, YYYY-MM-DD; null for undated notices.
+ * - `snoozed_at`: a reminder muted until its charge.
+ * - `archived_at`: a notice moved to the history.
+ * - `alerted_at`: when it last asked for attention; lists are ordered by it.
+ */
+export type AppNotification = Api.NotificationRead;
 
 /** Fired after any change, so the bell and the notifications page agree. */
 export const NOTIFICATIONS_CHANGED = 'notifications:changed';
