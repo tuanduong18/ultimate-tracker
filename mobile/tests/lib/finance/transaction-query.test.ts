@@ -2,6 +2,7 @@ import {
   amountLabel,
   categoryLabel,
   dateLabel,
+  describeFilters,
   isFiltered,
   matcher,
   NO_FILTERS,
@@ -157,5 +158,27 @@ describe('labels', () => {
     expect(categoryLabel({ ids: [FOOD.id], uncategorized: false }, [FOOD, RENT])).toBe(
       'Categories · 2 hidden'
     );
+  });
+});
+
+describe('describeFilters', () => {
+  it('words the filters for the export, as the web does', () => {
+    const lines = describeFilters(
+      { ...NO_FILTERS, q: 'grab', categories: { ids: [FOOD.id], uncategorized: true } },
+      [FOOD, RENT]
+    );
+    expect(lines).toEqual(['Search: grab', 'Categories: Food, Uncategorised']);
+    expect(describeFilters(NO_FILTERS, [])).toEqual([]);
+  });
+
+  it('names a dropped bucket and a deleted category rather than skipping them', () => {
+    expect(
+      describeFilters({ ...NO_FILTERS, categories: { ids: ['gone'], uncategorized: false } }, [
+        FOOD,
+      ])
+    ).toEqual(['Categories: Deleted category']);
+    expect(
+      describeFilters({ ...NO_FILTERS, categories: { ids: null, uncategorized: false } }, [FOOD])
+    ).toEqual(['Categories: Every category']);
   });
 });

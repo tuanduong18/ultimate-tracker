@@ -110,3 +110,29 @@ export type BillingInterval = Api.BillingInterval;
  * - `cancelled_on`: set to cancel, possibly in the future for a fixed-term plan.
  */
 export type Subscription = Api.SubscriptionRead;
+
+/**
+ * One expense a spreadsheet would import, as the server read it.
+ *
+ * - `row`: the row number the spreadsheet shows.
+ * - `category`: an existing category's own name, or a new one as the file spells it; null is
+ *   uncategorised.
+ * - `new_category`: importing this row creates the category.
+ * - `duplicate`: matches an expense already recorded — same date, amount, currency and
+ *   description.
+ */
+export type ImportRow = Api.ImportRowRead;
+
+/** Why one cell keeps its row out of an import. */
+export type ImportProblem = Api.ImportProblemRead;
+
+/**
+ * What importing a file would do. Nothing has been saved.
+ *
+ * - `rows`: file order; duplicates included, flagged.
+ * - `problems`: one per problem; a row can have more than one.
+ */
+export type ImportPreview = Api.ExpenseImportPreviewRead;
+
+/** `problem_rows_skipped` counts rows, not problems. */
+export type ImportResult = Api.ExpenseImportResultRead;
