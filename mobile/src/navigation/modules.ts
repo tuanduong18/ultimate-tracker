@@ -1,3 +1,5 @@
+import type { Href } from 'expo-router';
+
 import type { IconName } from '@/components/icon';
 
 /**
@@ -5,9 +7,12 @@ import type { IconName } from '@/components/icon';
  * frontend/components/shared/nav-items.ts. Labels, blurbs and order match the web, so the two
  * clients read as one app; what each says about its own state is the phone's.
  *
- * `app`: built in the app, with its own screens. `web`: built on the web, not yet in the app.
- * `soon`: built on neither yet — its release and plans come from the release plan in
- * docs/features, so nothing here promises more than the specs do.
+ * `app`: built in the app, with its own screens. `soon`: built on neither client yet — its
+ * release and plans come from the release plan in docs/features, so nothing here promises more
+ * than the specs do. There is no "on the web only" state any more: the app reached the web's
+ * features with the Dashboard, and from here a feature ships on both (ADR-0004).
+ *
+ * `href` is where the module opens: its tab, or its screen in More's stack.
  */
 export const MODULES = [
   {
@@ -15,14 +20,15 @@ export const MODULES = [
     label: 'Dashboard',
     blurb: 'Everything at a glance',
     icon: 'space_dashboard',
-    status: 'web',
-    webPath: '/dashboard',
+    href: '/dashboard',
+    status: 'app',
   },
   {
     key: 'finance',
     label: 'Finance',
     blurb: 'Expenses, budgets and subscriptions',
     icon: 'account_balance_wallet',
+    href: '/finance',
     status: 'app',
   },
   {
@@ -30,6 +36,7 @@ export const MODULES = [
     label: 'Fitness',
     blurb: 'Training, steps, sleep and habits',
     icon: 'fitness_center',
+    href: '/fitness',
     status: 'soon',
     release: 'v0.2',
     planned: [
@@ -43,6 +50,7 @@ export const MODULES = [
     label: 'Time',
     blurb: 'Where the hours go, and what is coming',
     icon: 'timer',
+    href: '/time',
     status: 'soon',
     release: 'v0.2',
     planned: [
@@ -56,6 +64,7 @@ export const MODULES = [
     label: 'Insights',
     blurb: 'How the domains connect',
     icon: 'insights',
+    href: '/more/insights',
     status: 'soon',
     release: 'v0.3',
     planned: [
@@ -68,6 +77,7 @@ export const MODULES = [
     label: 'Gaming',
     blurb: 'Match history and performance',
     icon: 'sports_esports',
+    href: '/more/gaming',
     status: 'soon',
     release: 'the final release',
     planned: [
@@ -82,14 +92,11 @@ interface ModuleBase {
   label: string;
   blurb: string;
   icon: IconName;
+  href: Href;
 }
 
 export type ModuleEntry = ModuleBase &
-  (
-    | { status: 'app' }
-    | { status: 'web'; webPath: string }
-    | { status: 'soon'; release: string; planned: readonly string[] }
-  );
+  ({ status: 'app' } | { status: 'soon'; release: string; planned: readonly string[] });
 
 /** A module the app doesn't have screens for yet: what a placeholder can show. */
 export type PlaceholderEntry = Exclude<ModuleEntry, { status: 'app' }>;

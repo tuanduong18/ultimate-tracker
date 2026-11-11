@@ -1,8 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { render, screen } from '@testing-library/react-native';
 
 import { ModulePlaceholder } from '@/components/module-placeholder';
-import { WEB_APP_URL } from '@/config';
 import { moduleFor, type PlaceholderEntry } from '@/navigation/modules';
 
 import { Themed } from '../support/themed';
@@ -22,15 +20,5 @@ describe('ModulePlaceholder', () => {
     expect(screen.getByRole('header', { name: 'Fitness is on its way' })).toBeOnTheScreen();
     expect(screen.getByText('Daily steps, counted by your phone')).toBeOnTheScreen();
     expect(screen.queryByRole('link')).toBeNull();
-  });
-
-  it('opens a module that is built on the web, at its own page', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-    await render(<ModulePlaceholder module={placeholderFor('dashboard')} />, { wrapper: Themed });
-
-    expect(screen.getByText('On the web now')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('link', { name: /Open Dashboard on the web/ }));
-
-    expect(open).toHaveBeenCalledWith(`${WEB_APP_URL}/dashboard`);
   });
 });
