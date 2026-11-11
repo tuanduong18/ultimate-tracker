@@ -24,7 +24,7 @@ This document is the technical reference for building Ultimate Tracker. Read thi
 
 ## 1. Architecture Overview
 
-Ultimate Tracker is a **decoupled app**: a Next.js frontend talks to a FastAPI backend over REST, and both rely on Supabase for Postgres and authentication. An Android app is planned as a second client of the same backend ([ADR-0004](./docs/adr/0004-android-app-as-second-client.md)).
+Ultimate Tracker is a **decoupled app**: a Next.js frontend talks to a FastAPI backend over REST, and both rely on Supabase for Postgres and authentication. An Android app (`mobile/`) is a second client of the same backend ([ADR-0004](./docs/adr/0004-android-app-as-second-client.md)).
 
 ```mermaid
 graph TD
@@ -34,11 +34,11 @@ graph TD
     B -->|Auth SDK| E[Supabase Auth]
     C -->|Verify JWT| E
     F[Supabase pg_cron + pg_net] -->|POST /api/v1/tasks/*| C
-    M[Android app - Expo, planned] -.->|REST + JWT| C
-    M -.->|Auth SDK| E
+    M[Android app - Expo] -->|REST + JWT| C
+    M -->|Auth SDK| E
 ```
 
-Solid lines exist today; dotted ones are planned. The scheduler is the database's own cron
+Every line exists today. The scheduler is the database's own cron
 calling the backend's job endpoints (see [platform.md](./docs/features/platform.md#background-jobs)).
 There is no error-reporting service, by choice (see [§12](#12-observability--monitoring)), and no email channel or server push, also by choice: the weekly digest lives in the app ([insights.md](./docs/features/insights.md#delivery)), and the Android app fetches its notifications rather than being sent them ([platform.md](./docs/features/platform.md#phone-notifications)).
 
@@ -78,7 +78,7 @@ Because FastAPI gives you async-native Python, automatic OpenAPI docs, and a cle
 | **structlog** | Log calls carry named fields; deployments render them as one JSON object per line, so Render's log search can filter by them. No error-reporting service on top: the users are the author and a few friends |
 | **Supabase pg_cron + pg_net** | The scheduler: the database's cron POSTs to idempotent job endpoints, so there is no worker process to host |
 
-**Android app (planned, [ADR-0004](./docs/adr/0004-android-app-as-second-client.md)):**
+**Android app ([ADR-0004](./docs/adr/0004-android-app-as-second-client.md)):**
 
 | Choice | Rationale |
 |---|---|
@@ -692,8 +692,10 @@ before it is stable.
 
 **Where it stands:** v0.1 is done. From v0.2, subscriptions with reminders, in-app
 notifications, the scheduler (pg_cron) and budget breach alerts have shipped, which completes
-Finance; Fitness training and steps, and the focus timer, are what remain of v0.2. Expense
-import from a spreadsheet shipped alongside, ahead of any release.
+Finance; expense import from a spreadsheet shipped alongside, ahead of any release. The Android
+app has reached parity with the web (sign-in, shell, theming, Finance with import and export,
+the dashboard, profile and in-app notifications). What remains of v0.2: the app's tray
+notifications and offline outbox, then Fitness training and steps, and the focus timer.
 
 **The Android app joins v0.2, ahead of Fitness.** It goes in this order: skeleton and
 sign-in, parity with Finance and the platform screens, notifications in the phone's tray. Then Fitness and the

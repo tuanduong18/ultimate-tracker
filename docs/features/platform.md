@@ -51,7 +51,8 @@ theming, and the pipeline that keeps it deployable.
 - Onboarding flow — the page is a placeholder.
 - Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
 - Notifications in the Android app's tray — planned for v0.2, without server push. No email, by choice.
-- The Android app — planned for v0.2. See [Android app](#android-app).
+- The Android app's offline outbox and tray notifications — planned for v0.2. Everything the web
+  does, the app does too (see [Android app](#android-app)).
 - Full data export and account deletion. (Finance's Transactions tab exports expenses to Excel;
   there is no whole-account export.)
 
@@ -114,7 +115,7 @@ feature, is the obvious failure mode. One delivery service, one preference surfa
 
 | Piece | Status | Notes |
 |---|---|---|
-| In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. |
+| In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. On the web: the bell and `/notifications`. On Android: the bell in each tab's top bar and the Notifications screen. |
 | Scheduler | **Built** | Supabase pg_cron + pg_net calling the job endpoints — see [Background jobs](#background-jobs). |
 | Phone | Planned (v0.2) | The Android app's notification tray: server notifications fetched in the background, plus ones only the phone can raise. No server push. See [Phone notifications](#phone-notifications). |
 | Email | Not planned | Dropped 2026-11-03: the weekly digest is in-app ([insights.md](./insights.md#delivery)), and the phone's tray covers reaching someone outside the app. |
@@ -149,8 +150,9 @@ grant to `authenticated`, which the policy narrows to those rows, and the table 
 `supabase_realtime` publication; the migrations set all three up when they run on Supabase.
 Without the grant, Realtime answers every change with "401 Unauthorized" and the bell only
 catches up on refetch — the case until `23a0df7e12fb`. The backend connects as the table owner, which RLS does not restrict. Refetching on tab
-focus and every five minutes covers a dropped socket. The Android app subscribes the same way
-while it is open, and refetches when it returns to the foreground.
+focus and every five minutes covers a dropped socket. The Android app *(built)* subscribes the
+same way while it is open — one channel under the tabs, shared by every bell — polls the inbox
+every five minutes, and refetches when it returns to the foreground.
 
 ### Phone notifications
 
@@ -259,8 +261,9 @@ sees.
 
 ## Android app
 
-*Planned for v0.2.* A second client of the same backend, at parity with the web, adding what
-only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-second-client.md).
+*v0.2.* A second client of the same backend, at parity with the web, adding what only a phone
+can do. **At parity since 2026-11-11**: everything the web does, the app does too; what remains
+is what only a phone can do — tray notifications, working offline, then steps and screen time. Decision and stack: [ADR-0004](../adr/0004-android-app-as-second-client.md).
 
 - **Where it lives.** `mobile/`, a top-level folder beside `frontend/`. Not `android/`: Expo
   generates a folder of that name inside the app.
@@ -293,12 +296,23 @@ only a phone can do. Decision and stack: [ADR-0004](../adr/0004-android-app-as-s
 - **Shell** *(built)*. The web's phone layout, in Android's own parts: Material bottom
   navigation with the first four modules plus **More**, labels always shown; each tab a native
   stack whose top app bar carries the screen's title. **More is a screen, not a drawer** — a
-  drawer fights the system back gesture — listing the remaining modules and the account (who is
-  signed in, with which provider, **Settings**, and **Log out**; the profile joins it with its
-  screen — on the web all of these live in the account menu), with the app's version at its
-  foot. Log and the notification bell join the top bar with the features they open. A
-  module the app does not have yet says so: opened on the web if it is built there, its release
-  and plan if not. 48dp touch targets, Material Symbols icons, the system font.
+  drawer fights the system back gesture — listing the remaining modules and the account (the
+  person, opening their **Profile**, then **Settings** and **Log out** — on the web all of these
+  live in the account menu), with the app's version at its foot. **Log and the bell** *(built)* sit on the right of each tab's first screen — the web
+  header's two global actions; pushed screens keep their bar for their own actions. Log opens a
+  bottom sheet with a row per module that can log (Expense today), each opening its form. The
+  bell shows the inbox's unread count and opens **Notifications** *(built)* above the tabs: the
+  inbox, then the history, with the web's actions in its words (Snooze / Unsnooze, Got it / Move
+  to history, Delete after Android's confirm dialog) and a link to what each is about. Opening it
+  marks the inbox read, as opening the web's panel does. A module not built yet says when it
+  lands and what it will do. 48dp touch targets, Material Symbols icons, the system font.
+- **Dashboard** *(built)*. The web's, in the same words: a greeting, this month's money (Finance's
+  own two tiles), then every module with a "Coming in …" tag on the ones still to come.
+- **Profile** *(built)*. **More**'s first row is the person — their name, or their email until
+  they have one — and opens the profile: the name (empty falls back to the sign-in provider's),
+  the email and sign-in methods (read-only, from Supabase Auth), and the preferred and display
+  currencies. One form with one Save, where the web has a card and a Save for each; both send
+  only what changed.
 - **Theme** *(built)*. The web's eight colour schemes and light / dark / match system, from the
   same generator, as a TypeScript module (`mobile/src/theme/tokens.ts`). Match system is the
   default and follows the phone live. **More → Settings** *(built)* asks the web's two questions

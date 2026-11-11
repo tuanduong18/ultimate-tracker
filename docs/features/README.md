@@ -12,12 +12,12 @@ release plan.** It is deliberate, not alphabetical.
 
 | # | Domain | Spec | Web | Android |
 |---|---|---|---|---|
-| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Built | Partly built — all but import and export |
+| 1 | 💰 Finance & Budgeting | [`finance.md`](./finance.md) | Built | Built |
 | 2 | 🏋️ Fitness | [`fitness.md`](./fitness.md) | Not started | Not started |
 | 3 | ⏱️ Time Tracking & Calendar | [`time-and-calendar.md`](./time-and-calendar.md) | Not started | Not started |
 | 4 | ✨ Cross-Domain Insights | [`insights.md`](./insights.md) | Not started | Not started |
 | 5 | 🎮 Gaming Performance | [`gaming.md`](./gaming.md) | Not started — ships last, by design | Not started |
-| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built | Partly built — theme, shell, sign-in and settings |
+| — | 🔧 Platform & Core | [`platform.md`](./platform.md) | Partly built | Partly built — at parity with the web; tray notifications and offline to come |
 
 **Two clients, one feature set.** The web app and the Android app
 ([ADR-0004](../adr/0004-android-app-as-second-client.md)) are kept at parity: a feature is
