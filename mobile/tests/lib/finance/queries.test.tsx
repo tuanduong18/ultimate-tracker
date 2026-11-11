@@ -61,7 +61,11 @@ describe('useFinanceWrite', () => {
     });
     mockGet
       .mockResolvedValueOnce([{ id: 'c1' }])
-      .mockResolvedValueOnce([{ id: 'c1' }, { id: 'c2' }]);
+      // The reload takes a moment, as a real one does, so a save that resolved without waiting
+      // for it would be caught holding the old list.
+      .mockImplementationOnce(
+        () => new Promise((resolve) => setTimeout(() => resolve([{ id: 'c1' }, { id: 'c2' }]), 10))
+      );
     const write = jest.fn().mockResolvedValue({ id: 'c2' });
 
     const { result } = await renderHook(
@@ -70,10 +74,19 @@ describe('useFinanceWrite', () => {
     );
     await waitFor(() => expect(result.current.list.data).toEqual([{ id: 'c1' }]));
 
-    await act(() => result.current.save.mutateAsync({ name: 'Travel' }));
+    // Read the cache the instant the save resolves. Not result.current after act(): TanStack
+    // tells components about new data on a setTimeout(0) and act() returns on a setImmediate,
+    // and Node does not promise which runs first, so that read raced and failed on busy runners.
+    let storedWhenSaved: unknown;
+    await act(async () => {
+      await result.current.save.mutateAsync({ name: 'Travel' });
+      storedWhenSaved = client.getQueryData(financeKeys.categories);
+    });
 
     expect(write).toHaveBeenCalledWith({ name: 'Travel' });
     // Already the stored list when the save resolves — never "saved" with the old one showing.
-    expect(result.current.list.data).toEqual([{ id: 'c1' }, { id: 'c2' }]);
+    expect(storedWhenSaved).toEqual([{ id: 'c1' }, { id: 'c2' }]);
+    // And the screen follows it.
+    await waitFor(() => expect(result.current.list.data).toEqual([{ id: 'c1' }, { id: 'c2' }]));
   });
 });
