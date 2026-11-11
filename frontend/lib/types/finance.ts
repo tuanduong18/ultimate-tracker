@@ -1,38 +1,34 @@
 /**
  * Shapes returned by /api/v1/finance.
  *
+ * The fields and their types are not written here: they come from the
+ * backend's own schema, through api.gen.ts, and are only named here. A field
+ * the backend adds, renames or retypes therefore fails the type check instead
+ * of drifting. What is written here is what a schema cannot say — what a field
+ * means and how to treat it.
+ *
  * Every money field is a `string`, not a `number`, and that is deliberate on
  * the backend's side: a JSON number becomes a binary float here, and budget
  * arithmetic that is off by a cent is worse than a string we parse on purpose.
  * Format them with Intl.NumberFormat; if you ever need to add them, do it in
  * integer minor units rather than with parseFloat.
  */
+import type * as Api from '@/lib/types/api.gen';
 
-export interface Category {
-  id: string;
-  name: string;
-  /** Hex, e.g. "#22c55e". */
-  colour: string;
-  /**
-   * A key from the shared symbol list ("food"), drawn by `symbolFor` in
-   * lib/category-symbols.ts; null when none was picked, and then the badge
-   * shows the category's initial.
-   */
-  icon: string | null;
-  created_at: string;
-}
+/**
+ * - `colour`: hex, e.g. "#22c55e".
+ * - `icon`: a key from the shared symbol list ("food"), drawn by `symbolFor` in
+ *   lib/category-symbols.ts; null when none was picked, and then the badge
+ *   shows the category's initial.
+ */
+export type Category = Api.CategoryRead;
 
-export interface Expense {
-  id: string;
-  amount: string;
-  currency: string;
-  /** Null means uncategorised — the state left behind when a category is deleted. */
-  category_id: string | null;
-  description: string | null;
-  /** ISO date, no time component. */
-  spent_on: string;
-  created_at: string;
-}
+/**
+ * - `category_id`: null means uncategorised — the state left behind when a
+ *   category is deleted.
+ * - `spent_on`: an ISO date, no time component.
+ */
+export type Expense = Api.ExpenseRead;
 
 /**
  * How a budget's window is measured.
@@ -41,43 +37,24 @@ export interface Expense {
  *   its last (or for good, when `ends_on` is null).
  * - `custom`: one fixed date range, measured in full.
  */
-export type BudgetPeriod = 'monthly' | 'custom';
+export type BudgetPeriod = Api.BudgetPeriod;
 
-export interface Budget {
-  id: string;
-  name: string;
-  amount: string;
-  currency: string;
-  period: BudgetPeriod;
-  /** For a monthly budget, the 1st of its first month. */
-  starts_on: string;
-  /** Null for an ongoing monthly budget; always set for a custom one. */
-  ends_on: string | null;
-  /**
-   * The share of the cap (1–99) at which an alert warns; null for no early
-   * warning. Reaching the cap is announced either way.
-   */
-  warn_at_percent: number | null;
-  /**
-   * Covers every expense — any category, ones made later, and none — rather
-   * than a chosen set. `categories` is then empty.
-   */
-  all_spending: boolean;
-  /** Embedded by the API so a chart needs no second round trip. */
-  categories: Category[];
-  created_at: string;
-}
+/**
+ * - `starts_on`: for a monthly budget, the 1st of its first month.
+ * - `ends_on`: null for an ongoing monthly budget; always set for a custom one.
+ * - `warn_at_percent`: the share of the cap (1–99) at which an alert warns;
+ *   null for no early warning. Reaching the cap is announced either way.
+ * - `all_spending`: covers every expense — any category, ones made later, and
+ *   none — rather than a chosen set. `categories` is then empty.
+ * - `categories`: embedded by the API so a chart needs no second round trip.
+ */
+export type Budget = Api.BudgetRead;
 
-export interface Summary {
-  /** The profile's display currency; every total below is converted into it. */
-  currency: string;
-  starts_on: string;
-  ends_on: string;
-  spent: string;
-  budgeted: string;
-  /** Negative when overspent — show it, do not clamp it. */
-  remaining: string;
-}
+/**
+ * - `currency`: the profile's display currency; every total is converted into it.
+ * - `remaining`: negative when overspent — show it, do not clamp it.
+ */
+export type Summary = Api.SummaryRead;
 
 /**
  * One formatter per currency, made on first use.
@@ -124,43 +101,31 @@ export function amountProblem(raw: string): string | null {
   return null;
 }
 
-/** One slice of the category pie: what a category cost over the range. */
-export interface CategorySpend {
-  /** Null for spend whose category was deleted — one bucket, still charted. */
-  category_id: string | null;
-  name: string;
-  colour: string;
-  spent: string;
-}
+/**
+ * One slice of the category pie: what a category cost over the range.
+ *
+ * - `category_id`: null for spend whose category was deleted — one bucket,
+ *   still charted.
+ */
+export type CategorySpend = Api.CategorySpendRead;
 
-export interface CategoryBreakdown {
-  /** Every `spent` below is converted into this, server-side. */
-  currency: string;
-  starts_on: string;
-  ends_on: string;
-  /** Largest first; categories with no spend are left out entirely. */
-  categories: CategorySpend[];
-}
+/**
+ * - `currency`: every `spent` is converted into this, server-side.
+ * - `categories`: largest first; categories with no spend are left out entirely.
+ */
+export type CategoryBreakdown = Api.CategoryBreakdownRead;
 
 /** How wide one bar of the spending chart is. */
-export type Granularity = 'day' | 'week';
+export type Granularity = Api.PeriodBreakdownRead['granularity'];
 
 /** One bar. A week bucket can be under seven days where the range clips it. */
-export interface BucketSpend {
-  starts_on: string;
-  ends_on: string;
-  spent: string;
-}
+export type BucketSpend = Api.BucketSpendRead;
 
-export interface PeriodBreakdown {
-  currency: string;
-  starts_on: string;
-  ends_on: string;
-  /** Echoed by the API, so day bars cannot be mistaken for week bars. */
-  granularity: Granularity;
-  /** Date order, including buckets where nothing was spent. */
-  buckets: BucketSpend[];
-}
+/**
+ * - `granularity`: echoed by the API, so day bars cannot be mistaken for week bars.
+ * - `buckets`: date order, including buckets where nothing was spent.
+ */
+export type PeriodBreakdown = Api.PeriodBreakdownRead;
 
 /**
  * A budget with spend measured against it.
@@ -168,94 +133,54 @@ export interface PeriodBreakdown {
  * `currency` is the budget's own, not the display currency: spending is
  * converted into the cap so the percentage cannot drift with exchange rates.
  * Two rows in one list may therefore be quoted in different currencies.
+ *
+ * - `remaining`: negative when overspent — show it, do not clamp it.
+ * - `window_starts_on`, `window_ends_on`: the days `spent` covers — the
+ *   requested month for a monthly budget, the whole range for a custom one.
+ * - `all_spending`: see `Budget`; `categories` is empty when it is true.
+ * - `created_at`: orders the card colours, so adding a budget does not
+ *   recolour the rest.
  */
-export interface BudgetProgress {
-  id: string;
-  name: string;
-  currency: string;
-  amount: string;
-  spent: string;
-  /** Negative when overspent — show it, do not clamp it. */
-  remaining: string;
-  period: BudgetPeriod;
-  starts_on: string;
-  ends_on: string | null;
-  warn_at_percent: number | null;
-  /**
-   * The days `spent` covers: the requested month for a monthly budget, the
-   * whole range for a custom one.
-   */
-  window_starts_on: string;
-  window_ends_on: string;
-  /** See `Budget.all_spending`; `categories` is empty when it is true. */
-  all_spending: boolean;
-  categories: Category[];
-  /** Orders the card colours, so adding a budget does not recolour the rest. */
-  created_at: string;
-}
+export type BudgetProgress = Api.BudgetProgressRead;
 
-/** One expense an import file would add, as the server read it. */
-export interface ImportRow {
-  /** The row number the spreadsheet shows. */
-  row: number;
-  spent_on: string;
-  description: string | null;
-  /** An existing category's own name, or a new one as the file spells it; null is uncategorised. */
-  category: string | null;
-  /** Importing this row creates the category. */
-  new_category: boolean;
-  amount: string;
-  currency: string;
-  /** Matches an expense already recorded: same date, amount, currency and description. */
-  duplicate: boolean;
-}
+/**
+ * One expense an import file would add, as the server read it.
+ *
+ * - `row`: the row number the spreadsheet shows.
+ * - `category`: an existing category's own name, or a new one as the file
+ *   spells it; null is uncategorised.
+ * - `new_category`: importing this row creates the category.
+ * - `duplicate`: matches an expense already recorded — same date, amount,
+ *   currency and description.
+ */
+export type ImportRow = Api.ImportRowRead;
 
 /** Why one cell keeps its row out of an import. */
-export interface ImportProblem {
-  row: number;
-  column: string;
-  message: string;
-}
+export type ImportProblem = Api.ImportProblemRead;
 
-/** What importing a file would do. Nothing has been saved. */
-export interface ImportPreview {
-  /** File order; duplicates included, flagged. */
-  rows: ImportRow[];
-  /** One per problem; a row can have more than one. */
-  problems: ImportProblem[];
-}
+/**
+ * What importing a file would do. Nothing has been saved.
+ *
+ * - `rows`: file order; duplicates included, flagged.
+ * - `problems`: one per problem; a row can have more than one.
+ */
+export type ImportPreview = Api.ExpenseImportPreviewRead;
 
-export interface ImportResult {
-  imported: number;
-  duplicates_skipped: number;
-  /** Rows, not problems. */
-  problem_rows_skipped: number;
-  categories_created: string[];
-}
+/** `problem_rows_skipped` counts rows, not problems. */
+export type ImportResult = Api.ExpenseImportResultRead;
 
 /** The unit of a subscription's billing cycle; paired with `interval_count`. */
-export type BillingInterval = 'day' | 'week' | 'month' | 'year';
+export type BillingInterval = Api.BillingInterval;
 
-export interface Subscription {
-  id: string;
-  name: string;
-  amount: string;
-  currency: string;
-  interval_unit: BillingInterval;
-  /** "Every N units": quarterly is month × 3. */
-  interval_count: number;
-  /** Null means uncategorised. The server never picks one by name. */
-  category_id: string | null;
-  started_on: string;
-  /** When set, the first charge falls on this day rather than started_on. */
-  trial_ends_on: string | null;
-  /** The next charge. Computed by the server; read-only here. */
-  next_billing_on: string;
-  /** Set to cancel, possibly in the future for a fixed-term plan. */
-  cancelled_on: string | null;
-  note: string | null;
-  created_at: string;
-}
+/**
+ * - `interval_count`: "every N units" — quarterly is month × 3.
+ * - `category_id`: null means uncategorised. The server never picks one by name.
+ * - `trial_ends_on`: when set, the first charge falls on this day rather than
+ *   `started_on`.
+ * - `next_billing_on`: the next charge. Computed by the server; read-only here.
+ * - `cancelled_on`: set to cancel, possibly in the future for a fixed-term plan.
+ */
+export type Subscription = Api.SubscriptionRead;
 
 /** "month" or "3 months" — how often a subscription bills, for "every …" and "/ …". */
 export function formatInterval(unit: BillingInterval, count: number): string {

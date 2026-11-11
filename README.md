@@ -176,7 +176,9 @@ ultimate-tracker/
 ├── backend/        # FastAPI app
 ├── docs/
 │   ├── features/   # Per-domain feature specifications
-│   └── adr/        # Architecture decision records
+│   ├── adr/        # Architecture decision records
+│   └── api/        # The backend's OpenAPI schema (generated)
+├── tools/          # Generators: API types for both clients, colour tokens
 ├── .github/        # CI/CD workflows
 ├── docker-compose.yml
 ├── README.md

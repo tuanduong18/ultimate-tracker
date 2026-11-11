@@ -33,6 +33,10 @@ jobs:
             mobile:
               - 'mobile/**'
               - '.github/workflows/mobile-ci.yml'
+              # Generated into mobile/: the API types and the colour tokens.
+              - 'docs/api/openapi.json'
+              - 'tools/api/**'
+              - 'tools/design/**'
 
   lint-test-export:
     needs: changes
@@ -56,6 +60,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # src/lib/types/api.gen.ts comes from docs/api/openapi.json, so the type
+      # check below is a check against the backend's real shapes. The contrast
+      # audit of these same colours runs in frontend-ci.
+      - name: Check generated API types are current
+        run: node ../tools/api/gen-types.mjs --check
+
+      - name: Check generated colour tokens are current
+        run: node ../tools/design/palette.mjs --check
 
       - name: Lint
         run: npm run lint

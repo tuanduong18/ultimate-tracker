@@ -3,12 +3,16 @@ version: 2
 # `prefix: chore` keeps Dependabot PR titles passing pr-title.yml. npm splits
 # majors into their own group so a breaking major can't block routine
 # minor/patch updates.
+#
+# Monthly, not weekly: five ecosystems on a weekly schedule made dependency
+# bumps about two in five of all commits on main. This schedule covers version
+# updates only. Security updates are a separate repository setting (on) and
+# still open a PR as soon as an advisory has a fix.
 updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore
@@ -29,7 +33,7 @@ updates:
     # needs migration work can't hold anything else up.
 
   # Grouped like /frontend, so a breaking major waits in its own PR instead of
-  # holding up the week's routine updates (as two majors did in #123).
+  # holding up the routine updates (as two majors did in #123).
   #
   # Each ignore rule stops a PR that would fail CI. An Expo SDK fixes the
   # versions of two sets of packages: native modules (bundledNativeModules.json
@@ -45,8 +49,7 @@ updates:
   - package-ecosystem: npm
     directory: /mobile
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore
@@ -97,8 +100,7 @@ updates:
   - package-ecosystem: pip
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore
@@ -114,8 +116,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore
@@ -129,8 +130,7 @@ updates:
   - package-ecosystem: docker
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     commit-message:
       prefix: chore

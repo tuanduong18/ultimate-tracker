@@ -33,6 +33,10 @@ jobs:
             frontend:
               - 'frontend/**'
               - '.github/workflows/frontend-ci.yml'
+              # Generated into frontend/: the API types and the colour tokens.
+              - 'docs/api/openapi.json'
+              - 'tools/api/**'
+              - 'tools/design/**'
 
   lint-test-build:
     needs: changes
@@ -69,6 +73,20 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # lib/types/api.gen.ts comes from docs/api/openapi.json, so the type check
+      # below is a check against the backend's real request and response shapes.
+      - name: Check generated API types are current
+        run: node ../tools/api/gen-types.mjs --check
+
+      # The token section of app/globals.css (and the Android app's tokens.ts)
+      # comes from one generator; then every text/background pair the app draws
+      # is measured against WCAG AA, in every scheme and mode.
+      - name: Check generated colour tokens are current
+        run: node ../tools/design/palette.mjs --check
+
+      - name: Audit colour contrast
+        run: node ../tools/design/contrast.mjs --quiet
 
       - name: Lint
         run: npm run lint

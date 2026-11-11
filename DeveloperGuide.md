@@ -125,7 +125,7 @@ ultimate-tracker/
 │   ├── lib/
 │   │   ├── api-client.ts    # typed fetch wrapper for FastAPI
 │   │   ├── supabase.ts
-│   │   ├── types/           # API response shapes
+│   │   ├── types/           # api.gen.ts (generated from the backend's schema) + named aliases
 │   │   └── hooks/
 │   ├── tests/
 │   ├── package.json
@@ -138,7 +138,8 @@ ultimate-tracker/
 │   │   └── auth/callback.tsx # where a browser sign-in (Google, a confirmation email) returns
 │   ├── src/auth/             # session provider, Google sign-in, field checks, timezone sync
 │   ├── src/components/       # Text, Icon, buttons, rows, fields — every screen builds from these
-│   ├── src/lib/              # Supabase client, API client (the web's twin), session storage, env
+│   ├── src/lib/              # Supabase client, API client (the web's twin), session storage, env;
+│   │                         #   types/api.gen.ts is the same generated file the web has
 │   ├── src/navigation/       # the module list (mirrors the web's nav-items.ts) and the tab stack
 │   ├── src/theme/            # tokens.ts (generated, same values as globals.css), provider, type scale
 │   ├── tests/                # Jest, mirroring src/ (tests/lib/api-client.test.ts ↔ src/lib/api-client.ts)
@@ -178,7 +179,11 @@ ultimate-tracker/
 │
 ├── docs/
 │   ├── features/               # per-domain feature specifications — the spec source of truth
-│   └── adr/                    # architecture decision records
+│   ├── adr/                    # architecture decision records
+│   └── api/openapi.json        # the backend's API schema, generated; both clients are typed from it
+├── tools/                      # generators whose output spans apps — see tools/README.md
+│   ├── api/                    # dump_openapi.py → docs/api/openapi.json; gen-types.mjs → both api.gen.ts
+│   └── design/                 # palette.mjs → globals.css tokens + tokens.ts; contrast.mjs audits them
 ├── .github/
 │   ├── workflows/
 │   │   ├── backend-ci.yml
@@ -389,6 +394,7 @@ never built.
 - *Planned, for the Android app's offline outbox* ([platform.md](./docs/features/platform.md#offline-on-android)): create endpoints accept an optional client-generated `id` and treat a repeat by the same user as a no-op; edit and delete endpoints take the original values of the fields they touch and answer `409 EDIT_CONFLICT`, with the current row, when any has changed
 - Dates always ISO 8601, timezone-aware. Server stores UTC; frontend converts to user's stored timezone for display.
 - Every domain has a corresponding Pydantic schema split into `Create`, `Update`, and `Read` variants — never reuse one schema for all three.
+- The API's schema is committed at [`docs/api/openapi.json`](./docs/api/openapi.json) and both clients' types are generated from it, so a changed shape fails their type checks rather than drifting ([ADR-0005](./docs/adr/0005-generated-api-types.md)). Regenerate both after any change to a path, a schema or an enum: [`tools/README.md`](./tools/README.md#the-api-contract).
 
 ---
 
@@ -520,23 +526,25 @@ Day-to-day workflow, PR sizing, label scheme, and the migration rules live in
 
 Four CI workflows. Deployment is handled natively by Render and Vercel (auto-deploy on push to `main`), not by a GitHub Actions job:
 
-**`backend-ci.yml`** — when a PR touches `backend/`:
-1. Install dependencies
+**`backend-ci.yml`** — when a PR touches `backend/`, `docs/api/` or `tools/api/`:
+1. Install dependencies, then check that the committed `docs/api/openapi.json` is what the code produces
 2. Run `ruff check`, `ruff format --check`, and `mypy`
 3. Run migrations against a Postgres service, then guard them: `alembic check` (models must not drift from migrations), a single-head check, and a `downgrade base` → `upgrade head` round trip to prove reversibility
 4. Run `pytest` with coverage
 5. Build Docker image (no push, just validate it builds)
 
-**`frontend-ci.yml`** — when a PR touches `frontend/`:
-1. Install dependencies
+**`frontend-ci.yml`** — when a PR touches `frontend/`, the API schema or `tools/`:
+1. Install dependencies, then check the generated files are current — the API types against the
+   schema, the colour tokens against the palette generator — and audit every text/background
+   pair for WCAG AA contrast
 2. Run `oxlint`, `oxfmt --check`, and `tsc --noEmit`
 3. Run `npm run test`
 4. Run `npm run build` to catch build-time errors
 
 **`pr-title.yml`** — on every PR: lints the title against Conventional Commits, since squash merging makes the title the commit message on `main`.
 
-**`mobile-ci.yml`** — when a PR touches `mobile/`:
-1. Install dependencies
+**`mobile-ci.yml`** — when a PR touches `mobile/`, the API schema or `tools/`:
+1. Install dependencies, then check the generated API types and colour tokens are current
 2. Run `oxlint`, `oxfmt --check`, and `tsc --noEmit` — after `expo customize tsconfig.json` has
    written Expo Router's typed routes, so a link to a screen that doesn't exist fails the type
    check (the dev server writes them locally; CI has no dev server)
@@ -553,7 +561,7 @@ that does the filtering via `dorny/paths-filter`, gating the real job with an `i
 `backend-ci-ok` / `frontend-ci-ok` job that always runs and reports the outcome. **Those gate
 jobs are the required status checks.**
 
-**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped weekly PRs for pip, npm, GitHub Actions, and Docker. The frontend's npm splits majors into their own group; the Android app's is one group that skips minor and major bumps of the packages an Expo SDK pins, which move together in a hand-made SDK upgrade (see [CONTRIBUTING.md](./CONTRIBUTING.md#dependencies)); pip is one group, because `requirements.txt` holds ranges with no lock file and Dependabot cannot classify a bump as major or minor. Security alerts are separate from these PRs; GitHub's preset auto-triage rule (on by default for public repositories) dismisses low-impact alerts on development-only dependencies as soon as they are raised.
+**Dependency updates:** Dependabot (`.github/dependabot.yml`) opens grouped monthly PRs for pip, npm, GitHub Actions, and Docker (version updates only; a security fix still gets its own PR at once). The frontend's npm splits majors into their own group; the Android app's is one group that skips minor and major bumps of the packages an Expo SDK pins, which move together in a hand-made SDK upgrade (see [CONTRIBUTING.md](./CONTRIBUTING.md#dependencies)); pip is one group, because `requirements.txt` holds ranges with no lock file and Dependabot cannot classify a bump as major or minor. Security alerts are separate from these PRs too; GitHub's preset auto-triage rule (on by default for public repositories) dismisses low-impact alerts on development-only dependencies as soon as they are raised.
 
 **Deployment (no workflow needed):**
 - **Backend** — Render auto-deploys on push to `main`: it rebuilds the Docker image and restarts the service.
