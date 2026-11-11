@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import Notifications from '@/app/notifications';
@@ -131,13 +131,22 @@ describe('Notifications', () => {
   });
 
   it('says so when there is nothing, and never while it is loading', async () => {
+    // The inbox is held back until the test lets it go. An instant answer would make "still
+    // loading" a race: it reaches the screen on a setTimeout(0), the render returns on a
+    // setImmediate, and on a busy runner the empty message was already showing.
+    let answer: (rows: AppNotification[]) => void = () => {};
+    const inbox = new Promise<AppNotification[]>((resolve) => {
+      answer = resolve;
+    });
     serve({
-      '/notifications?view=inbox&limit=100': [],
+      '/notifications?view=inbox&limit=100': () => inbox,
       '/notifications?view=history&limit=100': [],
     });
     await renderScreen(<Notifications />);
 
     expect(screen.queryByText('Nothing needs you right now.')).toBeNull();
+
+    await act(async () => answer([]));
     expect(await screen.findByText('Nothing needs you right now.')).toBeOnTheScreen();
     expect(
       screen.getByText('Snoozed reminders and past renewals will show up here.')

@@ -90,8 +90,15 @@ jobs:
 
       # Every package at the version this Expo SDK expects. Catches a Dependabot
       # bump that compiles but would break the native build.
+      #
+      # Pinned exactly: npx downloads this at run time, so a floating `@1` runs
+      # whatever was published a minute ago. 1.21.7 (11 Nov 2026) shipped without
+      # its `@expo/env` dependency and crashed on start, which would have failed
+      # every PR that touched mobile/. The checks themselves still come from
+      # Expo's versions API, so an older doctor does not go stale. Bump by hand
+      # after `npx expo-doctor@<new>` passes in mobile/.
       - name: Check Expo dependencies
-        run: npx expo-doctor@1
+        run: npx expo-doctor@1.21.6
 
       # Bundles the JavaScript for Android: catches import and Metro errors
       # without a native build, which needs EAS and minutes CI does not have.
