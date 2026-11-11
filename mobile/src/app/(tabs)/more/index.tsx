@@ -3,15 +3,16 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { displayNameOf } from '@/auth/identity';
 import { useSession } from '@/auth/session';
 import { ActionRow } from '@/components/action-row';
 import { Wordmark } from '@/components/brand';
 import { Card, RowDivider } from '@/components/card';
-import { IconBadge } from '@/components/icon';
 import { NavRow } from '@/components/nav-row';
 import { Screen } from '@/components/screen';
 import { Section } from '@/components/section';
 import { Text } from '@/components/text';
+import { useProfile } from '@/lib/finance/queries';
 import { supabase } from '@/lib/supabase';
 import { MORE } from '@/navigation/modules';
 import { SPACE } from '@/theme/scale';
@@ -65,14 +66,17 @@ export default function More() {
 }
 
 /**
- * Who is signed in and how, the settings for this phone, and the way out — in that order, so
- * Log out sits last, away from the row people tap most.
+ * Who is signed in, the settings for this phone, and the way out — in that order, so Log out
+ * sits last, away from the row people tap most. The first row is the person — their name, or
+ * their email until they have one — and opens the Profile, where the name, the sign-in methods
+ * and the currencies are; on the web all three rows live in the account menu.
  */
 function AccountCard() {
   const { session } = useSession();
+  const profile = useProfile();
   const [leaving, setLeaving] = useState(false);
   const user = session?.user;
-  const provider = user?.app_metadata.provider === 'google' ? 'Google' : 'email';
+  const name = displayNameOf(profile.data, user);
 
   async function logOut() {
     setLeaving(true);
@@ -83,26 +87,12 @@ function AccountCard() {
 
   return (
     <Card>
-      <View
-        accessible
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: SPACE.md,
-          paddingHorizontal: SPACE.lg,
-          paddingVertical: SPACE.md,
-        }}
-      >
-        <IconBadge name="account_circle" />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text variant="bodyStrong" numberOfLines={1}>
-            {user?.email ?? 'Signed in'}
-          </Text>
-          <Text variant="caption" tone="fgMuted">
-            Signed in with {provider}
-          </Text>
-        </View>
-      </View>
+      <NavRow
+        href="/more/profile"
+        label={name ?? user?.email ?? 'Profile'}
+        blurb={name ? (user?.email ?? 'Profile') : 'Profile, sign-in and currencies'}
+        icon="account_circle"
+      />
       <RowDivider />
       <NavRow
         href="/more/settings"
