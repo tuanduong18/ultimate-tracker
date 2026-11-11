@@ -11,6 +11,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SessionProvider, useSession } from '@/auth/session';
 import { QueryProvider } from '@/lib/query';
 import { FORM_ROUTES, useFormScreenOptions } from '@/navigation/form-options';
+import { useHeaderOptions } from '@/navigation/tab-stack';
 import { saveAppearance, useStoredAppearance } from '@/theme/appearance-store';
 import { AppThemeProvider, useAppTheme } from '@/theme/theme-provider';
 
@@ -75,6 +76,7 @@ function Root() {
   const [fontsLoaded, fontError] = useFonts({ [regularSymbols.name]: regularSymbols.font });
   const { session, loading } = useSession();
   const formOptions = useFormScreenOptions();
+  const headerOptions = useHeaderOptions();
   const ready = (fontsLoaded || fontError !== null) && !loading;
   const signedIn = session !== null;
 
@@ -90,6 +92,8 @@ function Root() {
         <Stack.Screen name="index" />
         <Stack.Protected guard={signedIn} redirectTo="/login">
           <Stack.Screen name="(tabs)" />
+          {/* Reached from the bell on any tab, so it sits above them all, with a back arrow. */}
+          <Stack.Screen name="notifications" options={{ ...headerOptions, headerShown: true }} />
           {/* Adding and editing open over the tabs, as Material's full-screen dialogs. */}
           {FORM_ROUTES.map((name) => (
             <Stack.Screen key={name} name={name} options={formOptions} />
