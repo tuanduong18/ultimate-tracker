@@ -10,8 +10,10 @@ import type { ReactNode } from 'react';
  */
 export const router = {
   push: jest.fn(),
+  navigate: jest.fn(),
   replace: jest.fn(),
   back: jest.fn(),
+  dismissTo: jest.fn(),
   canGoBack: jest.fn(() => true),
 };
 

@@ -45,14 +45,16 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
   renewal notices. Shipped ahead of its v0.2 slot. See [Subscriptions](#subscriptions).
 - Arranging — budgets and categories can be put in any order, kept on the account. See
   [Arranging lists](#arranging-lists).
-- **On the Android app** — everything above except import and export, as native screens with
-  the same rules and words: an **Overview** (the two tiles, latest expenses, both charts under
-  one shared range and category filter, and rows into each part), **Transactions** (search and
-  the three filters; it links to the web for import and export), **Budgets**,
-  **Subscriptions** (with renew early) and **Categories** (symbols, a sixteen-colour palette in
-  place of the web's free picker — a colour picked on the web is kept — and drag to arrange).
-  Adding and editing open as full-screen forms; deletes and early renewals confirm in Android's
-  own dialog. Code: `mobile/src/app/(tabs)/finance/` and `mobile/src/app/(forms)/`.
+- **On the Android app** — everything above, as native screens with the same rules and words:
+  an **Overview** (the two tiles, latest expenses, both charts under one shared range and
+  category filter, and rows into each part), **Transactions** (search and the three filters, and
+  **Export** and **Import**), **Budgets**, **Subscriptions** (with renew early) and **Categories**
+  (symbols, a sixteen-colour palette in place of the web's free picker — a colour picked on the
+  web is kept — and drag to arrange). Adding and editing open as full-screen forms; deletes and
+  early renewals confirm in Android's own dialog. Export builds the same file from the rows on
+  screen and hands it to Android's share sheet (save to Files or Drive, open in Sheets, send);
+  Import is the web's flow — template, choose the file from Android's picker, check, import — as
+  a full-screen form. Code: `mobile/src/app/(tabs)/finance/` and `mobile/src/app/(forms)/`.
 
 ### Out of scope
 

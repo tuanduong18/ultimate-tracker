@@ -215,6 +215,30 @@ export function categoryLabel(
 }
 
 /**
+ * The filters in words, for the export's About sheet — the same words the chips show, so the
+ * file describes itself the way the screen did. The web's twin, line for line.
+ */
+export function describeFilters(
+  filters: TransactionFilters,
+  categories: readonly Category[]
+): string[] {
+  const lines: string[] = [];
+  const q = filters.q.trim();
+  if (q) lines.push(`Search: ${q}`);
+  if (filters.start || filters.end) lines.push(`Dates: ${dateLabel(filters)}`);
+  const { ids, uncategorized } = filters.categories;
+  if (ids !== null || !uncategorized) {
+    const names = new Map(categories.map((c) => [c.id, c.name]));
+    const chosen =
+      ids === null ? ['Every category'] : ids.map((id) => names.get(id) ?? 'Deleted category');
+    if (ids !== null && uncategorized) chosen.push(UNCATEGORISED);
+    lines.push(`Categories: ${chosen.join(', ') || 'none'}`);
+  }
+  if (filters.currency) lines.push(`Amount: ${amountLabel(filters)}`);
+  return lines;
+}
+
+/**
  * Add two non-negative decimal strings exactly, digit by digit — a year of VND in thousandths is
  * past where a double stays exact, and a list's total must agree with its rows.
  */

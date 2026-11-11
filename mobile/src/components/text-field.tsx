@@ -12,7 +12,14 @@ import { Text } from '@/components/text';
 import { RADIUS, SPACE, TOUCH_TARGET, TYPE } from '@/theme/scale';
 import { useAppTheme } from '@/theme/theme-provider';
 
-type FieldKind = 'email' | 'current-password' | 'new-password' | 'text' | 'amount' | 'integer';
+type FieldKind =
+  | 'email'
+  | 'current-password'
+  | 'new-password'
+  | 'name'
+  | 'text'
+  | 'amount'
+  | 'integer';
 
 const EXACT: TextInputProps = { autoCapitalize: 'none', autoCorrect: false, spellCheck: false };
 
@@ -29,6 +36,14 @@ const KIND: Record<FieldKind, TextInputProps> = {
   },
   'current-password': { ...EXACT, autoComplete: 'current-password', importantForAutofill: 'yes' },
   'new-password': { ...EXACT, autoComplete: 'new-password', importantForAutofill: 'yes' },
+  // A person's name: each word capitalised, no corrections (they "fix" names), and autofill may
+  // offer the one on the phone's account.
+  name: {
+    autoCapitalize: 'words',
+    autoCorrect: false,
+    autoComplete: 'name',
+    importantForAutofill: 'yes',
+  },
   text: { autoCapitalize: 'sentences', autoCorrect: true, importantForAutofill: 'no' },
   amount: {
     ...EXACT,
@@ -54,6 +69,8 @@ export interface TextFieldProps {
   /** Shown under the field, in place of the hint, with an icon — never colour alone. */
   error?: string;
   hint?: string;
+  /** Shown in the empty box — what an empty field falls back to, never instructions. */
+  placeholder?: string;
   returnKeyType?: TextInputProps['returnKeyType'];
   onSubmitEditing?: () => void;
   /** Open the keyboard on arrival — only for the one field a screen exists to fill (Amount). */
@@ -82,6 +99,7 @@ export function TextField({
   onChangeText,
   error,
   hint,
+  placeholder,
   returnKeyType,
   onSubmitEditing,
   autoFocus,
@@ -124,6 +142,8 @@ export function TextField({
           onSubmitEditing={onSubmitEditing}
           autoFocus={autoFocus}
           maxLength={maxLength}
+          placeholder={placeholder}
+          placeholderTextColor={colors.fgMuted}
           // Keep the keyboard up when Next moves to the following field.
           submitBehavior={returnKeyType === 'next' ? 'submit' : 'blurAndSubmit'}
           accessibilityLabel={label}

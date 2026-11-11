@@ -20,6 +20,7 @@ function respond(status: number, body?: unknown) {
       if (body === undefined) throw new SyntaxError('no body');
       return body;
     },
+    arrayBuffer: async () => new Uint8Array([80, 75, 3, 4]).buffer,
   };
 }
 
@@ -74,5 +75,47 @@ describe('api', () => {
     fetchMock.mockResolvedValue(respond(200, {}));
     await api.get('/health');
     expect(fetchMock.mock.calls[0][1].headers).toEqual({ 'Content-Type': 'application/json' });
+  });
+
+  it('downloads a built file as bytes: a GET with no body, a POST with one', async () => {
+    fetchMock.mockResolvedValue(respond(200));
+    await expect(api.download('/finance/expenses/import/template')).resolves.toEqual(
+      new Uint8Array([80, 75, 3, 4])
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'GET', body: undefined });
+
+    await api.download('/finance/expenses/export', { expense_ids: ['e1'] });
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      method: 'POST',
+      body: '{"expense_ids":["e1"]}',
+    });
+  });
+
+  it('fails a download with the backend error, like any other call', async () => {
+    fetchMock.mockResolvedValue(
+      respond(422, { error: { code: 'VALIDATION_ERROR', message: 'Nope' } })
+    );
+    await expect(api.download('/finance/expenses/export', {})).rejects.toMatchObject({
+      status: 422,
+    });
+  });
+
+  it('uploads a file as its raw bytes and reads the JSON answer', async () => {
+    fetchMock.mockResolvedValue(respond(200, { rows: [] }));
+    const bytes = new Uint8Array([1, 2, 3]);
+    await expect(api.upload('/finance/expenses/import/preview', bytes)).resolves.toEqual({
+      rows: [],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.test/api/v1/finance/expenses/import/preview',
+      {
+        method: 'POST',
+        body: bytes.buffer,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          Authorization: 'Bearer token-1',
+        },
+      }
+    );
   });
 });

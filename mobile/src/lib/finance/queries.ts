@@ -22,7 +22,7 @@ import type {
   Subscription,
   Summary,
 } from '@/lib/finance/types';
-import type { Profile } from '@/lib/types/profile';
+import type { Profile, ProfileUpdate } from '@/lib/types/profile';
 
 /**
  * Every Finance read the app makes, as hooks over one cache (lib/query.tsx), and the one way to
@@ -130,6 +130,23 @@ export function useCurrencies() {
 /** The profile: display and preferred currency. Fetching it also creates it on a first visit. */
 export function useProfile() {
   return useQuery({ queryKey: profileKey, queryFn: () => api.get<Profile>('/auth/me') });
+}
+
+/**
+ * Saving the profile: only the fields that changed, then a reload of the profile and of
+ * everything under 'finance' — the display currency is what every total is converted into, so a
+ * new one changes every figure Finance shows — waited for, like every write.
+ */
+export function useProfileWrite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (changes: ProfileUpdate) => api.patch<Profile>('/auth/me', changes),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: profileKey }),
+        queryClient.invalidateQueries({ queryKey: financeKeys.all }),
+      ]),
+  });
 }
 
 /** Spent, budgeted and remaining over a range, in the display currency. */

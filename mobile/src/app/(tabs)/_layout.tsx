@@ -1,6 +1,7 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
 import { useTimezoneSync } from '@/auth/timezone-sync';
+import { useNotificationUpdates } from '@/lib/notifications/queries';
 import { TABBED } from '@/navigation/modules';
 import { useAppTheme } from '@/theme/theme-provider';
 
@@ -18,11 +19,12 @@ import { useAppTheme } from '@/theme/theme-provider';
  * the tab bar.
  *
  * Only signed-in people reach the tabs, so this is also where the profile's timezone is kept
- * in step with the phone's.
+ * in step with the phone's, and where the notifications are kept live — once, for every bell.
  */
 export default function TabsLayout() {
   const { colors } = useAppTheme();
   useTimezoneSync();
+  useNotificationUpdates();
   return (
     <NativeTabs
       backgroundColor={colors.surface}

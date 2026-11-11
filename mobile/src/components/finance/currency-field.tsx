@@ -22,12 +22,15 @@ export function CurrencyField({
   onChange,
   currencies,
   label = 'Currency',
+  hint,
   error,
 }: {
   value: string;
   onChange: (code: string) => void;
   currencies: readonly string[];
   label?: string;
+  /** What the choice does (the profile's two currencies), under the field. */
+  hint?: string;
   error?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -41,7 +44,7 @@ export function CurrencyField({
         value={value}
         onChangeText={(typed) => onChange(typed.toUpperCase())}
         maxLength={3}
-        hint="A three-letter code, like SGD."
+        hint={hint ?? 'A three-letter code, like SGD.'}
         error={error}
       />
     );
@@ -67,6 +70,7 @@ export function CurrencyField({
         label={label}
         value={value}
         icon="expand_more"
+        hint={hint}
         error={error}
         accessibilityHint="Opens the list of currencies"
         onPress={() => setOpen(true)}
