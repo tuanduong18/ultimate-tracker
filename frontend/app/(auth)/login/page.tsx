@@ -8,13 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthShell, Field, SubmitButton } from '@/components/shared/auth-shell';
 import { OAuthButtons, OrDivider, oauthErrorFrom } from '@/components/shared/oauth-buttons';
 import { useSession } from '@/lib/hooks/use-session';
+import { safeNext } from '@/lib/safe-next';
 import { supabase } from '@/lib/supabase';
-
-/** Where to go after signing in — only ever a path inside this app. */
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
-  return raw;
-}
 
 function LoginForm() {
   const router = useRouter();
@@ -33,8 +28,9 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   // Someone who is already signed in has no business on the login page. This
-  // is also how a Google sign-in finishes: it returns here with the session in
-  // the URL, and the redirect fires once the client has picked it up.
+  // is also how a Google sign-in finishes: it returns here with a one-time code
+  // the client exchanges for a session as it loads, and the redirect fires once
+  // that session arrives.
   useEffect(() => {
     if (!loading && session) router.replace(next);
   }, [loading, session, next, router]);

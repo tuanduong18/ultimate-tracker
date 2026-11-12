@@ -21,4 +21,15 @@ const supabaseAnonKey = requireEnv(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * PKCE, as on the Android app (mobile/src/lib/supabase.ts). This version of
+ * supabase-js defaults to the implicit flow, which puts the access and refresh
+ * tokens themselves in the address the browser comes back to — where browser
+ * history, extensions and anything that reads the page address can see them.
+ * With PKCE that address carries only a one-time code, worthless without the
+ * secret this browser kept when the sign-in started; the client exchanges it
+ * on load (detectSessionInUrl, on by default) and removes it from the address.
+ */
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { flowType: 'pkce' },
+});

@@ -34,11 +34,11 @@ function GoogleMark() {
  * whose email matches an existing email-and-password account is linked to it
  * by Supabase, so it lands on the same profile rather than a second one.
  *
- * Supabase sends the browser back to /login carrying the session in the URL.
- * The client picks it up on load, and the login page's "already signed in"
- * redirect then forwards to `next`. That is why /login, not some callback
- * route, is the redirect target — and why it must be on the project's list of
- * allowed redirect URLs.
+ * Supabase sends the browser back to /login carrying a one-time code (PKCE —
+ * see lib/supabase.ts). The client exchanges it as it loads, and the login
+ * page's "already signed in" redirect then forwards to `next`. That is why
+ * /login, not some callback route, is the redirect target — and why it must be
+ * on the project's list of allowed redirect URLs.
  */
 export function OAuthButtons({ next, onError }: { next: string; onError: (msg: string) => void }) {
   const [busy, setBusy] = useState(false);
@@ -84,8 +84,8 @@ export function OrDivider() {
 
 /**
  * The reason a provider sign-in failed, as Supabase reports it on the way back
- * — `error_description` in the query string or, for the implicit flow, in the
- * hash. Null when the URL carries no error.
+ * — `error_description` in the query string, or in the hash for an error
+ * raised before the flow started. Null when the URL carries no error.
  */
 export function oauthErrorFrom(search: string, hash: string): string | null {
   for (const part of [search, hash.replace(/^#/, '?')]) {

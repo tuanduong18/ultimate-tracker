@@ -47,6 +47,6 @@ describe('oauthErrorFrom', () => {
     expect(oauthErrorFrom('', '#error=server_error&error_description=Bad%20state')).toBe(
       'Bad state'
     );
-    expect(oauthErrorFrom('?next=%2Fdashboard', '#access_token=abc')).toBeNull();
+    expect(oauthErrorFrom('?next=%2Fdashboard&code=abc', '')).toBeNull();
   });
 });
