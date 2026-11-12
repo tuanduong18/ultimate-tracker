@@ -181,13 +181,21 @@ async def check_budgets(db: AsyncSession, *, now: datetime) -> BudgetAlertRun:
     measured: set[uuid.UUID] = set()
 
     for user_id, timezone in await _users(db):
-        today = timezones.today_in(timezone, now)
         try:
-            progress = await budget_progress(db, user_id, month=today)
+            # A savepoint per user: nothing is written here, but a failed query
+            # would abort the transaction, and every later user's reads with it.
+            async with db.begin_nested():
+                today = timezones.today_in(timezone, now)
+                progress = await budget_progress(db, user_id, month=today)
         except RateUnavailableError as exc:
             # No honest figure without a rate. The next run tries again, and
             # until then this user's alerts stay as they were.
             logger.warning("budget_alerts.rate_unavailable", user_id=str(user_id), error=str(exc))
+            continue
+        except Exception:
+            # One user's bad data must not stop everyone else's alerts. Left out
+            # of `measured`, so their alerts also stay as they were.
+            logger.exception("budget_alerts.user_failed", user_id=str(user_id))
             continue
         measured.add(user_id)
         for budget in progress:

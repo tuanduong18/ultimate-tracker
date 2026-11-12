@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.finance import Subscription
@@ -17,6 +17,7 @@ from app.models.profile import Profile
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services import finance as finance_service
 from app.services import notifications
+from app.services.finance import reminders as reminder_service
 from app.services.finance.reminders import ReminderRun, refresh_reminders
 
 UTC_USER = uuid.UUID("00000000-0000-0000-0000-000000000005")
@@ -325,3 +326,28 @@ async def test_deleting_the_subscription_removes_the_reminder(db: AsyncSession) 
     await finance_service.delete_subscription(db, UTC_USER, subscription_id)
 
     assert await reminders(db) == []
+
+
+async def test_one_subscription_failing_keeps_everyone_elses_reminders(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await add(db)
+    await add(db, user_id=SGT_USER)
+    real_sync = reminder_service.sync_reminder
+    calls = 0
+
+    async def first_one_fails(
+        session: AsyncSession, subscription: Subscription, **kwargs: Any
+    ) -> ReminderRun:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # A database error: without a savepoint it would abort the one
+            # transaction this job commits at the end, losing every reminder.
+            await session.execute(text("SELECT 1/0"))
+        return await real_sync(session, subscription, **kwargs)
+
+    monkeypatch.setattr(reminder_service, "sync_reminder", first_one_fails)
+
+    assert (await run(db)).created == 1
+    assert len(await reminders(db)) == 1

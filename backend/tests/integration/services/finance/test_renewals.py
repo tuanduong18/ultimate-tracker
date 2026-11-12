@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.finance import Expense, Subscription
@@ -18,6 +18,7 @@ from app.models.notification import Notification, NotificationKind
 from app.models.profile import Profile
 from app.services import finance as finance_service
 from app.services import notifications
+from app.services.finance import renewals
 from app.services.finance.reminders import refresh_reminders
 from app.services.finance.renewals import renew_due_subscriptions
 
@@ -307,3 +308,29 @@ async def test_two_runs_at_once_record_each_charge_once(
 
     assert sum(counts) == 20
     assert len(await expenses(db)) == 20
+
+
+async def test_one_subscription_failing_does_not_stop_the_others(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = [await add(db), await add(db, user_id=SGT_USER)]
+    real_renew = renewals._renew
+    calls = 0
+
+    async def first_one_fails(
+        session: AsyncSession, subscription: Subscription, today: date, now: datetime
+    ) -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # A database error, not a Python one: it aborts the transaction, so
+            # only a savepoint per subscription lets the next one go through.
+            await session.execute(text("SELECT 1/0"))
+        return await real_renew(session, subscription, today, now)
+
+    monkeypatch.setattr(renewals, "_renew", first_one_fails)
+
+    # Whichever the job reached first failed; the other was still charged.
+    assert await renew(db, at(22)) == 1
+    assert len(await expenses(db)) == 1
+    assert {await next_billing(db, i) for i in ids} == {date(2026, 10, 22), date(2026, 11, 22)}

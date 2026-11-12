@@ -5,15 +5,17 @@ import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.exchange_rate import ExchangeRate
 from app.models.finance import Budget, BudgetPeriod, Category, Expense
 from app.models.notification import Notification, NotificationKind
 from app.models.profile import Profile
+from app.services.finance import budget_alerts
 from app.services.finance.budget_alerts import check_budgets
 
 OWNER = uuid.UUID("00000000-0000-0000-0000-000000000011")
@@ -278,3 +280,35 @@ async def test_only_the_budgets_owner_is_told(db: AsyncSession) -> None:
     await check_budgets(db, now=NOW)
 
     assert {n.user_id for n in await alerts(db)} == {OWNER}
+
+
+async def test_one_user_failing_does_not_stop_the_others_alerts(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Both users at the 80% warning: OWNER on Food, OTHER on all their spending.
+    await budget(db)
+    await spend(db, "320.00")
+    await budget(db, user_id=OTHER, all_spending=True, categories=[])
+    db.add(
+        Expense(user_id=OTHER, amount=Decimal("320.00"), currency="USD", spent_on=date(2026, 10, 5))
+    )
+    await db.commit()
+    real_progress = budget_alerts.budget_progress
+    calls = 0
+
+    async def first_one_fails(session: AsyncSession, user_id: uuid.UUID, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # A database error: it aborts the transaction, so only a savepoint
+            # per user lets the next user's budgets still be read.
+            await session.execute(text("SELECT 1/0"))
+        return await real_progress(session, user_id, **kwargs)
+
+    monkeypatch.setattr(budget_alerts, "budget_progress", first_one_fails)
+
+    run = await check_budgets(db, now=NOW)
+
+    # Whichever user the job reached first was skipped; the other was warned.
+    assert run.alerted == 1
+    assert len({n.user_id for n in await alerts(db)}) == 1
