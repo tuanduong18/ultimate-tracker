@@ -21,8 +21,11 @@ import {
  * or "dark" falls through to the OS setting. ThemeProvider corrects both a
  * moment later. Shipping the lists here to avoid that would mean keeping two
  * copies of them in sync for no gain.
+ *
+ * `nonce` is the page's Content-Security-Policy nonce (proxy.ts): without it
+ * the browser refuses to run any inline script, this one included.
  */
-export function ThemeScript() {
+export function ThemeScript({ nonce }: { nonce?: string }) {
   const json = JSON.stringify;
   const script =
     // Even touching `localStorage` can throw (Safari private mode), so the
@@ -33,5 +36,5 @@ export function ThemeScript() {
     `if(m!=="light"&&m!=="dark")m=window.matchMedia&&matchMedia(${json(DARK_QUERY)}).matches?"dark":"light";` +
     `d.dataset.mode=m})()`;
 
-  return <script dangerouslySetInnerHTML={{ __html: script }} />;
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: script }} />;
 }

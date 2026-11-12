@@ -45,7 +45,8 @@
       "expo-localization",
       "@react-native-community/datetimepicker",
       "expo-sharing",
-      "./plugins/with-android-theme"
+      "./plugins/with-android-theme",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

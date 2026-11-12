@@ -202,8 +202,28 @@ async def refresh_reminders(db: AsyncSession, *, now: datetime, lead_days: int) 
         )
     )
     for subscription, timezone in rows.all():
-        today = timezones.today_in(timezone, now)
-        run.add(await sync_reminder(db, subscription, today=today, lead_days=lead_days, now=now))
+        # Copied out first: a rolled-back savepoint expires the objects it
+        # touched, and reading one in the except below would try to reload it.
+        subscription_id, user_id = subscription.id, subscription.user_id
+        try:
+            # A savepoint per subscription. This job commits once, at the end,
+            # so without it one subscription's failure would throw away every
+            # other user's reminders — or leave the transaction aborted for them.
+            async with db.begin_nested():
+                today = timezones.today_in(timezone, now)
+                found = await sync_reminder(
+                    db, subscription, today=today, lead_days=lead_days, now=now
+                )
+        except Exception:
+            # One subscription's bad data must not stop everyone else's reminders.
+            logger.exception(
+                "reminders.subscription_failed",
+                subscription_id=str(subscription_id),
+                user_id=str(user_id),
+            )
+            continue
+        # Counted once the savepoint is released: saving can fail as the block ends.
+        run.add(found)
 
     # Reminders whose day has passed without the renewal job taking them — it
     # skips a charge that a cancellation stopped. Two days back is safely past

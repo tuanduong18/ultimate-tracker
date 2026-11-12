@@ -3139,7 +3139,8 @@
           "timezone": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 80
               },
               {
                 "type": "null"

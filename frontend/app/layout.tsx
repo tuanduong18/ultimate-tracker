@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist } from 'next/font/google';
+import { headers } from 'next/headers';
 
 import { ThemeProvider } from '@/components/shared/theme-provider';
 import { ThemeScript } from '@/components/shared/theme-script';
@@ -42,14 +43,22 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Reads the per-request nonce that proxy.ts put in the Content-Security-Policy
+ * and stamps it on the theme script, the one inline script that is ours; Next
+ * stamps its own. Reading request headers makes every page render on request,
+ * which a nonce needs anyway — a prebuilt page would carry a stale one.
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     // suppressHydrationWarning because ThemeScript writes data-theme onto this
     // element before React sees it, so the server's markup and the client's
     // disagree here by design.
     <html lang="en" className={geist.variable} suppressHydrationWarning>
       <head>
-        <ThemeScript />
+        <ThemeScript nonce={nonce} />
       </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>

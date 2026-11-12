@@ -20,6 +20,7 @@ processed (SKIP LOCKED), so two overlapping runs cannot take the same charge.
 
 from datetime import UTC, date, datetime, timedelta
 
+import structlog
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +31,8 @@ from app.models.profile import Profile
 from app.services import notifications
 from app.services.finance.billing import next_charge
 from app.services.finance.reminders import money, short_date
+
+logger = structlog.get_logger(__name__)
 
 
 def _notice(subscription: Subscription, charge: date, now: datetime) -> Notification:
@@ -110,16 +113,33 @@ async def renew_due_subscriptions(db: AsyncSession, *, now: datetime) -> int:
 
     recorded = 0
     for subscription_id, timezone in candidates.all():
-        today = timezones.today_in(timezone, now)
-        # Re-read under a row lock: another run may have taken it meanwhile,
-        # and then it is either locked (skipped) or no longer due.
-        subscription = await db.scalar(
-            select(Subscription)
-            .where(Subscription.id == subscription_id, Subscription.next_billing_on <= today)
-            .with_for_update(skip_locked=True)
-        )
-        if subscription is None:
+        try:
+            # A savepoint per subscription: if anything below fails, only this
+            # subscription's changes are undone and the transaction stays usable
+            # for the rest. A failed query would otherwise abort it for everyone.
+            async with db.begin_nested():
+                today = timezones.today_in(timezone, now)
+                # Re-read under a row lock: another run may have taken it meanwhile,
+                # and then it is either locked (skipped) or no longer due.
+                subscription = await db.scalar(
+                    select(Subscription)
+                    .where(
+                        Subscription.id == subscription_id,
+                        Subscription.next_billing_on <= today,
+                    )
+                    .with_for_update(skip_locked=True)
+                )
+                if subscription is None:
+                    continue
+                found = await _renew(db, subscription, today, now)
+        except Exception:
+            # One subscription's bad data must not stop everyone else's charges.
+            # Logged at error level, which is how a failing job gets noticed.
+            logger.exception("renewals.subscription_failed", subscription_id=str(subscription_id))
             continue
-        recorded += await _renew(db, subscription, today, now)
+        # Counted only after the savepoint was released: a failure while saving
+        # its changes surfaces as the block ends, and a rolled-back charge must
+        # not be counted.
+        recorded += found
         await db.commit()
     return recorded

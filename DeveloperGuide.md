@@ -128,6 +128,8 @@ ultimate-tracker/
 │   │   ├── types/           # api.gen.ts (generated from the backend's schema) + named aliases
 │   │   └── hooks/
 │   ├── tests/
+│   ├── proxy.ts              # the Content-Security-Policy, with a fresh nonce per page
+│   ├── next.config.mjs       # the other security headers
 │   ├── package.json
 │   └── postcss.config.mjs    # Tailwind 4 is configured in app/globals.css, not a JS config
 │
@@ -663,7 +665,12 @@ anything else, `production` on Render, is a deployment.
 - Never commit `.env` files — `.gitignore` already excludes them, verify before every commit
 - JWT verification happens on every protected backend route using Supabase's public JWKS endpoint — never trust a JWT without verifying its signature
 - Secrets live in Render/Vercel environment settings (and Supabase Vault for the scheduler) — never in code. Today that is `DATABASE_URL` and `TASK_SECRET` on Render; `ENVIRONMENT=production` is set there too, though it is not a secret. GitHub Actions secrets hold only the public `NEXT_PUBLIC_*` values for CI builds, with placeholders when they are absent. No Supabase service role key is used anywhere
-- Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit
+- Sign-up is open to anyone, on purpose: the app is meant to be tried (a recruiter, a friend of a friend). So no user's data may be trusted to be well-formed — the backend validates every stored field (the profile's timezone included: it must be an IANA name), and each scheduled job runs every subscription or user in its own savepoint, so one that fails is logged at error level and skipped rather than failing everyone's run. Uploaded spreadsheets are parsed in a worker thread, so one large file cannot stall other requests
+- Sign-up and log-in go straight to Supabase Auth, so brute-force protection is Supabase's built-in rate limiting; the backend has no auth endpoints of its own to limit. Email sign-ups must confirm their address
+- Both clients sign in with PKCE: a sign-in redirect carries a one-time code that is useless without the secret the starting browser or app kept, never the tokens themselves
+- The web follows `?next=` after log-in only to a page of its own: the value is resolved as the browser would resolve it, and anything that lands on another origin falls back to the dashboard (`frontend/lib/safe-next.ts`)
+- The web sends a Content-Security-Policy with a per-request nonce (`frontend/proxy.ts`): no script runs without it, and `connect-src` limits the page to the site, the API and Supabase. The session sits in `localStorage`, so this is what stops an injected script from reading it. `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy` come from `next.config.mjs`; Vercel adds HSTS
+- Third-party GitHub Actions are pinned to a commit, not a tag, since a tag can be moved to new code; GitHub's own `actions/*` stay on tags
 - `/api/v1/tasks/*` is not behind a user JWT: it compares `X-Task-Secret` to `TASK_SECRET` in constant time, and answers `503` with every job disabled while `TASK_SECRET` is unset
 - CORS: backend only accepts requests from the deployed frontend origin and `localhost` in dev. The Android app is not a browser and sends no `Origin`, so CORS neither applies to it nor protects anything from it — the JWT does
 - The Android app ships the same public values as the web bundle (Supabase URL and anon key, API base URL) and nothing secret: every `EXPO_PUBLIC_*` value is compiled into the APK, where anyone holding it can read it. Locally they come from `mobile/.env`; EAS cloud builds never see that file, so the same names are set as EAS environment variables. The signing keystore lives with EAS, never in the repo. Its session is kept in `expo-secure-store`, not plain storage.

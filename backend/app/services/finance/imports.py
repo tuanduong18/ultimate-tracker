@@ -23,6 +23,7 @@ Read on the server, like the export is written there, so amounts arrive as the
 decimals in the file rather than as JavaScript floats.
 """
 
+import asyncio
 import csv
 import math
 import re
@@ -628,7 +629,7 @@ async def _mark_duplicates(db: AsyncSession, user_id: uuid.UUID, rows: list[Impo
 async def _read(
     db: AsyncSession, user_id: uuid.UUID, content: bytes, *, default_currency: str
 ) -> ReadFile:
-    table = read_table(content)
+    table = await asyncio.to_thread(read_table, content)
     result = read_rows(
         table,
         await list_categories(db, user_id),

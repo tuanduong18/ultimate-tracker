@@ -5,6 +5,7 @@ Create payload), so only Read and Update are exposed.
 """
 
 import uuid
+import zoneinfo
 from datetime import datetime
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 from app.core.currencies import normalize_currency
 
 CurrencyCode = Annotated[str, AfterValidator(normalize_currency)]
+_TIMEZONES = zoneinfo.available_timezones()
 
 
 def _blank_to_none(value: str | None) -> str | None:
@@ -20,9 +22,21 @@ def _blank_to_none(value: str | None) -> str | None:
     return value or None
 
 
+def _known_timezone(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if value not in _TIMEZONES:
+        raise ValueError(f"{value!r} is not a known IANA timezone")
+    return value
+
+
 DisplayName = Annotated[
     Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)] | None,
     AfterValidator(_blank_to_none),
+]
+TimeZone = Annotated[
+    Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)] | None,
+    AfterValidator(_known_timezone),
 ]
 
 
@@ -44,6 +58,6 @@ class ProfileUpdate(BaseModel):
     """
 
     display_name: DisplayName = None
-    timezone: str | None = None
+    timezone: TimeZone = None
     display_currency: CurrencyCode | None = None
     preferred_currency: CurrencyCode | None = None
