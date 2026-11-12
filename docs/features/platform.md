@@ -15,17 +15,28 @@ theming, and the pipeline that keeps it deployable.
 
 **Built:**
 
-- **Auth** — Supabase email/password. The backend verifies every JWT against the project's JWKS
-  endpoint using ES256; no auth data is duplicated locally.
+- **Auth** — Supabase email/password and Google, **open to anyone**: the app is meant to be
+  tried, so anyone can sign up and email sign-ups confirm their address first. The backend
+  verifies every JWT against the project's JWKS endpoint using ES256; no auth data is duplicated
+  locally.
 - **Profiles** — a local `profiles` table keyed by the Supabase user id, holding app-specific
   fields: `display_name`, `timezone`, `display_currency` (what totals are reported in) and
-  `preferred_currency` (what new entries start in). `GET` and `PATCH /api/v1/auth/me`. The email
+  `preferred_currency` (what new entries start in). `GET` and `PATCH /api/v1/auth/me`; a
+  `timezone` that is not an IANA name ("Asia/Singapore") is refused with 422, since every
+  scheduled job reads it to find the user's today. The email
   is deliberately not copied: the frontend reads it from the Supabase session. With no
   `display_name`, the UI falls back to the name the sign-in provider supplied, then the email.
-- **Sign-in** — email and password, or Google OAuth through Supabase. See
+- **Sign-in** — email and password, or Google OAuth through Supabase with **PKCE** on both
+  clients: the redirect back carries a one-time code, never the tokens. After logging in,
+  `?next=` is followed only to a page of this app (`lib/safe-next.ts`). See
   [Google sign-in setup](#google-sign-in-setup).
 - **Welcome page** — the public `/`: what the app does today, every module with its release, and
   sign-up / log-in calls to action (one "Open dashboard" button for a signed-in visitor).
+- **Web security headers** — a Content-Security-Policy with a fresh nonce per page
+  (`frontend/proxy.ts`): only scripts carrying it run, and pages talk only to the site, the API and
+  Supabase. Every response also gets `nosniff`, `X-Frame-Options: DENY`, a referrer policy that
+  sends only the origin, and a Permissions-Policy turning off camera, microphone, location and
+  payment (`next.config.mjs`). The nonce makes every page render on request.
 - **Auth guard** — signed-in routes live under `app/(app)/` and are wrapped by `AuthGuard`.
 - **App shell** — navigation that adapts to the width: a sidebar with labels on desktops, an
   icon rail on tablets, and on phones a bottom tab bar (the first four modules plus **More**,
