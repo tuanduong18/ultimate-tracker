@@ -7,12 +7,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 def resolve(timezone: str) -> tzinfo:
     """The named zone, or UTC for a name this machine cannot resolve.
 
-    The profile stores the timezone unvalidated, and a wrong-by-hours "today"
-    beats a 500.
+    A profile's timezone is checked against the IANA names when it is saved,
+    but rows saved before that check may hold anything, and every scheduled
+    job reads them; a wrong-by-hours "today" beats a failed run. OSError is
+    what Windows raises for a name too long to be a file path.
     """
     try:
         return ZoneInfo(timezone)
-    except ZoneInfoNotFoundError, ValueError:
+    except ZoneInfoNotFoundError, ValueError, OSError:
         return UTC
 
 

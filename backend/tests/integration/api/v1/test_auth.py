@@ -28,6 +28,18 @@ async def test_patch_me_updates_timezone(authed_client: AsyncClient) -> None:
     assert resp.json()["timezone"] == "Asia/Singapore"
 
 
+async def test_patch_me_refuses_an_unknown_timezone_and_keeps_the_stored_one(
+    authed_client: AsyncClient,
+) -> None:
+    await authed_client.patch("/api/v1/auth/me", json={"timezone": "Asia/Singapore"})
+
+    resp = await authed_client.patch("/api/v1/auth/me", json={"timezone": "Mars/Base"})
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert (await authed_client.get("/api/v1/auth/me")).json()["timezone"] == "Asia/Singapore"
+
+
 async def test_new_profile_has_no_name_and_usd_currencies(authed_client: AsyncClient) -> None:
     body = (await authed_client.get("/api/v1/auth/me")).json()
     assert body["display_name"] is None
