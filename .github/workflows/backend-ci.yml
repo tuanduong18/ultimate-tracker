@@ -26,7 +26,10 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Detect backend changes
-        uses: dorny/paths-filter@v4
+        # Third-party actions are pinned to a commit, not a tag: a tag can be moved to new code
+        # by whoever controls the repository. GitHub's own actions/* stay on tags. Dependabot
+        # bumps the commit and the version comment together.
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
