@@ -23,8 +23,8 @@ import { SPACE } from '@/theme/scale';
  * hairlines, under a small header TalkBack can jump to.
  *
  * Log out needs no confirmation, as on the web: nothing is lost — everything lives on the
- * server and comes back at the next log-in. (That changes once the app keeps unsent changes
- * offline; then logging out would throw them away, and it must say so.)
+ * server and comes back at the next log-in. The app keeps nothing unsent on the phone
+ * (it is online-only, ADR-0006).
  *
  * The app's name and version sit at the foot: with a sideloaded app, "which version do you
  * have?" is the first question when something looks wrong.

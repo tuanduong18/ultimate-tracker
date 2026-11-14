@@ -1,6 +1,7 @@
 # 4. An Android app as a second client of the same backend
 
-- Status: Accepted
+- Status: Accepted. Its plan for an offline outbox is superseded by
+  [ADR-0006](./0006-android-app-stays-online-only.md): the app stays online-only.
 - Date: 2026-11-03
 
 ## Context
