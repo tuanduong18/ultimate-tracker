@@ -8,6 +8,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "platforms": ["android"],
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f2185826-d0ae-45f7-8dd3-016af8265c77"
+    },
     "android": {
       "package": "com.tuanduong.ultimatetracker",
       "adaptiveIcon": {
@@ -46,7 +52,15 @@
       "@react-native-community/datetimepicker",
       "expo-sharing",
       "./plugins/with-android-theme",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-background-task",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2d6cb9"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
