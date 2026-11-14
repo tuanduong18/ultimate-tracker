@@ -61,9 +61,11 @@ theming, and the pipeline that keeps it deployable.
 
 - Onboarding flow — the page is a placeholder.
 - Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
-- Notifications in the Android app's tray — planned for v0.2, without server push. No email, by choice.
-- The Android app's offline outbox and tray notifications — planned for v0.2. Everything the web
-  does, the app does too (see [Android app](#android-app)).
+- The Android app's phone-only work, planned for v0.2 as one piece: notifications in the tray
+  without server push, [notification preferences](#notification-preferences) on both clients,
+  background sync with the Xiaomi setup screen, and installing from an APK. Everything the web
+  does, the app does already (see [Android app](#android-app)). No email, by choice; no offline
+  mode, by choice ([Offline on Android](#offline-on-android)).
 - Full data export and account deletion. (Finance's Transactions tab exports expenses to Excel;
   there is no whole-account export.)
 
@@ -128,9 +130,9 @@ feature, is the obvious failure mode. One delivery service, one preference surfa
 |---|---|---|
 | In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. On the web: the bell and `/notifications`. On Android: the bell in each tab's top bar and the Notifications screen. |
 | Scheduler | **Built** | Supabase pg_cron + pg_net calling the job endpoints — see [Background jobs](#background-jobs). |
-| Phone | Planned (v0.2) | The Android app's notification tray: server notifications fetched in the background, plus ones only the phone can raise. No server push. See [Phone notifications](#phone-notifications). |
+| Phone | Planned (v0.2) | The Android app's notification tray: server notifications fetched in the background, reminders scheduled ahead, plus ones only the phone can raise, each in its category's Android channel. No server push. See [Phone notifications](#phone-notifications). |
 | Email | Not planned | Dropped 2026-11-03: the weekly digest is in-app ([insights.md](./insights.md#delivery)), and the phone's tray covers reaching someone outside the app. |
-| Preferences | Not built | Per-channel, per-category, on the profile. One place the user turns things off. |
+| Preferences | Planned (v0.2) | One switch per [category](#notification-categories), on the profile, so it holds on every device; the phone's tray per category in Android's own settings. See [Notification preferences](#notification-preferences). |
 
 `notifications` holds `user_id`, a `kind` (CHECKed string), `title`, `body`, an optional
 `due_on` (the date the announced thing happens), `read_at`, `snoozed_at`, `archived_at`,
@@ -165,63 +167,214 @@ focus and every five minutes covers a dropped socket. The Android app *(built)* 
 same way while it is open — one channel under the tabs, shared by every bell — polls the inbox
 every five minutes, and refetches when it returns to the foreground.
 
+### Notification categories
+
+*Planned for v0.2, with notification preferences and the phone's tray.* Every kind belongs to one
+category. A category is what a person turns off — in the app's Settings, and on the phone as an
+Android channel of the same name — so both places use the same words.
+
+| Category | `id` | Kinds | Can be turned off |
+|---|---|---|---|
+| Subscription reminders | `subscription_reminders` | `subscription_renewal`, `trial_ending` | Yes |
+| Renewals | `subscription_renewals` | `subscription_renewed` | Yes |
+| Budget alerts | `budget_alerts` | `budget_warning`, `budget_exceeded` | Yes |
+| Currency notices | `currency_notices` | `currency_delisted` | No: a delisted currency means a total that can't be converted until the person changes it |
+
+A new kind joins a category in the PR that adds it, on the backend and in both clients; a
+module's first kind usually brings a category of its own. The backend keeps the kind → category
+map beside `REMINDER_KINDS` in `app/models/notification.py`, with a test that every kind has
+one; the phone's map is typed so that an unmapped kind fails the type check. An installed app
+that meets a kind it doesn't know — an older APK, after the server gained one — skips it in the
+tray and still shows it in the bell.
+
+### Notification preferences
+
+*Planned for v0.2.* One switch per category that can be turned off, kept on the account, so it
+holds on every device.
+
+- **Stored on the profile** as `muted_notifications`: the ids of the categories turned off, an
+  array, empty by default. Storing what is off means everything starts on, and a new category
+  needs no migration. `GET /auth/me` returns it; `PATCH /auth/me` replaces it whole. Only the
+  three categories that can be turned off are accepted; anything else is `422 VALIDATION_ERROR`.
+  When two devices change the switches at the same moment, the last save wins.
+- **A muted category is not written.** The jobs, and the subscription edits that rewrite
+  reminders, skip its kinds — so the bell, the history and the phone's tray all go without them.
+- **A muted renewal still records its expense.** The switch silences the notice, never the charge.
+- **Turning Subscription reminders off deletes the live reminders** in the same request; they
+  would otherwise sit in the bell for up to three days.
+- **Notices already sent stay.** Budget alerts in the inbox still move to the history when they
+  stop applying.
+- **Turning a category back on catches up only on what still applies.** Reminders return at the
+  next `subscriptions` run, within two hours; a budget already past a threshold is announced at
+  the next `budgets` run. Renewals recorded while Renewals was off are not announced afterwards:
+  the expense is in Transactions.
+- **On the web**, Settings gains a **Notifications** section after Appearance: the three
+  switches, each with one line saying what it covers, "These apply on every device", and a line
+  saying currency notices always arrive. The page's description stops saying "on this device",
+  since this section follows the account. A switch applies at once, as Appearance does; if saving
+  fails it flips back and says so.
+- **On the phone**, More → Settings → Notifications has the same three switches in the same
+  words, then **On this phone**: whether Android lets the app notify at all, and each channel as
+  Android has it ("On" or "Off in Android settings"), each row opening that channel's page in
+  Android's settings. The phone keeps no tray switch of its own: Android's is the one switch, so
+  the two can never disagree. A switch applies at once; if saving fails it flips back and says
+  so, as on the web. Without a connection it fails at once rather than waiting on screen as the
+  app's other saves do ([Offline on Android](#offline-on-android)): a switch that looks flipped
+  while nothing has been saved would mislead.
+
 ### Phone notifications
 
 *Planned for v0.2, with the Android app.* Notifications reach the phone's tray **without server
 push** — no Firebase, no push service, no table of device tokens, no outbound call from the
 backend. Each kind of notification has exactly one path to the tray, so none arrives twice.
+Local notifications need no Firebase at all: `expo-notifications` declares a Firebase service,
+which stays idle without a `google-services.json`.
 
-**Server notifications are fetched.** Everything the jobs write to `notifications` — reminders,
-renewal notices, budget alerts, currency notices, step replacements, calendar conflicts, the
-weekly digest:
+**Server notifications are fetched.** A sync runs at launch, whenever the app returns to the
+front, on every background run (see **Background sync** under [Android app](#android-app)), on a
+pull to refresh of the Notifications screen, and whenever the inbox changes while the app is
+open — Realtime, or a save on the phone that rewrote a reminder. It reads the inbox —
+`GET /notifications?view=inbox&limit=100`, the bell's own request — and:
 
-- The background task that already runs for steps and screen time, about hourly, also asks
-  `GET /notifications?alerted_after=<newest it has shown>` and shows each new row as a local
-  notification, in full text. While the app is open, Realtime keeps it current, as on the web.
-- **Reminders are scheduled ahead, so they fire offline.** A reminder row becomes one scheduled
-  notification per remaining day until its `due_on`, at 09:00 local — "renews in 3 days", then 2,
-  then 1 — each replacing the last in the tray.
-- **Every successful sync rebuilds the schedule rather than patching it.** The app cancels
-  everything it scheduled from server rows and schedules again from the current list, and
-  removes from the tray any notification whose row is gone, read, snoozed or archived. So
+- **shows each unread notice it has not shown before** — an `alerted_at` newer than the newest
+  it has shown — as a local notification, in full text, in its category's channel. A notice
+  already read on another device is skipped. The phone keeps that mark per signed-in person, and
+  the first sync after signing in sets it to the newest row without showing anything: what is
+  already in the inbox is in the bell, and a flood of old notices helps no one. While the app is
+  open, new rows go to the bell instead, as on the web, and count as shown.
+- **schedules each live reminder for 09:00 local**, never at fetch time: the server rewrites
+  reminders around midnight, which is no time to ring. One notification per remaining day until
+  `due_on`. A day whose 09:00 has passed shows at once only if the reminder is unread and the
+  phone has neither shown nor scheduled that day: it keeps, for each live reminder, the last day
+  it has handled. So today's reminder, swiped away, stays away until tomorrow's — without the
+  mark every sync would bring it back, since a notification swiped away and one never shown look
+  the same to the app. Today's uses the row's title; the later days' titles are today's with the
+  countdown swapped — "renews in 2 days", "renews tomorrow" — in the server's words from `_when`
+  in `services/finance/reminders.py`, a twin kept in step with it.
+- **rebuilds rather than patches**, and only once the inbox has loaded: a sync that can't reach
+  the server leaves everything as it was. It cancels everything it scheduled from server rows and
+  schedules again from the current inbox; it removes from the tray every notification whose row
+  is gone, read, snoozed or archived, and puts the new words in place of any whose row now reads
+  differently, without ringing again: an edit, usually the person's own, is not news. So
   cancelling a subscription on the web, or reading or snoozing a reminder there, clears it from
-  the phone at its next sync.
+  the phone at its next sync. *To confirm on the reference phone before it is built:* if Android
+  rings on every replacement, an entry already in the tray keeps its words and only the days
+  still to come change.
+
+**How the phone finds its own notifications again.** Nothing is stored to find them, on the
+server or on the phone. Each local notification's id is built from its server row's id —
+`notification:<row id>` for a notice, `reminder:<row id>:<YYYY-MM-DD>` for each day of a reminder
+— and carries the row's id in its data. Android keeps what is scheduled and what is in the tray,
+and the app lists both (`getAllScheduledNotificationsAsync`, `getPresentedNotificationsAsync`), so
+a rebuild cancels every scheduled one whose id starts with those prefixes and checks every tray
+entry against the rows it just loaded. The server doesn't keep the phone's ids: they exist only
+on that phone, only the phone can cancel them, they would go stale on a reinstall, and a table of
+them per device is the device registry this design avoids.
+
+**What the phone does keep** is two small marks per signed-in person, forgotten at log out: the
+newest notice it has shown, and the last day handled for each live reminder, dropped when the
+reminder leaves the inbox.
+
+For example: a subscription added on the phone renews in two days, so its reminder row is
+written with it, and the phone schedules 09:00 tomorrow and 09:00 the day after. The wifi goes
+off and the app is closed. Meanwhile the amount is changed on the web, which rewrites that
+reminder row in place — same id, new words. (A new charge date would delete the row and write a
+new one; cancelling the subscription would delete it.) The next time the app opens with a
+connection, or the background sync runs, the rebuild cancels both scheduled days and schedules
+them again from the row as it is now; a deleted row leaves nothing scheduled, and nothing in the
+tray. Until then, a phone still offline at 09:00 shows the old words — the one gap below.
+
+No new endpoint: one person's inbox is small, ordered by `alerted_at`, and the rebuild needs all
+of it anyway. The earlier plan's `?alerted_after=` was dropped on 2026-11-12 for that reason.
+
 - **The phone schedules from the server's rows, not from subscriptions' billing dates.** The
   server stays the one place that decides what to remind about, and the billing-date rules are
   not written a second time in TypeScript. It only needs the phone to sync once in the three days
   before a charge.
+- **A countdown's days are separate tray entries.** Android keys a tray entry by its
+  notification's id, and one id holds one future notification, so days scheduled ahead can't
+  replace each other: a phone that stays offline can show "renews in 2 days" beside "renews
+  tomorrow" until a sync clears the older one — within the hour on a connected phone.
 - **The one gap is a phone that stays offline.** If a subscription is cancelled on the web and
   the phone hears nothing before the reminder's time, the reminder fires anyway. No design closes
   this — a server push would not reach an offline phone either — and a stale reminder costs a
-  tap, where a missed renewal costs money. Tapping it opens the subscription: refreshed if the
-  phone is online, otherwise the cached copy, labelled with when it was last synced.
+  tap, where a missed renewal costs money. Tapping it opens Subscriptions, which shows the
+  current list once the phone is back online.
+- **A restart.** Android forgets scheduled notifications when the phone restarts. The library
+  sets them again as the phone starts up, which HyperOS allows only with Autostart on; without
+  it they return at the next sync.
+- **A force stop.** Android cancels an app's scheduled notifications when it is force-stopped,
+  and HyperOS's "clear all" can act as one: nothing fires until the app is next opened, when the
+  sync sets them again. The setup screen says not to force-stop the app. *To confirm on the
+  reference phone.*
 
 **Phone notifications are local.** What the phone measures or schedules itself:
 
-- **Entertainment allowance at 80% and at its cap**, from screen time the phone measures —
-  raised while the user is still in the app that crossed it, not an hour later. The server
-  writes the same alert for the web's bell, and the fetch path skips that kind, so the phone
-  shows it once.
-- **The focus timer**: an ongoing notification while it runs, and one when it ends.
+- **Entertainment allowance at 80% and at its cap** *(v0.2, with screen time)*, from screen time
+  the phone measures — raised while the user is still in the app that crossed it, not an hour
+  later. The server writes the same alert for the web's bell, and the fetch path skips that kind,
+  so the phone shows it once.
+- **The focus timer** *(v0.2, with the timer)*: an ongoing notification while it runs, and one
+  when it ends.
 - **Habit reminders and mood / sleep check-in prompts** (v0.3), at the time the user set.
   Android 14 denies exact alarms by default, so they may arrive a few minutes late; to the
-  minute would need the exact-alarm permission.
-- **Offline sync trouble**: a queued write the server refused, or a clash waiting for an answer
-  (see [Offline on Android](#offline-on-android)).
+  minute would need the exact-alarm permission. Reminders at 09:00 have the same slack.
 
-Tapping any notification opens its subject — a budget alert opens that budget, a replaced step
-count that day. Android channels — Reminders, Notices, Timer, Sync — let the user mute one in
-Android's own settings without losing the others. The notification permission is asked for
-after sign-in, with one line saying why.
+**Channels.** Every notification goes to one of a fixed set of Android channels, so the person
+can silence one kind of message in Android's settings without losing the others. The channels sit
+in one group per module, as the app's navigation does.
 
-**What the backend needs:** `GET /notifications` gains `?alerted_after=`, so the app fetches
-only what is new. Nothing else.
+| Group | Channel | `id` | Carries | Importance |
+|---|---|---|---|---|
+| Finance | Subscription reminders | `subscription_reminders` | renewal and trial reminders | Default: a sound, no pop-up |
+| Finance | Renewals | `subscription_renewals` | renewal notices | Low: silent, in the shade — a receipt |
+| Finance | Budget alerts | `budget_alerts` | early warnings and caps | Default |
+| Finance | Currency notices | `currency_notices` | delisted currencies | Default |
+
+- **The set is defined once, in code, and created at launch**, before anything is scheduled; a
+  channel or group not in it is deleted. Nothing makes a channel id from data — a channel per
+  subscription or per notification is the classic mistake: it fills Android's settings with
+  entries, and muting one does nothing for the next. The one function that sends takes a channel
+  from the set, never a string. A notification sent with no channel, or with one not yet
+  created, lands in a "Miscellaneous" channel the library makes for it at high importance, which
+  pops up on screen.
+- **A channel's settings belong to the person once it exists.** The app can still change its name
+  and description, nothing else. So ids name a purpose and never change: changing a channel's
+  sound or importance would take a new id, and Android then lists the old one as a deleted
+  category.
+- **A notification's own id is its server row's** (or, for a reminder, the row's and the day's),
+  and that is what replaces, cancels or clears one tray entry — never the channel.
+- **A channel arrives with the feature that first sends to it**: Timer with the focus timer, a
+  Fitness group with Fitness.
+- **No quiet hours of the app's own.** A budget alert written at night rings unless the phone is
+  on Do Not Disturb, which is the person's one switch for that; renewal notices are silent by
+  their channel.
+
+Tapping any notification opens its subject — a reminder opens Subscriptions, a renewal notice
+Transactions, a budget alert Budgets, a currency notice Profile — and marks its row read, as
+opening the inbox does. Swiping one away does neither: the row stays unread in the bell. Tapped
+while signed out, it leads to sign-in and then the dashboard, not the subject: rare, and not
+worth carrying a destination through sign-in. The notification permission is asked for once, after sign-in, with one line saying
+why. Refused, nothing else changes: the bell still works, and Settings → Notifications says the
+tray is off and opens Android's settings. **Logging out** cancels everything scheduled, clears
+the tray and forgets what was shown, so the next person to sign in on that phone never gets the
+last one's reminders. Tray text includes amounts ("USD 15.49 will be charged on …"); whether a
+locked screen shows it is the phone's own setting for sensitive notifications, which the
+channels leave in charge.
+
+**What the backend needs:** nothing for the tray. Notification preferences add one column (see
+[Notification preferences](#notification-preferences)).
 
 **Cost: a server notification can lag.** It reaches the tray at the phone's next background run
 — up to about two hours after the job writes it (the job and the fetch each run about hourly),
 longer on a phone whose battery saver stops the app. Nothing the app sends is more urgent than
 that. Server push stays possible later, for a feature that needs instant delivery (something
 shared between users, say): it would read the same table, so adding it changes nothing else.
+
+On a phone whose maker stops background runs altogether — HyperOS with Autostart off, and on
+some phones an app swiped out of recents — notices reach the tray when the app is next opened,
+and reminders already scheduled still fire on time. That is accepted, and no reason for server
+push.
 
 ### Background jobs
 
@@ -262,8 +415,9 @@ sees.
   default), with a quick dark-mode switch in the account menu.
 - **[v0.1, built]** Currencies: display currency (what totals are reported in) and preferred
   currency (what new entries start in).
-- **[v0.2]** Notification preferences, arriving with the notification service — per channel
-  (in-app, phone) and per category.
+- **[v0.2]** Notification preferences — one switch per category, on the account, on both
+  clients; the phone's tray per category in Android's own settings. See
+  [Notification preferences](#notification-preferences).
 - **[v0.3]** Connected accounts — Google Calendar, and later Riot and Steam.
 - **[v0.3]** Onboarding — domain selection and goal setup, under three minutes.
 - **[Future]** Full data export as CSV or JSON, and account deletion.
@@ -274,7 +428,7 @@ sees.
 
 *v0.2.* A second client of the same backend, at parity with the web, adding what only a phone
 can do. **At parity since 2026-11-11**: everything the web does, the app does too; what remains
-is what only a phone can do — tray notifications, working offline, then steps and screen time. Decision and stack: [ADR-0004](../adr/0004-android-app-as-second-client.md).
+is what only a phone can do — tray notifications, then steps and screen time. Decision and stack: [ADR-0004](../adr/0004-android-app-as-second-client.md).
 
 - **Where it lives.** `mobile/`, a top-level folder beside `frontend/`. Not `android/`: Expo
   generates a folder of that name inside the app.
@@ -309,7 +463,9 @@ is what only a phone can do — tray notifications, working offline, then steps 
   stack whose top app bar carries the screen's title. **More is a screen, not a drawer** — a
   drawer fights the system back gesture — listing the remaining modules and the account (the
   person, opening their **Profile**, then **Settings** and **Log out** — on the web all of these
-  live in the account menu), with the app's version at its foot. **Log and the bell** *(built)* sit on the right of each tab's first screen — the web
+  live in the account menu), with the app's version at its foot — and, once an over-the-air
+  update is running *(v0.2)*, that update's date, so "which version do you have?" stays
+  answerable. **Log and the bell** *(built)* sit on the right of each tab's first screen — the web
   header's two global actions; pushed screens keep their bar for their own actions. Log opens a
   bottom sheet with a row per module that can log (Expense today), each opening its form. The
   bell shows the inbox's unread count and opens **Notifications** *(built)* above the tabs: the
@@ -336,30 +492,47 @@ is what only a phone can do — tray notifications, working offline, then steps 
 - **Timezone** *(built)* follows the device and syncs to the profile on launch, as the web does in
   the browser — and again whenever the app comes back to the front, since the phone is the device
   that travels. It calls the API only when the phone's zone differs from the one last synced.
-- **Background work** — reading steps, screen time and sleep, fetching notifications and sending the
-  offline outbox — runs on WorkManager through
-  `expo-background-task`: about hourly, best-effort, and delayed further by some phone makers'
-  battery savers. Every sync it calls is an idempotent batch upsert, so a late or repeated run
-  only catches up. The app shows when each sync last succeeded.
+- **Background sync** *(v0.2)* — fetching notifications now; reading steps, screen time and
+  sleep later — runs on WorkManager through `expo-background-task`, asked for every 60 minutes
+  (the library's default is every 12 hours, so the interval is always passed): best-effort, and
+  delayed further by some phone makers' battery savers. Android runs it only with a connection
+  and enough battery, and not at all once the app has been killed — which on some makers' phones
+  includes swiping it out of recents. Every call it makes is idempotent, so a late or repeated
+  run only catches up. The same sync
+  runs at launch and whenever the app returns to the front. More → Settings shows **Last synced
+  …**, and says so when the last run failed.
 - **Xiaomi's battery saver is the one to beat.** HyperOS stops background work for apps it has
   not been told to leave alone, which on the reference device means syncs that never run. The
   app's setup screen walks through the two switches it needs — **Autostart** on, and **Battery
   saver → No restrictions** — and the sync status shows the gap when they are off, rather than
-  leaving a stale step count looking current.
+  leaving a stale step count looking current. It is offered on Xiaomi phones, and on any phone
+  where Android reports background work restricted, and opens the app's page in Android's
+  settings, where HyperOS keeps both switches.
 - **Notifications.** See [Phone notifications](#phone-notifications).
-- **Offline.** See [Offline on Android](#offline-on-android).
+- **Online-only**, as the web is (decided 2026-11-12). See
+  [Offline on Android](#offline-on-android).
 - **No crash reporting yet.** As on the web, there is no error-reporting service for now; the
   app shows when each sync last succeeded. Sentry for the Android app — readable traces through
   uploaded source maps, native crashes, personal data stripped — is planned for the last
   development phase.
-- **Distribution.** A signed APK, sideloaded — no store listing, no AAB. EAS Build makes it, a
-  GitHub Release hosts it, and EAS Update ships JavaScript-only changes to installed apps on
-  their next launch. A new APK is needed only when native code or permissions change; the app
-  checks the latest GitHub Release and offers it.
+- **Distribution** *(v0.2)*. A signed APK, sideloaded — no store listing, no AAB. EAS Build
+  makes it (profile `preview`), a GitHub Release tagged `android-v<version>` hosts it (the
+  repository is public, so the download needs no account), and EAS Update ships
+  JavaScript-only changes on the `preview` channel to installed apps on their next launch. An
+  update reaches only the APKs whose native code it was built for: the runtime version is the
+  native fingerprint. A new APK is needed only when native code or permissions change. **The app
+  checks for one**: at launch, at most once a day, it reads the newest `android-v*` release from
+  GitHub's API (no token), and when that is newer than itself the foot of More says "Version X is
+  available" and links to the download. The author makes builds, releases and updates by hand.
+  A release starts as a **draft**: the author installs it on their own phone and checks the
+  install, an over-the-air update and the background run there before publishing it. The app's
+  check ignores drafts and pre-releases, so nobody is pointed at an APK that hasn't been tried.
 - **Two builds, two jobs.** The **development build** (`eas.json` profile `development`) is where
   every change is tested: it loads the JavaScript from the computer, so a change shows on the
   phone as it is saved. The **preview build** (profile `preview`, a standalone APK) is what users
-  install, made once a version's testing on the development build is done.
+  install, made once a version's testing on the development build is done. Over-the-air updates
+  are the one thing the development build can't try — the update library works only in a
+  release build — so updating is proven on the preview build, before its release is published.
 - **Developer verification: not registered, for now.** Since 30 September 2026, apps installed
   on certified Android devices in Singapore (and Brazil, Indonesia and Thailand; globally from
   2027) must come from a verified developer — or the phone's owner opts in to unverified ones.
@@ -376,58 +549,20 @@ is what only a phone can do — tray notifications, working offline, then steps 
 
 ### Offline on Android
 
-*Planned for v0.2, built into the Android app's parity work from the start.* Logging happens on
-the move — on a train, in a basement food court — so the app must accept a write with no
-signal and deliver it later. The web stays online-only.
+**Not planned** (decided 2026-11-12): the Android app is online-only, as the web is. The work it
+would take — a queue of unsent changes on the phone, conflict checks on every write endpoint, a
+screen for clashes, a cache saved on the device — outweighed what it would bring to a few people
+who are online almost everywhere. Why, and the design that was set aside so it need not be worked
+out again: [ADR-0006](../adr/0006-android-app-stays-online-only.md).
 
-- **Reads come from a cache.** TanStack Query's cache is persisted on the device, so every screen
-  shows what it last loaded, marked with when that was, instead of an error.
-- **Writes go through an outbox.** Every create, edit and delete is written to a persisted queue
-  on the device first and shown at once, marked *waiting to sync*. The queue is sent in order as
-  soon as the phone is online, and by the background task. Building every form on it from the
-  first parity screen is cheaper than retrofitting it into each one later.
-- **Replays are idempotent.** A create carries a client-generated UUID as the new row's id, so a
-  replay of a create the server already applied returns that row instead of making a second
-  one. A delete of a row that is already gone counts as done.
-- **Edits are checked per field.** An edit sends only the fields it changed, each with the value
-  it was changed from. The server applies it if those fields still hold those values, whatever
-  happened to the rest of the row, and otherwise answers `409 EDIT_CONFLICT` with the current
-  row. Fields that only mean something together — a budget's `all_spending` and its categories
-  — are checked as one. So a phone edit of an expense's amount and a web edit of its category
-  both stand, and a subscription edited offline is not a clash just because the renewal job moved
-  its billing date. A delete carries the row as the phone last saw it, checked the same way.
-- **A real clash is the user's call.** Both versions are kept until the user answers, from a
-  **Needs your attention** list, with a local notification pointing to it. Until then the phone
-  shows its version marked as clashing, and the web shows the server's.
-- **A rejected write is kept, not lost.** If the server refuses a queued write for a reason the
-  phone could not see — the category was deleted, the currency was delisted — it stays in the
-  outbox, flagged, until the user fixes or discards it.
-- **Some things stay online-only.** Anything whose answer only the server can give: spreadsheet
-  import and export, and the converted totals on the dashboard, which show their last cached
-  figures until the phone reconnects.
-
-Every case, phone against web:
-
-| The phone, offline | The web, meanwhile | When the phone comes back online |
-|---|---|---|
-| Edited a row | Edited other fields of it | Both kept. No question. |
-| Edited a field | Edited the same field to a different value | Asked: the phone's value or the web's? |
-| Edited a row | Deleted it | Asked: restore it with the edit, or let it go? |
-| Deleted a row | Edited it | Asked: delete anyway, or keep the web's version? |
-| Deleted a row | Deleted it | Done. |
-| Created an entry | Created the same entry | Both kept. No duplicate detection: it is rare, and the duplicate is in plain sight. |
-| Created an entry in category X | Deleted category X | Refused, and kept in the outbox, flagged, until the user picks another category or none. |
-| Created a category, then entries in it | — | Works: the entries point at the category's phone-made id, and the queue sends the category first. |
-| Renewed a subscription early | The renewal job recorded that charge | Checked at replay: nothing new is recorded, and the phone says it was already renewed. |
-
-**Last write wins was rejected.** It decides by which write reached the server last — after
-hours offline, by when the train left the tunnel — and drops the other edit without telling
-anyone.
-
-**What the backend needs for it:** create endpoints that accept an optional client-supplied
-`id`, treating a repeat by the same user as a no-op; edit and delete endpoints that take the
-original values of the fields they touch and answer `409 EDIT_CONFLICT`, with the current row,
-when any has changed. No new columns: the check compares values, not timestamps.
+Without a connection the app behaves as TanStack Query does by default: loads wait and run when
+the connection comes back, a save waits on screen the same way while the app stays open, and
+screens already loaded keep what they show. The one save that doesn't wait is a notification
+switch, which fails at once ([Notification preferences](#notification-preferences)). Nothing is
+saved on the device between launches but the session, the look and the phone's own
+notifications — what it has scheduled, which the notification library keeps so it survives a
+restart, the newest notice it has shown and the last day handled for each reminder. So
+reminders the last sync scheduled still fire ([Phone notifications](#phone-notifications)).
 
 ---
 
