@@ -1,19 +1,23 @@
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 
 import { displayNameOf } from '@/auth/identity';
 import { useSession } from '@/auth/session';
 import { ActionRow } from '@/components/action-row';
 import { Wordmark } from '@/components/brand';
+import { Button } from '@/components/button';
 import { Card, RowDivider } from '@/components/card';
 import { NavRow } from '@/components/nav-row';
 import { Screen } from '@/components/screen';
 import { Section } from '@/components/section';
 import { Text } from '@/components/text';
+import { formatDate, toIsoDate } from '@/lib/dates';
 import { useProfile } from '@/lib/finance/queries';
 import { supabase } from '@/lib/supabase';
+import { useNewerRelease } from '@/lib/release-check';
 import { MORE } from '@/navigation/modules';
 import { SPACE } from '@/theme/scale';
 
@@ -27,7 +31,9 @@ import { SPACE } from '@/theme/scale';
  * (it is online-only, ADR-0006).
  *
  * The app's name and version sit at the foot: with a sideloaded app, "which version do you
- * have?" is the first question when something looks wrong.
+ * have?" is the first question when something looks wrong. After an over-the-air update the
+ * version alone no longer answers it, so the running update's date sits beside it. When a newer
+ * APK is on GitHub Releases, a link to it sits underneath (lib/release-check.ts).
  */
 export default function More() {
   return (
@@ -54,12 +60,21 @@ export default function More() {
           <AccountCard />
         </Section>
 
-        <View style={{ alignItems: 'center', gap: SPACE.xs, marginTop: SPACE.lg }}>
-          <Wordmark />
-          <Text variant="caption" tone="fgMuted">
-            Version {Constants.expoConfig?.version ?? 'unknown'}
-          </Text>
-        </View>
+        {/* Never in the build users install. */}
+        {__DEV__ && (
+          <Section title="Development">
+            <Card>
+              <NavRow
+                href="/more/testing"
+                label="Testing tools"
+                blurb="The tray's moments, brought forward"
+                icon="science"
+              />
+            </Card>
+          </Section>
+        )}
+
+        <VersionFoot />
       </Screen>
     </>
   );
@@ -97,7 +112,7 @@ function AccountCard() {
       <NavRow
         href="/more/settings"
         label="Settings"
-        blurb="How the app looks on this phone"
+        blurb="Notifications, and how the app looks"
         icon="settings"
       />
       <RowDivider />
@@ -108,5 +123,36 @@ function AccountCard() {
         onPress={() => void logOut()}
       />
     </Card>
+  );
+}
+
+/**
+ * The wordmark and the version — with the running update's date after an over-the-air update,
+ * since the version alone then no longer says what is running — and, when GitHub Releases has a
+ * newer APK, a link to it. Nothing about updates shows in the development build, where updates
+ * are off.
+ */
+function VersionFoot() {
+  const newer = useNewerRelease();
+  const updated =
+    !Updates.isEmbeddedLaunch && Updates.createdAt
+      ? formatDate(toIsoDate(Updates.createdAt))
+      : null;
+  return (
+    <View style={{ alignItems: 'center', gap: SPACE.xs, marginTop: SPACE.lg }}>
+      <Wordmark />
+      <Text variant="caption" tone="fgMuted">
+        Version {Constants.expoConfig?.version ?? 'unknown'}
+        {updated ? ` · update of ${updated}` : ''}
+      </Text>
+      {newer && (
+        <Button
+          variant="text"
+          label={`Version ${newer.version} is available`}
+          icon="download"
+          onPress={() => void Linking.openURL(newer.url)}
+        />
+      )}
+    </View>
   );
 }

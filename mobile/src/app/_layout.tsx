@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { SessionProvider, useSession } from '@/auth/session';
+import { useClearTrayWhenSignedOut, useTrayTaps } from '@/lib/notifications/tray-hooks';
 import { QueryProvider } from '@/lib/query';
 import { FORM_ROUTES, useFormScreenOptions } from '@/navigation/form-options';
 import { useHeaderOptions } from '@/navigation/tab-stack';
@@ -79,6 +80,9 @@ function Root() {
   const headerOptions = useHeaderOptions();
   const ready = (fontsLoaded || fontError !== null) && !loading;
   const signedIn = session !== null;
+  // A tapped notification opens its subject; signing out empties the tray of this person.
+  useTrayTaps(ready, signedIn);
+  useClearTrayWhenSignedOut(ready, signedIn);
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
