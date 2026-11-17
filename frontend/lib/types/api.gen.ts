@@ -296,6 +296,7 @@ export interface ProfileRead {
   timezone: string;
   display_currency: string;
   preferred_currency: string;
+  muted_notifications: ('subscription_reminders' | 'subscription_renewals' | 'budget_alerts')[];
   /** ISO date-time with its UTC offset. */
   created_at: string;
 }
@@ -304,12 +305,17 @@ export interface ProfileRead {
  * All-optional: apply with model_dump(exclude_unset=True).
  *
  * Only display_name may be sent as null (or blank), which clears it.
+ * muted_notifications replaces the whole list; an empty list turns every
+ * category back on.
  */
 export interface ProfileUpdate {
   display_name?: string | null;
   timezone?: string | null;
   display_currency?: string | null;
   preferred_currency?: string | null;
+  muted_notifications?:
+    | ('subscription_reminders' | 'subscription_renewals' | 'budget_alerts')[]
+    | null;
 }
 
 export interface SubscriptionCreate {

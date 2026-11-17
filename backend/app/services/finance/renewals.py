@@ -7,7 +7,8 @@ subscription:
 1. write an expense for the amount, in the subscription's currency and
    category, dated to the charge it covers rather than the day the job ran;
 2. replace the charge's reminder with a renewal notice — in the inbox, or
-   straight in the history when the user had snoozed the reminder;
+   straight in the history when the user had snoozed the reminder, or not at
+   all when they turned Renewals off (the expense is still written);
 3. advance ``next_billing_on`` to the following charge.
 
 Missed days are caught up charge by charge, each recorded against its own date;
@@ -26,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import timezones
 from app.models.finance import Expense, Subscription
-from app.models.notification import Notification, NotificationKind
+from app.models.notification import Notification, NotificationCategory, NotificationKind
 from app.models.profile import Profile
 from app.services import notifications
 from app.services.finance.billing import next_charge
@@ -91,7 +92,11 @@ async def _renew(db: AsyncSession, subscription: Subscription, today: date, now:
     for reminder in reminders:
         if reminder.due_on is not None and reminder.due_on < subscription.next_billing_on:
             await db.delete(reminder)
-    db.add_all(notices)
+    # Renewals turned off silences the notice, never the charge. What was
+    # recorded meanwhile is not announced later: the expense is the record.
+    if not await notifications.is_muted(db, subscription.user_id, NotificationCategory.RENEWALS):
+        db.add_all(notices)
+    # One notice was built per charge, sent or not: this counts the charges.
     return len(notices)
 
 

@@ -1,12 +1,14 @@
 """Service-level tests for profile creation, including the first-login race."""
 
 import uuid
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models.finance import Category
+from app.models.notification import Notification, NotificationCategory, NotificationKind
 from app.models.profile import Profile
 from app.schemas.profile import ProfileUpdate
 from app.services import finance as finance_service
@@ -181,3 +183,76 @@ async def test_losing_the_race_does_not_double_seed(
     assert len(await _category_names(db_factory, TEST_USER_ID)) == len(
         finance_service.DEFAULT_CATEGORIES
     )
+
+
+# --- Turning Subscription reminders off ------------------------------------------
+
+SOMEONE_ELSE = uuid.UUID("00000000-0000-0000-0000-000000000003")
+
+
+def _row(user_id: uuid.UUID, kind: NotificationKind, **fields: Any) -> Notification:
+    return Notification(
+        user_id=user_id,
+        kind=kind,
+        title="Streaming renews in 2 days",
+        body="USD 12.99 will be charged on 22 Oct 2026.",
+        due_on=date(2026, 10, 22),
+        dedupe_key=f"{kind}:{uuid.uuid4()}",
+        **fields,
+    )
+
+
+async def _seed_reminders(db: AsyncSession) -> None:
+    db.add_all([Profile(id=TEST_USER_ID), Profile(id=SOMEONE_ELSE)])
+    await db.flush()
+    db.add_all(
+        [
+            _row(TEST_USER_ID, NotificationKind.SUBSCRIPTION_RENEWAL),
+            _row(
+                TEST_USER_ID,
+                NotificationKind.TRIAL_ENDING,
+                snoozed_at=datetime(2026, 10, 20, tzinfo=UTC),
+            ),
+            _row(TEST_USER_ID, NotificationKind.SUBSCRIPTION_RENEWED),
+            _row(SOMEONE_ELSE, NotificationKind.SUBSCRIPTION_RENEWAL),
+        ]
+    )
+    await db.commit()
+
+
+async def _left(db: AsyncSession) -> set[tuple[uuid.UUID, str]]:
+    rows = await db.execute(select(Notification.user_id, Notification.kind))
+    return {(user_id, kind) for user_id, kind in rows}
+
+
+async def test_muting_subscription_reminders_deletes_them_snoozed_ones_too(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with db_factory() as db:
+        await _seed_reminders(db)
+
+        profile = await profile_service.update_profile(
+            db,
+            TEST_USER_ID,
+            ProfileUpdate(muted_notifications=[NotificationCategory.SUBSCRIPTION_REMINDERS]),
+        )
+
+        assert profile.muted_notifications == [NotificationCategory.SUBSCRIPTION_REMINDERS]
+        # The renewal notice is not a reminder, and someone else's reminders are theirs.
+        assert await _left(db) == {
+            (TEST_USER_ID, NotificationKind.SUBSCRIPTION_RENEWED),
+            (SOMEONE_ELSE, NotificationKind.SUBSCRIPTION_RENEWAL),
+        }
+
+
+async def test_muting_another_category_leaves_reminders_alone(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with db_factory() as db:
+        await _seed_reminders(db)
+
+        await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(muted_notifications=[NotificationCategory.RENEWALS])
+        )
+
+        assert len(await _left(db)) == 4

@@ -4,14 +4,17 @@ notification, and the write paths every job uses."""
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal, cast
 
 import structlog
+from sqlalchemy import delete as delete_rows
 from sqlalchemy import or_, select, tuple_
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.notification import REMINDER_KINDS, Notification
+from app.models.notification import REMINDER_KINDS, Notification, NotificationCategory
+from app.models.profile import Profile
 
 logger = structlog.get_logger(__name__)
 
@@ -136,6 +139,34 @@ async def reminders_for(
             )
         )
     ).all()
+
+
+async def is_muted(db: AsyncSession, user_id: uuid.UUID, category: NotificationCategory) -> bool:
+    """Whether the user turned this category off. Every writer asks before it
+    writes, so a muted category reaches neither the bell nor the phone's tray.
+
+    Read through the session's identity map, so a job asking for each of one
+    user's subscriptions loads the profile once.
+    """
+    profile = await db.get(Profile, user_id)
+    return profile is not None and category in profile.muted_notifications
+
+
+async def delete_reminders(db: AsyncSession, user_id: uuid.UUID) -> int:
+    """Delete every reminder a user has, snoozed ones included. Does not commit.
+
+    For turning Subscription reminders off: they would otherwise sit in the bell
+    for up to three days, since the job only stops writing new ones.
+    """
+    result = cast(
+        CursorResult[Any],
+        await db.execute(
+            delete_rows(Notification).where(
+                Notification.user_id == user_id, Notification.kind.in_(REMINDER_KINDS)
+            )
+        ),
+    )
+    return result.rowcount or 0
 
 
 async def deliver_once(db: AsyncSession, candidates: Sequence[Notification]) -> int:
