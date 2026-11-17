@@ -700,9 +700,9 @@ before it is stable.
 notifications, the scheduler (pg_cron) and budget breach alerts have shipped, which completes
 Finance; expense import from a spreadsheet shipped alongside, ahead of any release. The Android
 app has reached parity with the web (sign-in, shell, theming, Finance with import and export,
-the dashboard, profile and in-app notifications). What remains of v0.2: the app's phone-only
-work, as one piece — tray notifications, notification preferences (both clients), background
-sync and installing from an APK — then Fitness training and steps, and the focus timer. Offline
+the dashboard, profile and in-app notifications), and its phone-only work has shipped: tray
+notifications, notification preferences (both clients) and background sync. What remains of
+v0.2: the app's first APK release, then Fitness training and steps, and the focus timer. Offline
 was dropped on 2026-11-12 ([ADR-0006](./docs/adr/0006-android-app-stays-online-only.md)).
 
 **The Android app joins v0.2, ahead of Fitness.** It goes in this order: skeleton and

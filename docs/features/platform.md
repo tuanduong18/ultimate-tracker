@@ -50,6 +50,11 @@ theming, and the pipeline that keeps it deployable.
 - **In-app notifications** — `notifications` table, `/api/v1/notifications`, a live bell in the
   header and a `/notifications` page; written by subscription reminders and renewal notices,
   currency notices and budget alerts. See [Notifications](#notifications).
+- **Notification preferences** — one switch per category, kept on the profile, on the web's
+  Settings and in the Android app. See [Notification preferences](#notification-preferences).
+- **Phone notifications** — the Android app's tray, without server push: notices fetched, hourly
+  in the background, and reminders scheduled ahead; four channels; background sync with the
+  Xiaomi setup screen; the new-version check. See [Phone notifications](#phone-notifications).
 - **Background jobs** — exchange-rate refresh, subscription renewals and reminders, and budget
   alerts, idempotent and triggerable over HTTP or the command line. See
   [Background jobs](#background-jobs).
@@ -61,11 +66,10 @@ theming, and the pipeline that keeps it deployable.
 
 - Onboarding flow — the page is a placeholder.
 - Dashboard summaries for the other modules — only Finance has a snapshot, since only Finance exists.
-- The Android app's phone-only work, planned for v0.2 as one piece: notifications in the tray
-  without server push, [notification preferences](#notification-preferences) on both clients,
-  background sync with the Xiaomi setup screen, and installing from an APK. Everything the web
-  does, the app does already (see [Android app](#android-app)). No email, by choice; no offline
-  mode, by choice ([Offline on Android](#offline-on-android)).
+- The Android app's first release: the APK on a GitHub Release and the over-the-air update
+  channel (see [Android app](#android-app), "Distribution"). The app's side — the update
+  library, the new-version check — is built. No email, by choice; no offline mode, by choice
+  ([Offline on Android](#offline-on-android)).
 - Full data export and account deletion. (Finance's Transactions tab exports expenses to Excel;
   there is no whole-account export.)
 
@@ -130,9 +134,9 @@ feature, is the obvious failure mode. One delivery service, one preference surfa
 |---|---|---|
 | In-app | **Built** | `notifications` table, one row per message. The baseline every channel falls back to. On the web: the bell and `/notifications`. On Android: the bell in each tab's top bar and the Notifications screen. |
 | Scheduler | **Built** | Supabase pg_cron + pg_net calling the job endpoints — see [Background jobs](#background-jobs). |
-| Phone | Planned (v0.2) | The Android app's notification tray: server notifications fetched in the background, reminders scheduled ahead, plus ones only the phone can raise, each in its category's Android channel. No server push. See [Phone notifications](#phone-notifications). |
+| Phone | **Built** | The Android app's notification tray: server notifications fetched in the background, reminders scheduled ahead, plus ones only the phone can raise, each in its category's Android channel. No server push. See [Phone notifications](#phone-notifications). |
 | Email | Not planned | Dropped 2026-11-03: the weekly digest is in-app ([insights.md](./insights.md#delivery)), and the phone's tray covers reaching someone outside the app. |
-| Preferences | Planned (v0.2) | One switch per [category](#notification-categories), on the profile, so it holds on every device; the phone's tray per category in Android's own settings. See [Notification preferences](#notification-preferences). |
+| Preferences | **Built** | One switch per [category](#notification-categories), on the profile, so it holds on every device; the phone's tray per category in Android's own settings. See [Notification preferences](#notification-preferences). |
 
 `notifications` holds `user_id`, a `kind` (CHECKed string), `title`, `body`, an optional
 `due_on` (the date the announced thing happens), `read_at`, `snoozed_at`, `archived_at`,
@@ -169,7 +173,7 @@ every five minutes, and refetches when it returns to the foreground.
 
 ### Notification categories
 
-*Planned for v0.2, with notification preferences and the phone's tray.* Every kind belongs to one
+Every kind belongs to one
 category. A category is what a person turns off — in the app's Settings, and on the phone as an
 Android channel of the same name — so both places use the same words.
 
@@ -189,7 +193,7 @@ tray and still shows it in the bell.
 
 ### Notification preferences
 
-*Planned for v0.2.* One switch per category that can be turned off, kept on the account, so it
+*Built.* One switch per category that can be turned off, kept on the account, so it
 holds on every device.
 
 - **Stored on the profile** as `muted_notifications`: the ids of the categories turned off, an
@@ -224,7 +228,7 @@ holds on every device.
 
 ### Phone notifications
 
-*Planned for v0.2, with the Android app.* Notifications reach the phone's tray **without server
+*Built.* Notifications reach the phone's tray **without server
 push** — no Firebase, no push service, no table of device tokens, no outbound call from the
 backend. Each kind of notification has exactly one path to the tray, so none arrives twice.
 Local notifications need no Firebase at all: `expo-notifications` declares a Firebase service,
@@ -248,9 +252,11 @@ open — Realtime, or a save on the phone that rewrote a reminder. It reads the 
   phone has neither shown nor scheduled that day: it keeps, for each live reminder, the last day
   it has handled. So today's reminder, swiped away, stays away until tomorrow's — without the
   mark every sync would bring it back, since a notification swiped away and one never shown look
-  the same to the app. Today's uses the row's title; the later days' titles are today's with the
-  countdown swapped — "renews in 2 days", "renews tomorrow" — in the server's words from `_when`
-  in `services/finance/reminders.py`, a twin kept in step with it.
+  the same to the app. Each day's title is the row's with its countdown swapped for that day's
+  — "renews in 2 days", "renews tomorrow" — in the server's words from `_when` in
+  `services/finance/reminders.py`, a twin kept in step with it. Today's is worked out the same
+  way, so a sync just after midnight, before the server has rewritten the row, still says the
+  right thing.
 - **rebuilds rather than patches**, and only once the inbox has loaded: a sync that can't reach
   the server leaves everything as it was. It cancels everything it scheduled from server rows and
   schedules again from the current inbox; it removes from the tray every notification whose row
@@ -415,7 +421,7 @@ sees.
   default), with a quick dark-mode switch in the account menu.
 - **[v0.1, built]** Currencies: display currency (what totals are reported in) and preferred
   currency (what new entries start in).
-- **[v0.2]** Notification preferences — one switch per category, on the account, on both
+- **[v0.2, built]** Notification preferences — one switch per category, on the account, on both
   clients; the phone's tray per category in Android's own settings. See
   [Notification preferences](#notification-preferences).
 - **[v0.3]** Connected accounts — Google Calendar, and later Riot and Steam.
@@ -464,7 +470,7 @@ is what only a phone can do — tray notifications, then steps and screen time. 
   drawer fights the system back gesture — listing the remaining modules and the account (the
   person, opening their **Profile**, then **Settings** and **Log out** — on the web all of these
   live in the account menu), with the app's version at its foot — and, once an over-the-air
-  update is running *(v0.2)*, that update's date, so "which version do you have?" stays
+  update is running, that update's date, so "which version do you have?" stays
   answerable. **Log and the bell** *(built)* sit on the right of each tab's first screen — the web
   header's two global actions; pushed screens keep their bar for their own actions. Log opens a
   bottom sheet with a row per module that can log (Expense today), each opening its form. The
@@ -492,7 +498,7 @@ is what only a phone can do — tray notifications, then steps and screen time. 
 - **Timezone** *(built)* follows the device and syncs to the profile on launch, as the web does in
   the browser — and again whenever the app comes back to the front, since the phone is the device
   that travels. It calls the API only when the phone's zone differs from the one last synced.
-- **Background sync** *(v0.2)* — fetching notifications now; reading steps, screen time and
+- **Background sync** *(built)* — fetching notifications now; reading steps, screen time and
   sleep later — runs on WorkManager through `expo-background-task`, asked for every 60 minutes
   (the library's default is every 12 hours, so the interval is always passed): best-effort, and
   delayed further by some phone makers' battery savers. Android runs it only with a connection
