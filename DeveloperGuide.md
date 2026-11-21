@@ -393,7 +393,6 @@ never built.
 }
 ```
 
-- *Planned, for the Android app's offline outbox* ([platform.md](./docs/features/platform.md#offline-on-android)): create endpoints accept an optional client-generated `id` and treat a repeat by the same user as a no-op; edit and delete endpoints take the original values of the fields they touch and answer `409 EDIT_CONFLICT`, with the current row, when any has changed
 - Dates always ISO 8601, timezone-aware. Server stores UTC; frontend converts to user's stored timezone for display.
 - Every domain has a corresponding Pydantic schema split into `Create`, `Update`, and `Read` variants — never reuse one schema for all three.
 - The API's schema is committed at [`docs/api/openapi.json`](./docs/api/openapi.json) and both clients' types are generated from it, so a changed shape fails their type checks rather than drifting ([ADR-0005](./docs/adr/0005-generated-api-types.md)). Regenerate both after any change to a path, a schema or an enum: [`tools/README.md`](./tools/README.md#the-api-contract).
@@ -692,7 +691,7 @@ before it is stable.
 | Release | Scope | Definition of Done |
 |---|---|---|
 | **v0.1** | Auth, Finance core (expenses, categories, multi-currency budgets, spending dashboard), app shell, theming, CI/CD | Deployed to Vercel and Render; an expense can be logged and shows up converted in the dashboard; CI green on every PR |
-| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts. The Android app at parity with everything shipped, working offline, with notifications in the phone's tray. Then Fitness training and steps (counted by the phone on Android), focus timer, entertainment budgets and screen time (Android), each on both clients | A subscription reminds three days out and renews itself into a real expense; a budget breach notifies, and reaches the phone's notification tray; the Android app installs from an APK and does everything the web does; a workout can be logged and a day's steps arrive from the phone without typing |
+| **v0.2** | Subscriptions end to end including reminders, notification + scheduler service, budget breach alerts. The Android app at parity with everything shipped, with notifications in the phone's tray and notification preferences on both clients; online-only, as the web is ([ADR-0006](./docs/adr/0006-android-app-stays-online-only.md)). Then Fitness training and steps (counted by the phone on Android), focus timer, entertainment budgets and screen time (Android), each on both clients | A subscription reminds three days out and renews itself into a real expense; a budget breach notifies, and reaches the phone's notification tray; the Android app installs from an APK and does everything the web does; a workout can be logged and a day's steps arrive from the phone without typing |
 | **v0.3** | Two-way Google Calendar sync and events, sleep/mood/habits, correlation engine, weekly digest, onboarding | An event created in the app appears in Google and survives a round trip; the correlation engine surfaces one real pattern from actual data; the digest arrives in the app |
 | **v0.4** | Polish, performance pass, full observability, public launch | No `level: error` lines in the logs across a full week of real use; onboarding under three minutes for someone new |
 | **Last** | Gaming Performance — manual logging, Riot and Steam integration, tilt detection. Crash reporting (Sentry) for the Android app | Match history syncs and at least one gaming correlation appears in the insights dashboard |
@@ -701,8 +700,10 @@ before it is stable.
 notifications, the scheduler (pg_cron) and budget breach alerts have shipped, which completes
 Finance; expense import from a spreadsheet shipped alongside, ahead of any release. The Android
 app has reached parity with the web (sign-in, shell, theming, Finance with import and export,
-the dashboard, profile and in-app notifications). What remains of v0.2: the app's tray
-notifications and offline outbox, then Fitness training and steps, and the focus timer.
+the dashboard, profile and in-app notifications), and its phone-only work has shipped: tray
+notifications, notification preferences (both clients) and background sync. What remains of
+v0.2: the app's first APK release, then Fitness training and steps, and the focus timer. Offline
+was dropped on 2026-11-12 ([ADR-0006](./docs/adr/0006-android-app-stays-online-only.md)).
 
 **The Android app joins v0.2, ahead of Fitness.** It goes in this order: skeleton and
 sign-in, parity with Finance and the platform screens, notifications in the phone's tray. Then Fitness and the

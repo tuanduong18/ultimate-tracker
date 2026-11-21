@@ -26,7 +26,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import timezones
 from app.core.currencies import format_money
 from app.models.finance import Subscription
-from app.models.notification import REMINDER_KINDS, Notification, NotificationKind
+from app.models.notification import (
+    REMINDER_KINDS,
+    Notification,
+    NotificationCategory,
+    NotificationKind,
+)
 from app.models.profile import Profile
 from app.services import notifications
 from app.services.finance.billing import next_charge
@@ -115,10 +120,17 @@ async def sync_reminder(
     A reminder for today or earlier is left to the renewal job, which needs its
     snooze to decide where the renewal notice goes — unless the charge it
     announces will no longer happen, or is already paid (renewed by hand).
+
+    With Subscription reminders turned off, no reminder is wanted: none is
+    written, and any left over is removed as if the charge were out of reach.
     """
     now = now or datetime.now(UTC)
     run = ReminderRun()
     charge = wanted_charge(subscription, today, lead_days)
+    if charge is not None and await notifications.is_muted(
+        db, subscription.user_id, NotificationCategory.SUBSCRIPTION_REMINDERS
+    ):
+        charge = None
     key = reminder_key(subscription, charge) if charge else None
 
     current: Notification | None = None

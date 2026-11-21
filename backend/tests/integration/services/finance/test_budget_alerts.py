@@ -10,10 +10,11 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.support.notifications import mute
 
 from app.models.exchange_rate import ExchangeRate
 from app.models.finance import Budget, BudgetPeriod, Category, Expense
-from app.models.notification import Notification, NotificationKind
+from app.models.notification import Notification, NotificationCategory, NotificationKind
 from app.models.profile import Profile
 from app.services.finance import budget_alerts
 from app.services.finance.budget_alerts import check_budgets
@@ -312,3 +313,81 @@ async def test_one_user_failing_does_not_stop_the_others_alerts(
     # Whichever user the job reached first was skipped; the other was warned.
     assert run.alerted == 1
     assert len({n.user_id for n in await alerts(db)}) == 1
+
+
+# --- Budget alerts turned off -----------------------------------------------------
+
+BUDGET_ALERTS = NotificationCategory.BUDGET_ALERTS
+
+
+async def test_with_budget_alerts_turned_off_nothing_new_is_sent(db: AsyncSession) -> None:
+    await budget(db)
+    await spend(db, "320.00")
+    await mute(db, OWNER, BUDGET_ALERTS)
+
+    run = await check_budgets(db, now=NOW)
+
+    # Still measured, so alerts already sent are kept in step.
+    assert (run.checked, run.alerted) == (1, 0)
+    assert await alerts(db) == []
+
+
+async def test_turned_off_an_alert_already_sent_stays_while_it_applies_then_moves_on(
+    db: AsyncSession,
+) -> None:
+    row = await budget(db)
+    await spend(db, "320.00")
+    await check_budgets(db, now=NOW)
+    await mute(db, OWNER, BUDGET_ALERTS)
+
+    assert (await check_budgets(db, now=NOW)).cleared == 0
+    assert len(inbox(await alerts(db))) == 1
+
+    row.amount = Decimal("1000.00")
+    await db.commit()
+
+    assert (await check_budgets(db, now=NOW)).cleared == 1
+    assert inbox(await alerts(db)) == []
+
+
+async def test_turned_back_on_a_budget_already_past_its_warning_is_announced(
+    db: AsyncSession,
+) -> None:
+    await budget(db)
+    await spend(db, "320.00")
+    await mute(db, OWNER, BUDGET_ALERTS)
+    await check_budgets(db, now=NOW)
+
+    await mute(db, OWNER)
+
+    assert (await check_budgets(db, now=NOW)).alerted == 1
+    [alert] = await alerts(db)
+    assert alert.kind == NotificationKind.BUDGET_WARNING
+
+
+async def test_turned_back_on_an_alert_sent_before_muting_is_not_sent_again(
+    db: AsyncSession,
+) -> None:
+    await budget(db)
+    await spend(db, "320.00")
+    await check_budgets(db, now=NOW)
+    await mute(db, OWNER, BUDGET_ALERTS)
+    await mute(db, OWNER)
+
+    assert (await check_budgets(db, now=NOW)).alerted == 0
+    assert len(await alerts(db)) == 1
+
+
+async def test_turned_back_on_after_the_month_ended_its_overspend_is_never_sent(
+    db: AsyncSession,
+) -> None:
+    await budget(db)
+    await spend(db, "320.00")
+    await mute(db, OWNER, BUDGET_ALERTS)
+    await check_budgets(db, now=NOW)
+
+    await mute(db, OWNER)
+
+    run = await check_budgets(db, now=datetime(2026, 11, 2, 12, 0, tzinfo=UTC))
+    assert run.alerted == 0
+    assert await alerts(db) == []

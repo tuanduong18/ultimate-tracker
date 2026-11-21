@@ -23,6 +23,10 @@ window and cap is not announced a second time.
 
 Past windows are never alerted: a backdated expense that pushes last month over
 its cap is history, not news.
+
+A user who turned Budget alerts off is still measured, so their alerts already
+in the inbox move to the history as usual; nothing new is sent to them. Turned
+back on, the next run sends what applies then and was never sent.
 """
 
 import uuid
@@ -38,7 +42,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import timezones
 from app.core.currencies import format_money
 from app.models.finance import Budget, BudgetPeriod
-from app.models.notification import BUDGET_ALERT_KINDS, Notification, NotificationKind
+from app.models.notification import (
+    BUDGET_ALERT_KINDS,
+    Notification,
+    NotificationCategory,
+    NotificationKind,
+)
 from app.models.profile import Profile
 from app.services import notifications
 from app.services.finance.errors import RateUnavailableError
@@ -179,6 +188,7 @@ async def check_budgets(db: AsyncSession, *, now: datetime) -> BudgetAlertRun:
     run = BudgetAlertRun()
     candidates: list[Notification] = []
     measured: set[uuid.UUID] = set()
+    muted: set[uuid.UUID] = set()
 
     for user_id, timezone in await _users(db):
         try:
@@ -187,6 +197,8 @@ async def check_budgets(db: AsyncSession, *, now: datetime) -> BudgetAlertRun:
             async with db.begin_nested():
                 today = timezones.today_in(timezone, now)
                 progress = await budget_progress(db, user_id, month=today)
+                if await notifications.is_muted(db, user_id, NotificationCategory.BUDGET_ALERTS):
+                    muted.add(user_id)
         except RateUnavailableError as exc:
             # No honest figure without a rate. The next run tries again, and
             # until then this user's alerts stay as they were.
@@ -208,6 +220,10 @@ async def check_budgets(db: AsyncSession, *, now: datetime) -> BudgetAlertRun:
             if threshold is not None:
                 candidates.append(render(user_id, budget, threshold, now))
 
+    # Every candidate counts as current, muted or not: an alert that still
+    # applies stays in the inbox, while what stopped applying moves on.
     run.cleared = await _clear_stale(db, measured, candidates, now)
-    run.alerted = await notifications.deliver_once(db, candidates)
+    run.alerted = await notifications.deliver_once(
+        db, [alert for alert in candidates if alert.user_id not in muted]
+    )
     return run

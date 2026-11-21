@@ -5,9 +5,10 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.notification import NotificationCategory
 from app.models.profile import Profile
 from app.schemas.profile import ProfileUpdate
-from app.services import exchange_rates
+from app.services import exchange_rates, notifications
 from app.services import finance as finance_service
 
 
@@ -65,6 +66,9 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
 
     Raises exchange_rates.UnsupportedCurrencyError for a currency new data may
     not use; keeping a since-delisted one that is already set is allowed.
+
+    Muting Subscription reminders deletes the live ones in the same commit: the
+    job only stops writing new ones, and the old would sit in the bell for days.
     """
     profile = await get_or_create_profile(db, user_id)
     changes = data.model_dump(exclude_unset=True)
@@ -76,6 +80,8 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
     for field, value in changes.items():
         if value is not None or field in _NULLABLE_FIELDS:
             setattr(profile, field, value)
+    if NotificationCategory.SUBSCRIPTION_REMINDERS in (changes.get("muted_notifications") or []):
+        await notifications.delete_reminders(db, user_id)
     await db.commit()
     await db.refresh(profile)
     return profile

@@ -268,6 +268,10 @@ and sends:
   `budget_alerts.rate_unavailable`) and leaves their alerts as they were.
 - Alerts are notices: fixed once sent, "Got it" moves one to the history, "View budgets" links to
   the tab. On each budget's bar, a notch marks where its warning fires.
+- **Budget alerts can be turned off**
+  ([notification preferences](./platform.md#notification-preferences)). Then nothing new is
+  sent, while alerts already in the inbox still move to the history when they stop applying.
+  Turned back on, the next run announces whatever still applies.
 
 ---
 
@@ -387,7 +391,8 @@ transaction**:
    billing date it covers (not the day the job ran), with the subscription's name as its note;
 2. replaces the charge's reminder with a renewal notice, "Netflix auto-renewed on 23 Oct — It
    cost USD 15.49" ("Your … trial ended on …" for a trial's first charge), in the inbox, or
-   straight in the history when the user had snoozed the reminder;
+   straight in the history when the user had snoozed the reminder — or with
+   no notice at all when the user has turned Renewals off, though the expense is still written;
 3. advances `next_billing_on` to the following charge.
 
 If the job missed days, it repeats this until `next_billing_on` is in the future, so each
@@ -448,6 +453,12 @@ charge day itself: a run that missed the window does not send a late one.
 
 Delivery is in-app; on the Android app the same rows will also reach the phone's notification tray ([platform.md](./platform.md#phone-notifications)). There is no email channel, by choice.
 [Budget alerts](#budget-alerts) use the same mechanism; the two are not built twice.
+
+**Subscription reminders can be turned off**
+([notification preferences](./platform.md#notification-preferences)). Turning them off deletes
+the live reminders in the same request, and `sync_reminder` — the one path for both the job and
+subscription edits — writes none while they are off. Turned back on, they return at the next
+`subscriptions` run. Renewal notices have a switch of their own, Renewals.
 
 ---
 
@@ -574,7 +585,9 @@ keeps the last rate, so:
 In the same run, the job sends an in-app notification (`currency_delisted`) to everyone with an
 expense, budget or subscription in it, or with it as their display or preferred currency, once
 per delisting. A refresh that would delist more than 5 currencies at once is refused as a broken
-response (`EXCHANGE_RATES_MAX_DELISTED_PER_REFRESH`).
+response (`EXCHANGE_RATES_MAX_DELISTED_PER_REFRESH`). Currency notices are the one Finance
+notification that [can't be turned off](./platform.md#notification-categories): a total that
+can't be converted needs the person to act.
 
 **Reads never call the API.** They serve the table, cached in memory for an hour, however old
 it is — stale real rates beat the hardcoded fallback — and log `exchange_rates.stale` once the
@@ -613,7 +626,9 @@ little as rates move. That is an accepted trade-off for a personal tracker.
 
 ### Planned
 
-Nothing: Finance is complete for its release plan.
+Nothing: Finance is complete for its release plan. The switches that turn off subscription
+reminders, renewal notices and budget alerts, and the Android app's notification tray, are
+platform work, built: [platform.md](./platform.md#notification-preferences).
 
 ### Not planned
 

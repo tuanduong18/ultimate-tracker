@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 /**
  * A stand-in for Expo Router in screen tests: navigation calls are recorded rather than made,
@@ -33,6 +33,8 @@ export const expoRouter = {
   Link: ({ children }: { children: ReactNode }) => children,
   useRouter: () => router,
   useLocalSearchParams: () => params,
+  // A screen under test is the focused one: its focus effect runs as an effect would.
+  useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
   // The guard itself is tested in form-screen.test; screens only need it not to get in the way.
   usePreventRemove: () => undefined,
 };

@@ -12,9 +12,10 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.support.notifications import mute
 
 from app.models.finance import Expense, Subscription
-from app.models.notification import Notification, NotificationKind
+from app.models.notification import Notification, NotificationCategory, NotificationKind
 from app.models.profile import Profile
 from app.services import finance as finance_service
 from app.services import notifications
@@ -334,3 +335,56 @@ async def test_one_subscription_failing_does_not_stop_the_others(
     assert await renew(db, at(22)) == 1
     assert len(await expenses(db)) == 1
     assert {await next_billing(db, i) for i in ids} == {date(2026, 10, 22), date(2026, 11, 22)}
+
+
+# --- Renewals turned off ----------------------------------------------------------
+
+RENEWALS = NotificationCategory.RENEWALS
+
+
+async def test_with_renewals_turned_off_the_charge_is_recorded_without_a_notice(
+    db: AsyncSession,
+) -> None:
+    subscription_id = await add(db)
+    await add(db, user_id=SGT_USER)
+    await refresh_reminders(db, now=at(20), lead_days=3)
+    await mute(db, USER, RENEWALS)
+
+    assert await renew(db, at(22)) == 2
+
+    assert sorted(str(e.user_id) for e in await expenses(db)) == sorted([str(USER), str(SGT_USER)])
+    assert await next_billing(db, subscription_id) == date(2026, 11, 22)
+    # The reminder still made way; only the other user hears about their renewal.
+    assert [(n.user_id, n.kind) for n in await notices(db)] == [
+        (SGT_USER, NotificationKind.SUBSCRIPTION_RENEWED)
+    ]
+
+
+async def test_with_renewals_turned_off_missed_charges_are_all_recorded_quietly(
+    db: AsyncSession,
+) -> None:
+    await add(
+        db, interval_unit="week", started_on=date(2026, 10, 1), next_billing_on=date(2026, 10, 1)
+    )
+    await mute(db, USER, RENEWALS)
+
+    assert await renew(db, at(22)) == 4
+
+    assert len(await expenses(db)) == 4
+    assert await notices(db) == []
+
+
+async def test_renewals_recorded_while_turned_off_are_never_announced_later(
+    db: AsyncSession,
+) -> None:
+    await add(db)
+    await mute(db, USER, RENEWALS)
+    await renew(db, at(22))
+
+    await mute(db, USER)
+
+    assert await renew(db, at(22, hour=23)) == 0
+    assert await notices(db) == []
+    # The next charge is news again.
+    assert await renew(db, at(22, month=11)) == 1
+    assert [n.due_on for n in await notices(db)] == [date(2026, 11, 22)]

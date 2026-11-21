@@ -4,6 +4,7 @@ Exercises the full route -> service -> DB path with auth dependency-overridden,
 plus the unauthenticated path with the real dependency in place.
 """
 
+import pytest
 from httpx import AsyncClient
 from tests.support.ids import TEST_USER_ID
 
@@ -93,3 +94,57 @@ async def test_me_with_a_non_bearer_scheme_is_401(client: AsyncClient) -> None:
     resp = await client.get("/api/v1/auth/me", headers={"Authorization": "Basic dXNlcjpwdw=="})
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "MISSING_TOKEN"
+
+
+# --- Notification switches ------------------------------------------------------
+
+
+async def muted(client: AsyncClient) -> list[str]:
+    body: list[str] = (await client.get("/api/v1/auth/me")).json()["muted_notifications"]
+    return body
+
+
+async def test_a_new_profile_has_every_notification_on(authed_client: AsyncClient) -> None:
+    assert await muted(authed_client) == []
+
+
+async def test_patch_me_mutes_each_category_once_and_an_empty_list_unmutes(
+    authed_client: AsyncClient,
+) -> None:
+    sent = ["budget_alerts", "subscription_reminders", "budget_alerts"]
+
+    resp = await authed_client.patch("/api/v1/auth/me", json={"muted_notifications": sent})
+
+    assert resp.status_code == 200
+    assert resp.json()["muted_notifications"] == ["budget_alerts", "subscription_reminders"]
+    assert await muted(authed_client) == ["budget_alerts", "subscription_reminders"]
+
+    await authed_client.patch("/api/v1/auth/me", json={"muted_notifications": []})
+    assert await muted(authed_client) == []
+
+
+@pytest.mark.parametrize("category", ["currency_notices", "budget_alert"])
+async def test_patch_me_refuses_what_cannot_be_muted_and_keeps_the_stored_list(
+    authed_client: AsyncClient, category: str
+) -> None:
+    await authed_client.patch("/api/v1/auth/me", json={"muted_notifications": ["budget_alerts"]})
+
+    resp = await authed_client.patch(
+        "/api/v1/auth/me", json={"muted_notifications": ["subscription_renewals", category]}
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert await muted(authed_client) == ["budget_alerts"]
+
+
+async def test_patch_me_with_null_or_no_muted_notifications_leaves_them_alone(
+    authed_client: AsyncClient,
+) -> None:
+    patch = {"muted_notifications": ["subscription_renewals"]}
+    await authed_client.patch("/api/v1/auth/me", json=patch)
+
+    await authed_client.patch("/api/v1/auth/me", json={"muted_notifications": None})
+    await authed_client.patch("/api/v1/auth/me", json={"timezone": "Asia/Singapore"})
+
+    assert await muted(authed_client) == ["subscription_renewals"]

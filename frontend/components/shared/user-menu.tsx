@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { ACCOUNT_LINKS, isActive } from '@/components/shared/nav-items';
+import { SwitchTrack } from '@/components/shared/switch-track';
 import { useTheme } from '@/components/shared/theme-provider';
 import { useResource } from '@/lib/hooks/use-collection';
 import { useSession } from '@/lib/hooks/use-session';
@@ -175,19 +176,7 @@ function DarkModeSwitch() {
           <span className="block text-xs text-fg-muted">Following your device</span>
         )}
       </span>
-      {/* The track: a shape that moves, so on and off differ by more than colour. */}
-      <span
-        aria-hidden
-        className={`flex h-5 w-9 shrink-0 items-center rounded-full border-2 transition-colors motion-reduce:transition-none ${
-          dark ? 'border-primary bg-primary' : 'border-border-control bg-surface-muted'
-        }`}
-      >
-        <span
-          className={`size-3.5 rounded-full transition-transform motion-reduce:transition-none ${
-            dark ? 'translate-x-4 bg-primary-fg' : 'translate-x-0.5 bg-fg-muted'
-          }`}
-        />
-      </span>
+      <SwitchTrack on={dark} />
     </button>
   );
 }

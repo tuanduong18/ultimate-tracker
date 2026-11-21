@@ -169,10 +169,32 @@ function jsdoc(text, indent) {
   ];
 }
 
+/**
+ * A type's members at its top level: `('a' | 'b')[] | null` is two, not four. A union inside
+ * brackets stays whole, as the formatter keeps it (first met with an array of literals, 2026-11-15).
+ */
+function topLevelMembers(type) {
+  const members = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < type.length; i += 1) {
+    const char = type[i];
+    if ('([{<'.includes(char)) depth += 1;
+    else if (')]}>'.includes(char)) depth -= 1;
+    else if (depth === 0 && type.startsWith(' | ', i)) {
+      members.push(type.slice(start, i));
+      start = i + 3;
+      i += 2;
+    }
+  }
+  members.push(type.slice(start));
+  return members;
+}
+
 /** `head type;` on one line when it fits, otherwise a union broken the way the formatter breaks it. */
 function statement(head, type, indent) {
   const oneLine = `${indent}${head} ${type};`;
-  const members = type.split(' | ');
+  const members = topLevelMembers(type);
   if (oneLine.length <= WIDTH || members.length === 1) return [oneLine];
   return [
     `${indent}${head}`,
