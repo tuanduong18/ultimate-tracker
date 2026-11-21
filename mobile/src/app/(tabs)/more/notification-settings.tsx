@@ -49,7 +49,9 @@ interface PhoneState {
  *   own: Android's is the one switch, so the two can never disagree. Each row opens its page in
  *   Android's settings, and the screen reads them again on coming back.
  * - **The sync's last run, in words** — the only way to see whether a battery saver is stopping
- *   it, since no app can read Autostart — with the background setup one row away.
+ *   it, since no app can read Autostart. The background setup is one row away **when it
+ *   applies**: always on a Xiaomi or where Android reports background work restricted, and on
+ *   any phone once the sync has fallen behind. A phone that syncs fine never sees it.
  */
 export default function NotificationSettings() {
   const [state, setState] = useState<PhoneState | null>(null);
@@ -130,14 +132,16 @@ export default function NotificationSettings() {
               </Text>
             )}
           </Card>
-          <Card>
-            <NavRow
-              href="/more/background-setup"
-              label="Background setup"
-              blurb={state?.needsSetup ? 'Two settings this phone needs' : 'If syncing stops'}
-              icon="battery_saver"
-            />
-          </Card>
+          {(state?.needsSetup || (sync?.behind && state?.synced)) && (
+            <Card>
+              <NavRow
+                href="/more/background-setup"
+                label="Background setup"
+                blurb="What this phone needs to sync in the background"
+                icon="battery_saver"
+              />
+            </Card>
+          )}
         </Section>
       </Screen>
     </>

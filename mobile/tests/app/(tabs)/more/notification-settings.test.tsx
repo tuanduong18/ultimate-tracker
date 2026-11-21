@@ -9,6 +9,8 @@ jest.mock('expo-router', () => jest.requireActual('../../../support/router').exp
 jest.mock('@/lib/api-client', () => jest.requireActual('../../../support/api').apiClient);
 
 let mockPermission = 'granted';
+let mockBackground = 2;
+let mockLastSync: string | null = null;
 let mockChannels: { id: string; importance: number }[] = [];
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { NONE: 0, LOW: 2, DEFAULT: 3 },
@@ -18,15 +20,19 @@ jest.mock('expo-notifications', () => ({
 }));
 jest.mock('expo-background-task', () => ({
   BackgroundTaskStatus: { Restricted: 1, Available: 2 },
-  getStatusAsync: async () => 2,
+  getStatusAsync: async () => mockBackground,
 }));
-jest.mock('expo-secure-store', () => ({ getItemAsync: async () => null }));
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: async (key: string) => (key === 'ultimate-tracker.last-sync' ? mockLastSync : null),
+}));
 
 beforeEach(() => {
   resetApi();
   resetRouter();
   mockPermission = 'granted';
   mockChannels = [];
+  mockBackground = 2;
+  mockLastSync = null;
   serve({ '/auth/me': { ...PROFILE, muted_notifications: ['subscription_renewals'] } });
 });
 
@@ -96,5 +102,34 @@ describe('Notification settings', () => {
     expect(
       await screen.findByLabelText('Notifications, Off in Android settings')
     ).toBeOnTheScreen();
+  });
+
+  describe('the background setup row', () => {
+    const synced = (hoursAgo: number) => {
+      const at = new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+      return JSON.stringify({ at, ok: true, okAt: at });
+    };
+
+    it('stays out of sight on a phone that syncs fine', async () => {
+      mockLastSync = synced(0.5);
+      await renderScreen(<NotificationSettings />);
+
+      expect(await screen.findByText(/^Last synced/)).toBeOnTheScreen();
+      expect(screen.queryByText('Background setup')).toBeNull();
+    });
+
+    it('shows on any phone once the sync has fallen behind', async () => {
+      mockLastSync = synced(5);
+      await renderScreen(<NotificationSettings />);
+
+      expect(await screen.findByText('Background setup')).toBeOnTheScreen();
+    });
+
+    it('shows where Android reports background work restricted', async () => {
+      mockBackground = 1;
+      await renderScreen(<NotificationSettings />);
+
+      expect(await screen.findByText('Background setup')).toBeOnTheScreen();
+    });
   });
 });

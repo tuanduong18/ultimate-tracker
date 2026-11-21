@@ -1,11 +1,14 @@
 import * as BackgroundTask from 'expo-background-task';
 import { Linking, Platform } from 'react-native';
 
+import type { IconName } from '@/components/icon';
+
 /**
  * Whether this phone needs the background setup (more/background-setup.tsx): Xiaomi's HyperOS
  * stops background work for any app it hasn't been told to leave alone, which on the reference
  * phone means syncs that never run. Offered on Xiaomi phones (Redmi and POCO are Xiaomi's), and
- * on any phone where Android itself reports background work restricted.
+ * on any phone where Android itself reports background work restricted. Anywhere else it stays
+ * out of sight unless the sync falls behind (more/notification-settings.tsx).
  *
  * Whether Autostart is on can't be read by an app, so the setup screen explains and
  * "Last synced" shows whether it worked.
@@ -28,6 +31,63 @@ export async function needsBackgroundSetup(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface SetupStep {
+  icon: IconName;
+  /** What to set, in the words the phone's own settings use. */
+  title: string;
+  /** Why. */
+  body: string;
+}
+
+export interface SetupGuide {
+  intro: string;
+  steps: SetupStep[];
+  /** What to avoid, where the phone makes it easy to do by accident. */
+  avoid: string;
+}
+
+const REMINDERS_EITHER_WAY =
+  'Reminders ring on time either way; this is for budget alerts and other notices while the app is closed.';
+
+/**
+ * What to set, for this phone. Only Xiaomi's HyperOS has Autostart and calls its battery
+ * setting "Battery saver"; other phones on Android 14, Samsung's included, keep one battery
+ * setting on the app's page, called "Unrestricted". A guide naming a switch the phone hasn't got
+ * is worse than none, so the words follow the phone.
+ */
+export function setupGuide(xiaomi: boolean): SetupGuide {
+  if (xiaomi) {
+    return {
+      intro: `HyperOS stops apps working in the background unless they are allowed to. Without these two settings, notices reach this phone only when you open the app. ${REMINDERS_EITHER_WAY}`,
+      steps: [
+        {
+          icon: 'power_settings_new',
+          title: 'Autostart: on',
+          body: 'Lets the app start itself to sync, and to set its reminders again after a restart.',
+        },
+        {
+          icon: 'battery_saver',
+          title: 'Battery saver: No restrictions',
+          body: 'Stops the phone pausing the hourly sync to save battery.',
+        },
+      ],
+      avoid:
+        'Android then cancels its reminders until you open the app again. Clearing recent apps can count as a force stop on this phone.',
+    };
+  }
+  return {
+    intro: `This phone is limiting what the app can do in the background, so notices reach it only when you open the app. ${REMINDERS_EITHER_WAY}`,
+    steps: [
+      {
+        icon: 'battery_saver',
+        title: 'Battery: Unrestricted',
+        body: 'Lets the hourly sync run while the app is closed.',
+      },
+    ],
+    avoid: 'Android then cancels its reminders until you open the app again.',
+  };
 }
 
 const APP_PACKAGE = 'android.provider.extra.APP_PACKAGE';

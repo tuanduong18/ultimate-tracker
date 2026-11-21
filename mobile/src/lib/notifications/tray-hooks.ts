@@ -141,8 +141,8 @@ async function offerBackgroundSetupOnce(openSetup: () => void): Promise<void> {
   if ((await wasSetupOffered()) || !(await needsBackgroundSetup())) return;
   await rememberSetupOffered();
   Alert.alert(
-    'Keep notifications coming',
-    'This phone stops apps working in the background unless two settings are on. It takes a minute.',
+    'Get notices with the app closed?',
+    'This phone limits apps in the background, so budget alerts and other notices wait until you open the app. Reminders ring on time either way. Changing it takes a minute.',
     [
       { text: 'Not now', style: 'cancel' },
       { text: 'Show me', onPress: openSetup },

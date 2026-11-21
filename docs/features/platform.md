@@ -513,7 +513,11 @@ is what only a phone can do — tray notifications, then steps and screen time. 
   saver → No restrictions** — and the sync status shows the gap when they are off, rather than
   leaving a stale step count looking current. It is offered on Xiaomi phones, and on any phone
   where Android reports background work restricted, and opens the app's page in Android's
-  settings, where HyperOS keeps both switches.
+  settings, where HyperOS keeps both switches. **The steps follow the phone**: only a Xiaomi is
+  told about Autostart and Battery saver; any other phone gets Android's own one setting,
+  **Battery → Unrestricted**. Settings → Notifications lists the setup only where it applies,
+  or on any phone once the sync has fallen behind, so a phone that syncs fine never sees it. It
+  says that reminders ring on time either way: the setup is for notices while the app is closed.
 - **Notifications.** See [Phone notifications](#phone-notifications).
 - **Online-only**, as the web is (decided 2026-11-12). See
   [Offline on Android](#offline-on-android).
