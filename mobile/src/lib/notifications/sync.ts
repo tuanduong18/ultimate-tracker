@@ -4,13 +4,7 @@ import { api } from '@/lib/api-client';
 import { ensureChannels } from '@/lib/notifications/channels';
 import type { AppNotification } from '@/lib/notifications/notifications';
 import { INBOX_PATH } from '@/lib/notifications/queries';
-import {
-  forgetMarks,
-  loadMarks,
-  loadTestReminderTime,
-  recordSync,
-  saveMarks,
-} from '@/lib/notifications/tray-store';
+import { forgetMarks, loadMarks, recordSync, saveMarks } from '@/lib/notifications/tray-store';
 import { planTray, type TrayEntry } from '@/lib/notifications/tray-plan';
 import { supabase } from '@/lib/supabase';
 
@@ -58,11 +52,10 @@ async function run({ inbox, appOpen }: SyncOptions): Promise<SyncResult> {
   }
 
   await ensureChannels();
-  const [scheduled, presented, marks, reminderTime] = await Promise.all([
+  const [scheduled, presented, marks] = await Promise.all([
     Notifications.getAllScheduledNotificationsAsync(),
     Notifications.getPresentedNotificationsAsync(),
     loadMarks(session.user.id),
-    loadTestReminderTime(),
   ]);
 
   const plan = planTray({
@@ -76,7 +69,6 @@ async function run({ inbox, appOpen }: SyncOptions): Promise<SyncResult> {
     })),
     marks,
     appOpen,
-    reminderTime: reminderTime ?? undefined,
   });
 
   // Each step on its own: one id Android refuses must not stop the rest.

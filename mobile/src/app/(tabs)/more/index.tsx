@@ -60,20 +60,6 @@ export default function More() {
           <AccountCard />
         </Section>
 
-        {/* Never in the build users install. */}
-        {__DEV__ && (
-          <Section title="Development">
-            <Card>
-              <NavRow
-                href="/more/testing"
-                label="Testing tools"
-                blurb="The tray's moments, brought forward"
-                icon="science"
-              />
-            </Card>
-          </Section>
-        )}
-
         <VersionFoot />
       </Screen>
     </>

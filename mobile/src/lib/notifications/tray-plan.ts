@@ -68,8 +68,6 @@ export interface TrayInputs {
   marks: TrayMarks | null;
   /** In front: new rows reach the bell instead, and count as shown. */
   appOpen: boolean;
-  /** When reminders ring; another time only from the development build's testing tools. */
-  reminderTime?: { hour: number; minute: number };
 }
 
 export function planTray({
@@ -79,7 +77,6 @@ export function planTray({
   presented,
   marks,
   appOpen,
-  reminderTime = REMINDER_TIME,
 }: TrayInputs): TrayPlan {
   const today = toIsoDate(now);
   const first = marks === null;
@@ -116,7 +113,7 @@ export function planTray({
       const id = `${REMINDER}${row.id}:${day}`;
       const title = countdownTitle(row.title, daysUntil(row.due_on, day));
       const at = fromIso(day)!;
-      at.setHours(reminderTime.hour, reminderTime.minute, 0, 0);
+      at.setHours(REMINDER_TIME.hour, REMINDER_TIME.minute, 0, 0);
       if (at > now) {
         schedule.push({ ...entry(row, id, title), at });
       } else {

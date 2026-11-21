@@ -15,7 +15,6 @@ const MARKS_KEY = 'ultimate-tracker.tray-marks';
 const LAST_SYNC_KEY = 'ultimate-tracker.last-sync';
 const ASKED_KEY = 'ultimate-tracker.notifications-asked';
 const SETUP_OFFERED_KEY = 'ultimate-tracker.background-setup-offered';
-const TEST_TIME_KEY = 'ultimate-tracker.test-reminder-time';
 
 async function readJson<T>(key: string): Promise<T | null> {
   try {
@@ -87,13 +86,4 @@ export async function wasSetupOffered(): Promise<boolean> {
 
 export function rememberSetupOffered(): Promise<void> {
   return write(SETUP_OFFERED_KEY, 'true');
-}
-
-/** The development build's reminder time, set from the testing tools; null is 09:00. */
-export function loadTestReminderTime(): Promise<{ hour: number; minute: number } | null> {
-  return __DEV__ ? readJson(TEST_TIME_KEY) : Promise.resolve(null);
-}
-
-export function saveTestReminderTime(time: { hour: number; minute: number } | null): Promise<void> {
-  return write(TEST_TIME_KEY, time === null ? null : JSON.stringify(time));
 }
