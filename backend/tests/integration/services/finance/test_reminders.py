@@ -10,9 +10,10 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.support.notifications import mute
 
 from app.models.finance import Subscription
-from app.models.notification import Notification, NotificationKind
+from app.models.notification import Notification, NotificationCategory, NotificationKind
 from app.models.profile import Profile
 from app.schemas.finance import SubscriptionCreate, SubscriptionUpdate
 from app.services import finance as finance_service
@@ -351,3 +352,77 @@ async def test_one_subscription_failing_keeps_everyone_elses_reminders(
 
     assert (await run(db)).created == 1
     assert len(await reminders(db)) == 1
+
+
+# --- Turned off -------------------------------------------------------------------
+
+REMINDERS = NotificationCategory.SUBSCRIPTION_REMINDERS
+
+
+async def test_with_reminders_turned_off_the_job_writes_none_for_that_user(
+    db: AsyncSession,
+) -> None:
+    await add(db)
+    await add(db, user_id=SGT_USER)
+    await mute(db, UTC_USER, REMINDERS)
+
+    assert await run(db) == ReminderRun(created=1)
+    assert (await only(db)).user_id == SGT_USER
+
+
+async def test_turned_off_without_the_profile_service_a_leftover_goes_at_the_next_run(
+    db: AsyncSession,
+) -> None:
+    # Turning them off through the API deletes them at once; the job is the safety net.
+    await add(db)
+    await run(db)
+    await mute(db, UTC_USER, REMINDERS)
+
+    assert await run(db) == ReminderRun(removed=1)
+    assert await reminders(db) == []
+
+
+async def test_with_reminders_turned_off_creating_or_editing_a_subscription_writes_none(
+    db: AsyncSession,
+) -> None:
+    await mute(db, UTC_USER, REMINDERS)
+    await finance_service.create_subscription(
+        db,
+        UTC_USER,
+        SubscriptionCreate(
+            name="Streaming",
+            amount=Decimal("12.99"),
+            currency="USD",
+            interval_unit="month",
+            started_on=date(2026, 10, 22),
+        ),
+        today=TODAY,
+    )
+    subscription_id = await db.scalar(select(Subscription.id))
+    assert subscription_id is not None
+
+    await update(db, subscription_id, amount=Decimal("15.99"))
+
+    assert await reminders(db) == []
+
+
+async def test_turned_back_on_reminders_return_at_the_next_run(db: AsyncSession) -> None:
+    await add(db)
+    await mute(db, UTC_USER, REMINDERS)
+    await run(db)
+
+    await mute(db, UTC_USER)
+
+    assert await run(db) == ReminderRun(created=1)
+    assert (await only(db)).title == "Streaming renews in 2 days"
+
+
+async def test_turned_back_on_on_the_charge_day_no_reminder_comes_for_that_charge(
+    db: AsyncSession,
+) -> None:
+    await add(db, started_on=date(2026, 9, 20), next_billing_on=TODAY)
+    await mute(db, UTC_USER, REMINDERS)
+    await mute(db, UTC_USER)
+
+    assert await run(db) == ReminderRun()
+    assert await reminders(db) == []

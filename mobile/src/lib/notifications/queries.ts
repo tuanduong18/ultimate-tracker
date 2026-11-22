@@ -3,27 +3,26 @@ import { useCallback, useEffect } from 'react';
 
 import { useSession } from '@/auth/session';
 import { api } from '@/lib/api-client';
+import { notificationKeys } from '@/lib/notifications/keys';
 import type { AppNotification, NotificationChange } from '@/lib/notifications/notifications';
 import { supabase } from '@/lib/supabase';
 
+export { notificationKeys };
+
 /**
  * The notifications, as hooks over the app's one cache — the phone's half of the web's bell,
- * /notifications page and useNotificationUpdates. Paths and parameters are the web's.
- *
- * Every key starts with 'notifications', so a change reloads the inbox and the history at once:
- * snoozing moves a reminder from one to the other.
+ * /notifications page and useNotificationUpdates. Paths and parameters are the web's. The cache
+ * keys are in keys.ts.
  */
-export const notificationKeys = {
-  all: ['notifications'] as const,
-  inbox: ['notifications', 'inbox'] as const,
-  history: ['notifications', 'history'] as const,
-};
 
 /** The safety net under Realtime, as on the web: a dropped socket costs at most this long. */
 export const POLL_MS = 5 * 60 * 1000;
 
 /** As many as the web's page shows; one person's notifications never come near it. */
 const LIMIT = 100;
+
+/** The bell's request, which the tray's background sync makes too (sync.ts): one inbox. */
+export const INBOX_PATH = `/notifications?view=inbox&limit=${LIMIT}`;
 
 /**
  * What needs the person now — neither snoozed nor archived, newest first. The bell counts its
@@ -33,7 +32,7 @@ const LIMIT = 100;
 export function useInbox() {
   return useQuery({
     queryKey: notificationKeys.inbox,
-    queryFn: () => api.get<AppNotification[]>(`/notifications?view=inbox&limit=${LIMIT}`),
+    queryFn: () => api.get<AppNotification[]>(INBOX_PATH),
     refetchInterval: POLL_MS,
   });
 }

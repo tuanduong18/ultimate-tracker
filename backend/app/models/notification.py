@@ -22,6 +22,7 @@ until the user deletes it.
 import uuid
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal, get_args
 
 from sqlalchemy import (
     CheckConstraint,
@@ -51,7 +52,31 @@ class NotificationKind(StrEnum):
     BUDGET_EXCEEDED = "budget_exceeded"
 
 
+class NotificationCategory(StrEnum):
+    SUBSCRIPTION_REMINDERS = "subscription_reminders"
+    RENEWALS = "subscription_renewals"
+    CURRENCY_NOTICES = "currency_notices"
+    BUDGET_ALERTS = "budget_alerts"
+
+
 REMINDER_KINDS = frozenset({NotificationKind.SUBSCRIPTION_RENEWAL, NotificationKind.TRIAL_ENDING})
+CATEGORY_OF: dict[NotificationKind, NotificationCategory] = {
+    NotificationKind.SUBSCRIPTION_RENEWAL: NotificationCategory.SUBSCRIPTION_REMINDERS,
+    NotificationKind.TRIAL_ENDING: NotificationCategory.SUBSCRIPTION_REMINDERS,
+    NotificationKind.SUBSCRIPTION_RENEWED: NotificationCategory.RENEWALS,
+    NotificationKind.CURRENCY_DELISTED: NotificationCategory.CURRENCY_NOTICES,
+    NotificationKind.BUDGET_WARNING: NotificationCategory.BUDGET_ALERTS,
+    NotificationKind.BUDGET_EXCEEDED: NotificationCategory.BUDGET_ALERTS,
+}
+# The categories a person may turn off: all but currency notices, which leave
+# totals unconvertible until the person acts. Listed once, as a type, so the
+# profile schema validates against it and the API names exactly these.
+MutableCategory = Literal[
+    NotificationCategory.SUBSCRIPTION_REMINDERS,
+    NotificationCategory.RENEWALS,
+    NotificationCategory.BUDGET_ALERTS,
+]
+MUTABLE_CATEGORIES: frozenset[NotificationCategory] = frozenset(get_args(MutableCategory))
 BUDGET_ALERT_KINDS = frozenset({NotificationKind.BUDGET_WARNING, NotificationKind.BUDGET_EXCEEDED})
 
 # A CHECKed string rather than a Postgres enum, as with subscriptions'

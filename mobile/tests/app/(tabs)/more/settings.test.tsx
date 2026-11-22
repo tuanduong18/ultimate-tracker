@@ -5,7 +5,7 @@ import Settings from '@/app/(tabs)/more/settings';
 import { THEMES } from '@/theme/themes';
 import { AppThemeProvider } from '@/theme/theme-provider';
 
-jest.mock('expo-router', () => ({ Stack: { Screen: () => null } }));
+jest.mock('expo-router', () => jest.requireActual('../../../support/router').expoRouter);
 
 const onChange = jest.fn();
 
@@ -20,6 +20,13 @@ function Remembering({ children }: { children: ReactNode }) {
 beforeEach(() => onChange.mockReset());
 
 describe('Settings', () => {
+  it('leads to Notifications first, a screen of its own', async () => {
+    await render(<Settings />, { wrapper: Remembering });
+
+    expect(screen.getByRole('header', { name: 'Notifications' })).toBeOnTheScreen();
+    expect(screen.getByText('What reaches this phone, and its background sync')).toBeOnTheScreen();
+  });
+
   it('asks the web’s two questions, with the current answers checked', async () => {
     await render(<Settings />, { wrapper: Remembering });
 

@@ -19,7 +19,8 @@ import { ApiError } from '@/lib/api-error';
  * read one cache, so a save reloads what is behind it without the two knowing about each other.
  * It also keeps the old content on screen while a refetch runs, refetches when the app comes
  * back to the front, and retries through the backend's cold start (about 50 s on Render's free
- * tier). Persisting the cache for offline reads is the later step platform.md plans.
+ * tier). The cache lives in memory only and is not saved between launches: the app is
+ * online-only (ADR-0006).
  *
  * The server stays the source of truth: nothing here is optimistic. A write runs, the cache is
  * invalidated, and the screen shows what the server stored.

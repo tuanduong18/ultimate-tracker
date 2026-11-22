@@ -3105,6 +3105,18 @@
             "type": "string",
             "title": "Preferred Currency"
           },
+          "muted_notifications": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "subscription_reminders",
+                "subscription_renewals",
+                "budget_alerts"
+              ]
+            },
+            "type": "array",
+            "title": "Muted Notifications"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3118,6 +3130,7 @@
           "timezone",
           "display_currency",
           "preferred_currency",
+          "muted_notifications",
           "created_at"
         ],
         "title": "ProfileRead"
@@ -3169,11 +3182,30 @@
               }
             ],
             "title": "Preferred Currency"
+          },
+          "muted_notifications": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "subscription_reminders",
+                    "subscription_renewals",
+                    "budget_alerts"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted Notifications"
           }
         },
         "type": "object",
         "title": "ProfileUpdate",
-        "description": "All-optional: apply with model_dump(exclude_unset=True).\n\nOnly display_name may be sent as null (or blank), which clears it."
+        "description": "All-optional: apply with model_dump(exclude_unset=True).\n\nOnly display_name may be sent as null (or blank), which clears it.\nmuted_notifications replaces the whole list; an empty list turns every\ncategory back on."
       },
       "SubscriptionCreate": {
         "properties": {

@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
+import { Card } from '@/components/card';
 import { Icon, type IconName } from '@/components/icon';
+import { NavRow } from '@/components/nav-row';
 import { RadioList, RadioRow } from '@/components/radio-list';
 import { Screen } from '@/components/screen';
 import { Section } from '@/components/section';
@@ -22,8 +24,10 @@ const MODE_ICONS: Record<ModePreference, IconName> = {
 };
 
 /**
- * Settings — the twin of the web's /settings: how the app looks on this phone. The same two
- * questions, in the same words: light or dark (Appearance), then the accent (Colour scheme).
+ * Settings — the twin of the web's /settings: notifications first (a screen of their own, since
+ * what reaches this phone is Android's to show), then how the app looks on this phone. The same
+ * two questions as the web, in the same words: light or dark (Appearance), then the accent
+ * (Colour scheme).
  * Two questions rather than one list of sixteen looks, because people answer them for different
  * reasons — the room they are in, the colour they like.
  *
@@ -39,6 +43,17 @@ export default function Settings() {
     <>
       <Stack.Screen options={{ title: 'Settings' }} />
       <Screen>
+        <Section title="Notifications">
+          <Card>
+            <NavRow
+              href="/more/notification-settings"
+              label="Notifications"
+              blurb="What reaches this phone, and its background sync"
+              icon="notifications"
+            />
+          </Card>
+        </Section>
+
         <Section
           title="Appearance"
           description="Match system follows your phone’s light or dark setting, and changes when it does."

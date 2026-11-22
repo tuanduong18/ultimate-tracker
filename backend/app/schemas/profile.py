@@ -12,6 +12,7 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.core.currencies import normalize_currency
+from app.models.notification import MutableCategory
 
 CurrencyCode = Annotated[str, AfterValidator(normalize_currency)]
 _TIMEZONES = zoneinfo.available_timezones()
@@ -40,6 +41,14 @@ TimeZone = Annotated[
 ]
 
 
+def _as_set(value: list[MutableCategory] | None) -> list[MutableCategory] | None:
+    # The list is a set: stored once each, in one order, however it was sent.
+    return None if value is None else sorted(set(value))
+
+
+MutedNotifications = Annotated[list[MutableCategory] | None, AfterValidator(_as_set)]
+
+
 class ProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,6 +57,7 @@ class ProfileRead(BaseModel):
     timezone: str
     display_currency: str
     preferred_currency: str
+    muted_notifications: list[MutableCategory]
     created_at: datetime
 
 
@@ -55,9 +65,12 @@ class ProfileUpdate(BaseModel):
     """All-optional: apply with model_dump(exclude_unset=True).
 
     Only display_name may be sent as null (or blank), which clears it.
+    muted_notifications replaces the whole list; an empty list turns every
+    category back on.
     """
 
     display_name: DisplayName = None
     timezone: TimeZone = None
     display_currency: CurrencyCode | None = None
     preferred_currency: CurrencyCode | None = None
+    muted_notifications: MutedNotifications = None

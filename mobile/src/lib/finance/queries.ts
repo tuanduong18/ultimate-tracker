@@ -11,6 +11,7 @@ import { api } from '@/lib/api-client';
 import type { DateRange } from '@/lib/dates';
 import { describeError } from '@/lib/describe-error';
 import { selectionQuery, type CategorySelection } from '@/lib/finance/categories';
+import { notificationKeys } from '@/lib/notifications/keys';
 import type {
   Budget,
   BudgetProgress,
@@ -224,7 +225,13 @@ export function useFinanceWrite<TArgs, TResult = unknown>(
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (args: TArgs) => write(args),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: financeKeys.all }),
+    // A subscription save rewrites its reminder on the server: the inbox reloads with the rest,
+    // and the tray follows (lib/notifications/tray-hooks.ts) without waiting for Realtime.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: financeKeys.all }),
+        queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
+      ]),
   });
 }
 

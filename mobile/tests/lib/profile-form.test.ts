@@ -7,6 +7,7 @@ const PROFILE: Profile = {
   timezone: 'Asia/Singapore',
   display_currency: 'SGD',
   preferred_currency: 'SGD',
+  muted_notifications: [],
   created_at: '2026-08-01T00:00:00Z',
 };
 

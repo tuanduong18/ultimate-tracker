@@ -9,7 +9,7 @@ the session.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import ARRAY, DateTime, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.currencies import DEFAULT_CURRENCY
@@ -37,6 +37,13 @@ class Profile(Base):
     # someone reporting in SGD while spending VND on a trip.
     preferred_currency: Mapped[str] = mapped_column(
         String(3), default=DEFAULT_CURRENCY, server_default=DEFAULT_CURRENCY, nullable=False
+    )
+    # The notification categories turned off (NotificationCategory ids), on the
+    # account so they hold on every device. Storing what is off means everything
+    # starts on, and a category added later needs no migration. Assign a new
+    # list to change it: an in-place append is not seen as a change.
+    muted_notifications: Mapped[list[str]] = mapped_column(
+        ARRAY(String(40)), default=list, server_default=text("'{}'"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -18,6 +18,7 @@ const PROFILE: Profile = {
   timezone: 'UTC',
   display_currency: 'SGD',
   preferred_currency: 'USD',
+  muted_notifications: [],
   created_at: '2026-08-01T00:00:00Z',
 };
 
