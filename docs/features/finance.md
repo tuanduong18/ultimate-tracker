@@ -36,7 +36,8 @@ are deliberately out of scope — see [Out of scope](#out-of-scope).
   off) and when it reaches its cap, from an hourly scheduled job. See
   [Budget alerts](#budget-alerts).
 - Breakdowns — spend by category and spend by period (day or week buckets), both filterable by
-  category and comparable across two date ranges.
+  category and comparable across two date ranges. The charts open on a saved list of
+  categories, kept on the account. See [The charts' starting categories](#the-charts-starting-categories).
 - Finance pages — tabs under the Finance title: **Overview** (summary tiles, the two comparison
   charts, the latest expenses and budget progress), **Transactions**, **Budgets**,
   **Subscriptions**, **Categories**. Expenses are added from the Add expense dialog beside the
@@ -552,6 +553,46 @@ An id that is not the user's (or no longer exists) is `404 NOT_FOUND`; an id nam
 
 ---
 
+## The charts' starting categories
+
+**Status: built on both clients** (asked for 2026-11-22). One big, steady cost — rent — flattens
+every other slice of the ring and every bar, and the charts used to need it unticked by hand on
+each visit, on each device. Now the list the charts open on is saved on the account.
+
+- **Ticking is a look; saving is a decision.** A chart's category filter (one per chart on the
+  web, one shared by both charts on the phone) still changes only what is on screen, until the
+  page or screen is left. **Save as default** stores what the ticks leave out as the list every
+  chart on both clients opens without; **Reset** returns to it; **Select all** and **Clear**
+  are unchanged. Saving every tick as it happened was considered and dropped: one quick look at
+  Food alone would have become every chart's start, on the phone too, and the web's two filters
+  would have had to share one memory or fight over it.
+- **What the filter says**: "Charts start without Rent." (or "…with every category."), under
+  the list, announced when a save changes it. Save as default shows only when the ticks differ
+  from the saved list; Reset only when a list is saved and the ticks are not it. The chip still
+  counts what is hidden ("Categories · 1 hidden").
+- **What is stored**: `profiles.chart_hidden_categories`, the ids of the categories hidden —
+  storing what is hidden means a category made later starts in the charts. **Uncategorised is
+  not saved**: it always starts ticked. A list that hides every category can't be saved, since it
+  would open every chart on nothing.
+- **Only the charts start from it.** The summary tiles, budgets and their alerts, Transactions,
+  and exports still count every category: they answer "what did I spend", which rent is part of.
+- **The charts wait for it.** Both clients hold the chart requests until the profile and the
+  categories have loaded, so a chart asks once, for the right categories, rather than drawing
+  rent and then redrawing without it.
+
+### API
+
+No new endpoint: `chart_hidden_categories` (a list of category ids) is on `GET /auth/me`, and
+`PATCH /auth/me` replaces it (an empty list shows every category; `null` or leaving it out keeps
+it). Ids are stored once each, sorted, at most 1,000. **An id that is not one of the user's
+categories is dropped, not refused** — unlike a category in an expense or budget (`422`): the
+likeliest one is a category deleted on the other device since this one loaded, which should not
+fail the save, and only the user's own ids are ever stored. An id whose category is deleted later
+can linger (an array holds no foreign key); the clients ignore ids they don't have, and the next
+save drops it.
+
+---
+
 ## Exchange rates
 
 Rates live in `exchange_rates`, one row per currency (about 160 rows):
@@ -623,6 +664,8 @@ little as rates move. That is an accepted trade-off for a personal tracker.
   Fixed template columns replaced the earlier plan of a column-mapping step.
 - **[Ahead of any release]** Arranging budgets and categories into the user's own order,
   stored on the account.
+- **[Ahead of any release]** The charts' starting categories — a list saved from either client's
+  chart filter, stored on the account, that every chart opens without.
 
 ### Planned
 

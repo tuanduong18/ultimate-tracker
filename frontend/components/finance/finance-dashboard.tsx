@@ -5,18 +5,21 @@ import { useCallback, useState } from 'react';
 import { BudgetSection } from '@/components/finance/budget-section';
 import { ExpenseSection } from '@/components/finance/expense-section';
 import {
-  ALL_CATEGORIES,
+  savedSelection,
   selectionQuery,
   type CategorySelection,
+  type ChartDefaults,
 } from '@/components/finance/category-filter';
 import { granularityFor } from '@/components/finance/range-control';
 import { SpendByCategoryChart } from '@/components/finance/spend-by-category-chart';
 import { SpendByPeriodChart } from '@/components/finance/spend-by-period-chart';
 import { SummaryTiles } from '@/components/finance/summary-tiles';
 import { monthRange, monthStart, sameDaysLastMonth, shiftRange, todayIso } from '@/lib/dates';
+import { api } from '@/lib/api-client';
 import { useExpensesChanged } from '@/lib/finance-events';
 import { useCollection, useResource } from '@/lib/hooks/use-collection';
 import { useFinanceBasics } from '@/lib/hooks/use-finance-basics';
+import type { Profile } from '@/lib/types/profile';
 import type {
   BudgetProgress,
   CategoryBreakdown,
@@ -52,13 +55,35 @@ export function FinanceDashboard() {
   const [periodRange, setPeriodRange] = useState(monthRange);
   const [categoryRange, setCategoryRange] = useState(monthRange);
 
-  // Everything is included until someone says otherwise, and a filter belongs
-  // to the chart it narrows: hiding rent to read the small spending on one
-  // chart should not silently reshape the other.
-  const [periodSelection, setPeriodSelection] = useState<CategorySelection>(ALL_CATEGORIES);
-  const [categorySelection, setCategorySelection] = useState<CategorySelection>(ALL_CATEGORIES);
+  // Both charts start on the saved list (every category but the ones the
+  // account hides from charts), and a filter belongs to the chart it narrows:
+  // hiding rent to read the small spending on one chart for a look should not
+  // silently reshape the other. Null is "the saved list", so a save — here or
+  // on the phone — moves every chart nobody has narrowed by hand.
+  const [periodPick, setPeriodPick] = useState<CategorySelection | null>(null);
+  const [categoryPick, setCategoryPick] = useState<CategorySelection | null>(null);
 
-  const { categories, currencies, defaultCurrency } = useFinanceBasics();
+  const { categories, currencies, defaultCurrency, profile } = useFinanceBasics();
+  const saved = savedSelection(categories.items, profile.data?.chart_hidden_categories ?? []);
+  const periodSelection = periodPick ?? saved;
+  const categorySelection = categoryPick ?? saved;
+  // The charts wait for the saved list, so they ask once for the right
+  // categories rather than drawing everything and then redrawing without rent.
+  const ready = !categories.loading && !profile.loading;
+
+  const reloadProfile = profile.reload;
+  const saveChartDefault = useCallback(
+    async (hidden: string[]) => {
+      await api.patch<Profile>('/auth/me', { chart_hidden_categories: hidden });
+      await reloadProfile();
+    },
+    [reloadProfile]
+  );
+  const chartDefaults = (reset: () => void): ChartDefaults => ({
+    hidden: profile.data?.chart_hidden_categories ?? [],
+    onReset: reset,
+    onSave: saveChartDefault,
+  });
   const expenses = useCollection<Expense>('/finance/expenses');
 
   // Carries everything the plain budget list does plus what has been spent, so
@@ -76,19 +101,25 @@ export function FinanceDashboard() {
   const previousCategoryRange = shiftRange(categoryRange, -1);
 
   const byCategory = useResource<CategoryBreakdown>(
-    `/finance/summary/by-category?start_date=${categoryRange.start}` +
-      `&end_date=${categoryRange.end}${categoryFilter}`
+    ready
+      ? `/finance/summary/by-category?start_date=${categoryRange.start}` +
+          `&end_date=${categoryRange.end}${categoryFilter}`
+      : null
   );
   // The same window, one length earlier — the left-hand ring, and the "last"
   // share in each legend row. Fetched rather than derived: the API converts
   // currencies, and last period's totals are not a subset of this period's.
   const byCategoryBefore = useResource<CategoryBreakdown>(
-    `/finance/summary/by-category?start_date=${previousCategoryRange.start}` +
-      `&end_date=${previousCategoryRange.end}${categoryFilter}`
+    ready
+      ? `/finance/summary/by-category?start_date=${previousCategoryRange.start}` +
+          `&end_date=${previousCategoryRange.end}${categoryFilter}`
+      : null
   );
   const byPeriod = useResource<PeriodBreakdown>(
-    `/finance/summary/by-period?start_date=${periodRange.start}&end_date=${periodRange.end}` +
-      `&granularity=${granularityFor(periodRange)}${selectionQuery(periodSelection)}`
+    ready
+      ? `/finance/summary/by-period?start_date=${periodRange.start}&end_date=${periodRange.end}` +
+          `&granularity=${granularityFor(periodRange)}${selectionQuery(periodSelection)}`
+      : null
   );
 
   // The headline tiles: this calendar month, and the same days of last month
@@ -171,7 +202,8 @@ export function FinanceDashboard() {
           onRangeChange={setCategoryRange}
           categories={categories.items}
           selection={categorySelection}
-          onSelectionChange={setCategorySelection}
+          onSelectionChange={setCategoryPick}
+          defaults={chartDefaults(() => setCategoryPick(null))}
         />
         <SpendByPeriodChart
           breakdown={byPeriod}
@@ -179,7 +211,8 @@ export function FinanceDashboard() {
           onRangeChange={setPeriodRange}
           categories={categories.items}
           selection={periodSelection}
-          onSelectionChange={setPeriodSelection}
+          onSelectionChange={setPeriodPick}
+          defaults={chartDefaults(() => setPeriodPick(null))}
         />
       </div>
 

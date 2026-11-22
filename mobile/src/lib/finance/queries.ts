@@ -150,6 +150,20 @@ export function useProfileWrite() {
   });
 }
 
+/**
+ * Saving the categories every chart starts without (PATCH /auth/me replaces the list), then a
+ * reload of the profile — the charts follow it, since their selection is derived from it. Waits
+ * on screen for the connection like every other save (ADR-0006).
+ */
+export function useChartDefaultWrite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (hidden: string[]) =>
+      api.patch<Profile>('/auth/me', { chart_hidden_categories: hidden }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey }),
+  });
+}
+
 /** Spent, budgeted and remaining over a range, in the display currency. */
 export function useSummary(range: DateRange) {
   return useQuery({

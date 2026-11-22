@@ -131,6 +131,25 @@ async def _require_owned_category_ref(
         raise UnknownCategoryError()
 
 
+async def owned_category_ids(
+    db: AsyncSession, user_id: uuid.UUID, category_ids: Sequence[uuid.UUID]
+) -> list[uuid.UUID]:
+    """The ids in ``category_ids`` that name one of the user's categories, sorted.
+
+    For a preference that lists categories (``profiles.chart_hidden_categories``),
+    where an id that isn't the user's is dropped rather than refused with
+    UnknownCategoryError: the likeliest one is a category deleted on the other
+    device since this one loaded the list, and that should not fail the save.
+    Nothing but the user's own ids is ever stored either way.
+    """
+    if not category_ids:
+        return []
+    found = await db.scalars(
+        select(Category.id).where(Category.id.in_(set(category_ids)), Category.user_id == user_id)
+    )
+    return sorted(found.all())
+
+
 async def _owned_categories(
     db: AsyncSession, user_id: uuid.UUID, category_ids: Sequence[uuid.UUID]
 ) -> list[Category]:

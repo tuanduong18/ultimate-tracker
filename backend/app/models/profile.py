@@ -9,7 +9,7 @@ the session.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, DateTime, String, func, text
+from sqlalchemy import ARRAY, DateTime, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.currencies import DEFAULT_CURRENCY
@@ -44,6 +44,14 @@ class Profile(Base):
     # list to change it: an in-place append is not seen as a change.
     muted_notifications: Mapped[list[str]] = mapped_column(
         ARRAY(String(40)), default=list, server_default=text("'{}'"), nullable=False
+    )
+    # The categories the Overview's charts start without (category ids), saved
+    # from either client's chart filter and opened by both. Storing what is
+    # hidden, as above, means a category made later starts in the charts. An
+    # array cannot hold a foreign key, so the id of a category deleted since may
+    # linger: the clients ignore ids they don't have, and the next save drops it.
+    chart_hidden_categories: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(Uuid), default=list, server_default=text("'{}'"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

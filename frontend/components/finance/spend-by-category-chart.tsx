@@ -7,6 +7,7 @@ import {
   CategoryFilter,
   isEmptySelection,
   type CategorySelection,
+  type ChartDefaults,
 } from '@/components/finance/category-filter';
 import { Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { RangeControls, RangeNav } from '@/components/finance/range-control';
@@ -216,6 +217,8 @@ interface SpendByCategoryChartProps {
   categories: Category[];
   selection: CategorySelection;
   onSelectionChange: (selection: CategorySelection) => void;
+  /** The saved list the filter starts from, and saving a new one. */
+  defaults?: ChartDefaults;
 }
 
 /**
@@ -243,6 +246,7 @@ export function SpendByCategoryChart({
   categories,
   selection,
   onSelectionChange,
+  defaults,
 }: SpendByCategoryChartProps) {
   const currency = current.data?.currency ?? 'USD';
   const error = current.error ?? previous.error;
@@ -266,6 +270,7 @@ export function SpendByCategoryChart({
             selection={selection}
             onChange={onSelectionChange}
             idPrefix="category-filter"
+            defaults={defaults}
           />
         </RangeControls>
       }

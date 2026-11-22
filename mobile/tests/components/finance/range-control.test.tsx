@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 import { RangeControl } from '@/components/finance/range-control';
 import { monthRange, weekRange } from '@/lib/dates';
@@ -47,5 +47,14 @@ describe('RangeControl', () => {
   it('says when the categories are narrowed', async () => {
     await renderControl();
     expect(screen.getByRole('button', { name: 'Categories: All categories' })).toBeOnTheScreen();
+  });
+
+  it('keeps the category filter out of the sideways row, where it fell off the screen', async () => {
+    await renderControl();
+    const periods = within(screen.getByTestId('period-chips'));
+
+    expect(periods.getByRole('button', { name: 'Period: This week' })).toBeOnTheScreen();
+    expect(periods.queryByRole('button', { name: /^Categories:/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Categories:/ })).toBeOnTheScreen();
   });
 });

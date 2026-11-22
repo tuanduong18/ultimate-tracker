@@ -1,10 +1,15 @@
 import {
   ALL_CATEGORIES,
   firstCategoryId,
+  hiddenBy,
   initialOf,
   isEmptySelection,
   isNarrowed,
+  listNames,
   preselectedCategoryId,
+  sameIds,
+  savedHidden,
+  savedSelection,
   selectionQuery,
 } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/types';
@@ -58,5 +63,38 @@ describe('initialOf', () => {
     expect(initialOf('7-Eleven')).toBe('7');
     expect(initialOf('Ăn uống')).toBe('Ă');
     expect(initialOf('!!!')).toBe('?');
+  });
+});
+
+describe('the categories the charts start without', () => {
+  const FOOD = category('food', 'Food');
+  const RENT = category('rent', 'Rent');
+
+  it('opens the charts on every category, now and later, when nothing is hidden', () => {
+    expect(savedSelection([FOOD, RENT], [])).toBe(ALL_CATEGORIES);
+    // An id whose category was deleted since hides nothing.
+    expect(savedSelection([FOOD, RENT], ['gone'])).toBe(ALL_CATEGORIES);
+  });
+
+  it('opens the charts without what is hidden, Uncategorised still in', () => {
+    expect(savedSelection([FOOD, RENT], ['rent'])).toEqual({ ids: ['food'], uncategorized: true });
+  });
+
+  it('reads back what a selection leaves out, in the person’s order', () => {
+    expect(hiddenBy(ALL_CATEGORIES, [FOOD, RENT])).toEqual([]);
+    expect(hiddenBy({ ids: [], uncategorized: true }, [FOOD, RENT])).toEqual(['food', 'rent']);
+    expect(hiddenBy({ ids: ['rent'], uncategorized: false }, [FOOD, RENT])).toEqual(['food']);
+  });
+
+  it('keeps only saved ids that still name a category, and compares lists in any order', () => {
+    expect(savedHidden([FOOD, RENT], ['gone', 'rent'])).toEqual(['rent']);
+    expect(sameIds(['food', 'rent'], ['rent', 'food'])).toBe(true);
+    expect(sameIds(['food'], ['food', 'rent'])).toBe(false);
+  });
+
+  it('names categories in a sentence, as the web does', () => {
+    expect(listNames(['Rent'])).toBe('Rent');
+    expect(listNames(['Rent', 'Food'])).toBe('Rent and Food');
+    expect(listNames(['Rent', 'Food', 'Travel'])).toBe('Rent, Food and Travel');
   });
 });

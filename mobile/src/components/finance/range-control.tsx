@@ -4,7 +4,10 @@ import { ScrollView, View } from 'react-native';
 import { Button, IconButton } from '@/components/button';
 import { DateField } from '@/components/date-field';
 import { FilterButton } from '@/components/filter-button';
-import { CategorySelectionChips } from '@/components/finance/category-selection';
+import {
+  CategorySelectionChips,
+  type ChartDefaults,
+} from '@/components/finance/category-selection';
 import { Sheet } from '@/components/sheet';
 import { Text } from '@/components/text';
 import {
@@ -32,6 +35,12 @@ type Open = 'dates' | 'categories' | null;
  * ‹ and › step a whole month as a month and anything else by its own length. Week and Month jump
  * to the current one and read as chosen whenever the range is any calendar week or month. Dates
  * opens a sheet for any range; Categories one for which to count.
+ *
+ * The period chips scroll sideways; the category filter sits on its own row under them, always
+ * in view. It was once a fourth chip in that row, and on a 393dp phone the first three filled the
+ * width, so it sat wholly off-screen with nothing peeking to say the row scrolled — the user
+ * couldn't find it at all (2026-11-22). It is a different question (what, not when) and narrows
+ * both charts, so it earns a line of its own.
  */
 export function RangeControl({
   range,
@@ -39,12 +48,15 @@ export function RangeControl({
   selection,
   onSelection,
   categories,
+  defaults,
 }: {
   range: DateRange;
   onRange: (range: DateRange) => void;
   selection: CategorySelection;
   onSelection: (selection: CategorySelection) => void;
   categories: readonly Category[];
+  /** The saved list the charts start from, and saving a new one. */
+  defaults?: ChartDefaults;
 }) {
   const [open, setOpen] = useState<Open>(null);
   const close = () => setOpen(null);
@@ -76,6 +88,7 @@ export function RangeControl({
         />
       </View>
       <ScrollView
+        testID="period-chips"
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: SPACE.sm, paddingVertical: SPACE.xs }}
@@ -98,13 +111,15 @@ export function RangeControl({
           active={!week && !month}
           onPress={() => setOpen('dates')}
         />
+      </ScrollView>
+      <View style={{ flexDirection: 'row', paddingVertical: SPACE.xs }}>
         <FilterButton
           kind="Categories"
           label={categoryLabel(selection, categories)}
           active={isNarrowed(selection) && hiddenCategories(selection, categories) > 0}
           onPress={() => setOpen('categories')}
         />
-      </ScrollView>
+      </View>
 
       <Sheet visible={open === 'dates'} onClose={close} title="Dates" footer={done}>
         <DateField
@@ -126,6 +141,7 @@ export function RangeControl({
           selection={selection}
           onChange={onSelection}
           categories={categories}
+          defaults={defaults}
         />
       </Sheet>
     </View>

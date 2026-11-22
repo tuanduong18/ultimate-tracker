@@ -30,14 +30,17 @@ const SLOT = { day: 28, week: 72 } as const;
 export function SpendByPeriodChart({
   range,
   selection,
+  ready = true,
 }: {
   range: DateRange;
   selection: CategorySelection;
+  /** False until the saved list is known, so the chart asks once, for the right categories. */
+  ready?: boolean;
 }) {
   const { colors } = useAppTheme();
   const nothing = isEmptySelection(selection);
   const granularity = granularityFor(range);
-  const breakdown = usePeriodBreakdown(range, granularity, selection, !nothing);
+  const breakdown = usePeriodBreakdown(range, granularity, selection, ready && !nothing);
 
   if (nothing) return <EmptyState icon="filter_list" message="No categories selected." />;
   if (breakdown.isPending) return <LoadingState rows={2} />;

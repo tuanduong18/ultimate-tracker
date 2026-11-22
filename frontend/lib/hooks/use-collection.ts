@@ -148,8 +148,12 @@ export interface Resource<T> {
  * Kept separate rather than folded in because the empty case differs: an empty
  * list is a legitimate answer to render, whereas a null object means the fetch
  * has not landed (or failed) and there is nothing to show.
+ *
+ * A `null` path waits: nothing is fetched and `loading` stays true until the
+ * caller can name the path — a chart whose categories come from the profile
+ * asks once, for the right ones, rather than drawing everything first.
  */
-export function useResource<T>(path: string): Resource<T> {
+export function useResource<T>(path: string | null): Resource<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +161,7 @@ export function useResource<T>(path: string): Resource<T> {
   // Same contract as useCollection: `loading` means "nothing to show yet",
   // and a reload leaves the last answer up until the next one arrives.
   const load = useCallback(async () => {
+    if (path === null) return;
     try {
       setData(await api.get<T>(path));
       setError(null);

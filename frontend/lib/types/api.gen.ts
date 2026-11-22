@@ -297,6 +297,7 @@ export interface ProfileRead {
   display_currency: string;
   preferred_currency: string;
   muted_notifications: ('subscription_reminders' | 'subscription_renewals' | 'budget_alerts')[];
+  chart_hidden_categories: string[];
   /** ISO date-time with its UTC offset. */
   created_at: string;
 }
@@ -306,7 +307,8 @@ export interface ProfileRead {
  *
  * Only display_name may be sent as null (or blank), which clears it.
  * muted_notifications replaces the whole list; an empty list turns every
- * category back on.
+ * category back on. chart_hidden_categories likewise: an empty list opens the
+ * charts on every category.
  */
 export interface ProfileUpdate {
   display_name?: string | null;
@@ -316,6 +318,7 @@ export interface ProfileUpdate {
   muted_notifications?:
     | ('subscription_reminders' | 'subscription_renewals' | 'budget_alerts')[]
     | null;
+  chart_hidden_categories?: string[] | null;
 }
 
 export interface SubscriptionCreate {

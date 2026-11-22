@@ -18,6 +18,7 @@ const PROFILE: Profile = {
   display_currency: 'SGD',
   preferred_currency: 'USD',
   muted_notifications: ['subscription_renewals'],
+  chart_hidden_categories: [],
   created_at: '2026-08-01T00:00:00Z',
 };
 

@@ -3117,6 +3117,14 @@
             "type": "array",
             "title": "Muted Notifications"
           },
+          "chart_hidden_categories": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Chart Hidden Categories"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3131,6 +3139,7 @@
           "display_currency",
           "preferred_currency",
           "muted_notifications",
+          "chart_hidden_categories",
           "created_at"
         ],
         "title": "ProfileRead"
@@ -3201,11 +3210,27 @@
               }
             ],
             "title": "Muted Notifications"
+          },
+          "chart_hidden_categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Hidden Categories"
           }
         },
         "type": "object",
         "title": "ProfileUpdate",
-        "description": "All-optional: apply with model_dump(exclude_unset=True).\n\nOnly display_name may be sent as null (or blank), which clears it.\nmuted_notifications replaces the whole list; an empty list turns every\ncategory back on."
+        "description": "All-optional: apply with model_dump(exclude_unset=True).\n\nOnly display_name may be sent as null (or blank), which clears it.\nmuted_notifications replaces the whole list; an empty list turns every\ncategory back on. chart_hidden_categories likewise: an empty list opens the\ncharts on every category."
       },
       "SubscriptionCreate": {
         "properties": {

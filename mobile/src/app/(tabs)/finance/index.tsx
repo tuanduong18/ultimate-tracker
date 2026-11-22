@@ -15,8 +15,15 @@ import { Screen } from '@/components/screen';
 import { Section } from '@/components/section';
 import { EmptyState, ErrorState, LoadingState } from '@/components/states';
 import { monthRange, type DateRange } from '@/lib/dates';
-import { ALL_CATEGORIES, type CategorySelection } from '@/lib/finance/categories';
-import { financeKeys, loadError, useCategories, useExpenses } from '@/lib/finance/queries';
+import { savedSelection, type CategorySelection } from '@/lib/finance/categories';
+import {
+  financeKeys,
+  loadError,
+  useCategories,
+  useChartDefaultWrite,
+  useExpenses,
+  useProfile,
+} from '@/lib/finance/queries';
 
 /** How many of the newest expenses the Overview lists before "All transactions". */
 const LATEST = 5;
@@ -35,8 +42,16 @@ export default function Finance() {
   const queryClient = useQueryClient();
   const expenses = useExpenses();
   const categories = useCategories();
+  const profile = useProfile();
+  const saveDefault = useChartDefaultWrite();
   const [range, setRange] = useState<DateRange>(() => monthRange());
-  const [selection, setSelection] = useState<CategorySelection>(ALL_CATEGORIES);
+  // Null is "the saved list": the charts open without what the account hides from them, and
+  // follow a save made here or on the web; ticking a box narrows this look only.
+  const [pick, setPick] = useState<CategorySelection | null>(null);
+  const hidden = profile.data?.chart_hidden_categories ?? [];
+  const selection = pick ?? savedSelection(categories.data ?? [], hidden);
+  // The charts wait for the saved list, so they ask once, for the right categories.
+  const ready = !categories.isPending && !profile.isPending;
   const byId = useMemo(
     () => new Map((categories.data ?? []).map((c) => [c.id, c])),
     [categories.data]
@@ -94,11 +109,16 @@ export default function Finance() {
             range={range}
             onRange={setRange}
             selection={selection}
-            onSelection={setSelection}
+            onSelection={setPick}
             categories={categories.data ?? []}
+            defaults={{
+              hidden,
+              onReset: () => setPick(null),
+              onSave: (ids) => saveDefault.mutateAsync(ids),
+            }}
           />
-          <SpendByCategoryChart range={range} selection={selection} />
-          <SpendByPeriodChart range={range} selection={selection} />
+          <SpendByCategoryChart range={range} selection={selection} ready={ready} />
+          <SpendByPeriodChart range={range} selection={selection} ready={ready} />
         </Section>
 
         <Section title="Plan and organise">
