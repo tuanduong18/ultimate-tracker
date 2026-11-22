@@ -36,15 +36,18 @@ const GAP = 2;
 export function SpendByCategoryChart({
   range,
   selection,
+  ready = true,
 }: {
   range: DateRange;
   selection: CategorySelection;
+  /** False until the saved list is known, so the chart asks once, for the right categories. */
+  ready?: boolean;
 }) {
   const { colors } = useAppTheme();
   const nothing = isEmptySelection(selection);
   const before = shiftRange(range, -1);
-  const current = useCategoryBreakdown(range, selection, !nothing);
-  const previous = useCategoryBreakdown(before, selection, !nothing);
+  const current = useCategoryBreakdown(range, selection, ready && !nothing);
+  const previous = useCategoryBreakdown(before, selection, ready && !nothing);
 
   if (nothing) return <EmptyState icon="filter_list" message="No categories selected." />;
   if (current.isPending || previous.isPending) return <LoadingState rows={2} />;

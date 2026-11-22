@@ -23,6 +23,8 @@ export function useFinanceBasics() {
     loading: categories.loading || currencies.loading || profile.loading,
     categories,
     currencies: currencies.items,
+    /** The account's settings — the Overview reads which categories its charts start without. */
+    profile,
     // What new entries start in — the preferred currency, not the one totals
     // are reported in. USD only until /auth/me lands.
     defaultCurrency: profile.data?.preferred_currency ?? 'USD',

@@ -68,3 +68,43 @@ export function isEmptySelection(selection: CategorySelection): boolean {
 export function isNarrowed(selection: CategorySelection): boolean {
   return selection.ids !== null || !selection.uncategorized;
 }
+
+/**
+ * What the charts open on: every category but the ones saved as hidden (`chart_hidden_categories`
+ * on the profile, saved from either client), and Uncategorised. With none hidden it is
+ * ALL_CATEGORIES itself, so a category made later is still counted. The web's `savedSelection`.
+ */
+export function savedSelection(
+  categories: readonly Category[],
+  hidden: readonly string[]
+): CategorySelection {
+  const shown = categories.filter((category) => !hidden.includes(category.id));
+  return shown.length === categories.length
+    ? ALL_CATEGORIES
+    : { ids: shown.map((category) => category.id), uncategorized: true };
+}
+
+/** The categories a selection leaves out, in the person's order — what Save as default stores. */
+export function hiddenBy(selection: CategorySelection, categories: readonly Category[]): string[] {
+  const { ids } = selection;
+  return ids === null
+    ? []
+    : categories.filter((category) => !ids.includes(category.id)).map((category) => category.id);
+}
+
+/** The saved hidden ids that still name a category, in the person's order. */
+export function savedHidden(categories: readonly Category[], hidden: readonly string[]): string[] {
+  return categories.filter((category) => hidden.includes(category.id)).map((c) => c.id);
+}
+
+/** The same ids, in any order. */
+export function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
+
+/** "Rent", "Rent and Food", "Rent, Food and Travel" — names in a sentence, as the web says them. */
+export function listNames(names: readonly string[]): string {
+  return names.length < 2
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}

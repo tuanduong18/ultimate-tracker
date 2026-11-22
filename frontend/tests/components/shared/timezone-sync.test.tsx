@@ -19,6 +19,7 @@ function profile(timezone: string): Profile {
     display_currency: 'SGD',
     preferred_currency: 'SGD',
     muted_notifications: [],
+    chart_hidden_categories: [],
     created_at: '2026-08-01T00:00:00Z',
   };
 }

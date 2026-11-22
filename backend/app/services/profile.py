@@ -69,6 +69,9 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
 
     Muting Subscription reminders deletes the live ones in the same commit: the
     job only stops writing new ones, and the old would sit in the bell for days.
+
+    chart_hidden_categories keeps only the user's own category ids; any other is
+    dropped, not refused (see finance.owned_category_ids).
     """
     profile = await get_or_create_profile(db, user_id)
     changes = data.model_dump(exclude_unset=True)
@@ -77,6 +80,10 @@ async def update_profile(db: AsyncSession, user_id: uuid.UUID, data: ProfileUpda
             await exchange_rates.require_supported(
                 db, changes[field], current=getattr(profile, field)
             )
+    if changes.get("chart_hidden_categories") is not None:
+        changes["chart_hidden_categories"] = await finance_service.owned_category_ids(
+            db, user_id, changes["chart_hidden_categories"]
+        )
     for field, value in changes.items():
         if value is not None or field in _NULLABLE_FIELDS:
             setattr(profile, field, value)

@@ -59,5 +59,6 @@ export const PROFILE = {
   display_currency: 'SGD',
   preferred_currency: 'SGD',
   muted_notifications: [] as string[],
+  chart_hidden_categories: [] as string[],
   created_at: '2026-08-01T00:00:00Z',
 };

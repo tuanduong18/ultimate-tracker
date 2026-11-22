@@ -9,7 +9,7 @@ import zoneinfo
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 from app.core.currencies import normalize_currency
 from app.models.notification import MutableCategory
@@ -49,6 +49,19 @@ def _as_set(value: list[MutableCategory] | None) -> list[MutableCategory] | None
 MutedNotifications = Annotated[list[MutableCategory] | None, AfterValidator(_as_set)]
 
 
+def _unique_ids(value: list[uuid.UUID] | None) -> list[uuid.UUID] | None:
+    # A set too, like muted_notifications: once each, in one order.
+    return None if value is None else sorted(set(value))
+
+
+# One person has a few dozen categories; the cap only bounds what a request may carry.
+MAX_CHART_HIDDEN_CATEGORIES = 1000
+ChartHiddenCategories = Annotated[
+    Annotated[list[uuid.UUID], Field(max_length=MAX_CHART_HIDDEN_CATEGORIES)] | None,
+    AfterValidator(_unique_ids),
+]
+
+
 class ProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,6 +71,7 @@ class ProfileRead(BaseModel):
     display_currency: str
     preferred_currency: str
     muted_notifications: list[MutableCategory]
+    chart_hidden_categories: list[uuid.UUID]
     created_at: datetime
 
 
@@ -66,7 +80,8 @@ class ProfileUpdate(BaseModel):
 
     Only display_name may be sent as null (or blank), which clears it.
     muted_notifications replaces the whole list; an empty list turns every
-    category back on.
+    category back on. chart_hidden_categories likewise: an empty list opens the
+    charts on every category.
     """
 
     display_name: DisplayName = None
@@ -74,3 +89,4 @@ class ProfileUpdate(BaseModel):
     display_currency: CurrencyCode | None = None
     preferred_currency: CurrencyCode | None = None
     muted_notifications: MutedNotifications = None
+    chart_hidden_categories: ChartHiddenCategories = None

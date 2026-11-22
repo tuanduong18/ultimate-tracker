@@ -256,3 +256,47 @@ async def test_muting_another_category_leaves_reminders_alone(
         )
 
         assert len(await _left(db)) == 4
+
+
+# --- The categories the charts start without --------------------------------------
+
+
+async def test_owned_category_ids_keeps_the_users_own_in_order(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with db_factory() as db:
+        db.add_all([Profile(id=TEST_USER_ID), Profile(id=SOMEONE_ELSE)])
+        await db.flush()
+        mine = [Category(user_id=TEST_USER_ID, name=name) for name in ("Food", "Rent")]
+        theirs = Category(user_id=SOMEONE_ELSE, name="Rent")
+        db.add_all([*mine, theirs])
+        await db.commit()
+
+        kept = await finance_service.owned_category_ids(
+            db, TEST_USER_ID, [mine[1].id, theirs.id, uuid.uuid4(), mine[0].id]
+        )
+
+    assert kept == sorted(category.id for category in mine)
+
+
+async def test_owned_category_ids_of_nothing_is_nothing(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with db_factory() as db:
+        assert await finance_service.owned_category_ids(db, TEST_USER_ID, []) == []
+
+
+async def test_update_profile_stores_only_the_users_hidden_categories(
+    db_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with db_factory() as db:
+        # Creating the profile seeds the starter categories, Rent among them.
+        await profile_service.get_or_create_profile(db, TEST_USER_ID)
+        starters = await finance_service.list_categories(db, TEST_USER_ID)
+        rent = next(c for c in starters if c.name == "Rent")
+
+        profile = await profile_service.update_profile(
+            db, TEST_USER_ID, ProfileUpdate(chart_hidden_categories=[rent.id, uuid.uuid4()])
+        )
+
+    assert profile.chart_hidden_categories == [rent.id]

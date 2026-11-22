@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.profile import ProfileRead, ProfileUpdate
+from app.schemas.profile import MAX_CHART_HIDDEN_CATEGORIES, ProfileRead, ProfileUpdate
 
 
 async def test_display_currency_is_normalised_and_shape_checked() -> None:
@@ -110,7 +110,8 @@ async def test_null_or_absent_muted_notifications_leaves_them_alone() -> None:
     assert "muted_notifications" not in ProfileUpdate().model_dump(exclude_unset=True)
 
 
-async def test_read_carries_the_muted_categories() -> None:
+async def test_read_carries_the_muted_and_chart_hidden_categories() -> None:
+    hidden = uuid.uuid4()
     read = ProfileRead(
         id=uuid.uuid4(),
         display_name=None,
@@ -118,6 +119,37 @@ async def test_read_carries_the_muted_categories() -> None:
         display_currency="USD",
         preferred_currency="USD",
         muted_notifications=["subscription_renewals"],
+        chart_hidden_categories=[hidden],
         created_at=datetime.now(UTC),
     )
     assert read.muted_notifications == ["subscription_renewals"]
+    assert read.chart_hidden_categories == [hidden]
+
+
+# --- The categories the charts start without --------------------------------------
+
+
+async def test_chart_hidden_categories_are_stored_once_each_in_one_order() -> None:
+    a, b = sorted([uuid.uuid4(), uuid.uuid4()])
+    assert ProfileUpdate(chart_hidden_categories=[b, a, b]).chart_hidden_categories == [a, b]
+
+
+async def test_an_empty_chart_hidden_list_shows_every_category() -> None:
+    assert ProfileUpdate(chart_hidden_categories=[]).chart_hidden_categories == []
+
+
+async def test_null_or_absent_chart_hidden_categories_leaves_them_alone() -> None:
+    assert ProfileUpdate(chart_hidden_categories=None).chart_hidden_categories is None
+    assert "chart_hidden_categories" not in ProfileUpdate().model_dump(exclude_unset=True)
+
+
+@pytest.mark.parametrize("sent", [["food"], [""], [1]])
+async def test_chart_hidden_categories_must_be_ids(sent: list[object]) -> None:
+    with pytest.raises(ValidationError):
+        ProfileUpdate.model_validate({"chart_hidden_categories": sent})
+
+
+async def test_chart_hidden_categories_are_capped() -> None:
+    too_many = [uuid.uuid4() for _ in range(MAX_CHART_HIDDEN_CATEGORIES + 1)]
+    with pytest.raises(ValidationError):
+        ProfileUpdate(chart_hidden_categories=too_many)

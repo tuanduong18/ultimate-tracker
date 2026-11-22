@@ -4,9 +4,15 @@ Exercises the full route -> service -> DB path with auth dependency-overridden,
 plus the unauthenticated path with the real dependency in place.
 """
 
+import uuid
+
 import pytest
 from httpx import AsyncClient
-from tests.support.ids import TEST_USER_ID
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from tests.support.ids import OTHER_USER_ID, TEST_USER_ID
+
+from app.models.finance import Category
+from app.models.profile import Profile
 
 
 async def test_me_creates_and_returns_profile(authed_client: AsyncClient) -> None:
@@ -148,3 +154,81 @@ async def test_patch_me_with_null_or_no_muted_notifications_leaves_them_alone(
     await authed_client.patch("/api/v1/auth/me", json={"timezone": "Asia/Singapore"})
 
     assert await muted(authed_client) == ["subscription_renewals"]
+
+
+# --- The categories the charts start without -------------------------------------
+
+
+async def hidden(client: AsyncClient) -> list[str]:
+    body: list[str] = (await client.get("/api/v1/auth/me")).json()["chart_hidden_categories"]
+    return body
+
+
+async def my_category_ids(client: AsyncClient) -> dict[str, str]:
+    """The starter categories' ids by name — reading the profile first is what seeds them."""
+    await client.get("/api/v1/auth/me")
+    return {c["name"]: c["id"] for c in (await client.get("/api/v1/finance/categories")).json()}
+
+
+async def test_a_new_profile_starts_the_charts_on_every_category(
+    authed_client: AsyncClient,
+) -> None:
+    assert await hidden(authed_client) == []
+
+
+async def test_patch_me_saves_the_hidden_categories_once_each_and_an_empty_list_shows_all(
+    authed_client: AsyncClient,
+) -> None:
+    ids = await my_category_ids(authed_client)
+    food, rent = ids["Food"], ids["Rent"]
+
+    resp = await authed_client.patch(
+        "/api/v1/auth/me", json={"chart_hidden_categories": [rent, food, rent]}
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["chart_hidden_categories"] == sorted([food, rent])
+    assert await hidden(authed_client) == sorted([food, rent])
+
+    await authed_client.patch("/api/v1/auth/me", json={"chart_hidden_categories": []})
+    assert await hidden(authed_client) == []
+
+
+async def test_patch_me_keeps_only_the_users_own_categories(
+    authed_client: AsyncClient, db_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    mine = (await my_category_ids(authed_client))["Rent"]
+    async with db_factory() as session:
+        session.add(Profile(id=OTHER_USER_ID))
+        await session.flush()
+        theirs = Category(user_id=OTHER_USER_ID, name="Theirs")
+        session.add(theirs)
+        await session.commit()
+    # Someone else's category, and one that no longer exists (deleted on the other device).
+    sent = [mine, str(theirs.id), str(uuid.uuid4())]
+
+    resp = await authed_client.patch("/api/v1/auth/me", json={"chart_hidden_categories": sent})
+
+    assert resp.status_code == 200
+    assert resp.json()["chart_hidden_categories"] == [mine]
+
+
+async def test_patch_me_refuses_hidden_categories_that_are_not_ids(
+    authed_client: AsyncClient,
+) -> None:
+    resp = await authed_client.patch("/api/v1/auth/me", json={"chart_hidden_categories": ["Rent"]})
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_patch_me_with_null_or_no_hidden_categories_leaves_them_alone(
+    authed_client: AsyncClient,
+) -> None:
+    rent = (await my_category_ids(authed_client))["Rent"]
+    await authed_client.patch("/api/v1/auth/me", json={"chart_hidden_categories": [rent]})
+
+    await authed_client.patch("/api/v1/auth/me", json={"chart_hidden_categories": None})
+    await authed_client.patch("/api/v1/auth/me", json={"timezone": "Asia/Singapore"})
+
+    assert await hidden(authed_client) == [rent]

@@ -20,8 +20,10 @@ theming, and the pipeline that keeps it deployable.
   verifies every JWT against the project's JWKS endpoint using ES256; no auth data is duplicated
   locally.
 - **Profiles** — a local `profiles` table keyed by the Supabase user id, holding app-specific
-  fields: `display_name`, `timezone`, `display_currency` (what totals are reported in) and
-  `preferred_currency` (what new entries start in). `GET` and `PATCH /api/v1/auth/me`; a
+  fields: `display_name`, `timezone`, `display_currency` (what totals are reported in),
+  `preferred_currency` (what new entries start in), `muted_notifications`
+  ([Notification preferences](#notification-preferences)) and `chart_hidden_categories`
+  ([finance.md](./finance.md#the-charts-starting-categories)). `GET` and `PATCH /api/v1/auth/me`; a
   `timezone` that is not an IANA name ("Asia/Singapore") is refused with 422, since every
   scheduled job reads it to find the user's today. The email
   is deliberately not copied: the frontend reads it from the Supabase session. With no

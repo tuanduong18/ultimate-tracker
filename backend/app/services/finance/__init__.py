@@ -21,6 +21,7 @@ from app.services.finance.categories import (
     create_category,
     delete_category,
     list_categories,
+    owned_category_ids,
     reorder_categories,
     update_category,
 )
@@ -115,6 +116,7 @@ __all__ = [
     "list_expenses_by_id",
     "list_subscriptions",
     "next_billing_date",
+    "owned_category_ids",
     "preview_import",
     "renew_subscription",
     "reorder_budgets",

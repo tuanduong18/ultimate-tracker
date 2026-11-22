@@ -246,6 +246,8 @@ erDiagram
         string timezone
         string display_currency "totals are reported in it"
         string preferred_currency "new entries start in it"
+        string_array muted_notifications "categories turned off"
+        uuid_array chart_hidden_categories "charts start without them"
         timestamp created_at
     }
     CATEGORIES {

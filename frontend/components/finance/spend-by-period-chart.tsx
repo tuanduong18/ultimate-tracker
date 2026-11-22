@@ -7,6 +7,7 @@ import {
   CategoryFilter,
   isEmptySelection,
   type CategorySelection,
+  type ChartDefaults,
 } from '@/components/finance/category-filter';
 import { Panel, PanelEmpty, PanelNote } from '@/components/finance/panel';
 import { RangeControls, RangeNav } from '@/components/finance/range-control';
@@ -95,6 +96,8 @@ interface SpendByPeriodChartProps {
   categories: Category[];
   selection: CategorySelection;
   onSelectionChange: (selection: CategorySelection) => void;
+  /** The saved list the filter starts from, and saving a new one. */
+  defaults?: ChartDefaults;
 }
 
 /**
@@ -111,6 +114,7 @@ export function SpendByPeriodChart({
   categories,
   selection,
   onSelectionChange,
+  defaults,
 }: SpendByPeriodChartProps) {
   const { data, loading, error } = breakdown;
   // recharts styles its SVG from props, so these cannot be Tailwind classes.
@@ -144,6 +148,7 @@ export function SpendByPeriodChart({
             selection={selection}
             onChange={onSelectionChange}
             idPrefix="period-filter"
+            defaults={defaults}
           />
         </RangeControls>
       }
