@@ -12,9 +12,9 @@ import { SPACE, TOUCH_TARGET } from '@/theme/scale';
 import { useAppTheme } from '@/theme/theme-provider';
 
 /**
- * One subscription — the phone's twin of the web's subscription row: the service's initial on
- * its category's colour (no shared Subscriptions symbol, which would make every badge alike), its
- * name, what it costs and how often, what happens next and under which category.
+ * One subscription — the phone's twin of the web's subscription row: its category's badge, as on
+ * every other row (the service's initial once stood there, and read as a category with no
+ * symbol), its name, what it costs and how often, what happens next and under which category.
  *
  * A charge within three days stands out in words, with a bell, in `negative` — never by colour
  * alone. One that has ended reads quieter. Renew now sits beside the row as its own button, not
@@ -67,7 +67,11 @@ export function SubscriptionRow({
             opacity: ended ? 0.7 : 1,
           }}
         >
-          <CategoryBadge colour={category?.colour ?? null} name={subscription.name} />
+          <CategoryBadge
+            colour={category?.colour ?? null}
+            name={categoryName}
+            icon={category?.icon}
+          />
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
             <Text variant="bodyStrong" tone={ended ? 'fgMuted' : 'fg'}>
               {subscription.name}

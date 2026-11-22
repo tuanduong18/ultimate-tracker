@@ -286,6 +286,7 @@ export function SubscriptionSection({
             const category = subscription.category_id
               ? byId.get(subscription.category_id)
               : undefined;
+            const categoryName = category?.name ?? 'Uncategorised';
             const step = nextStep(subscription, today);
             const money = formatMoney(subscription.amount, subscription.currency);
             const ended = subscription.cancelled_on !== null && subscription.cancelled_on <= today;
@@ -301,10 +302,14 @@ export function SubscriptionSection({
                   ended ? 'border border-dashed border-border-control' : 'bg-surface-muted'
                 }`}
               >
-                {/* The service's initial, like an app icon on a statement: the
-                    quickest way to find "Netflix" in a list is its shape. */}
+                {/* The category's badge, as on every other row: the same
+                    colour and symbol mean the same category everywhere. */}
                 <span className="mt-0.5">
-                  <CategoryBadge colour={category?.colour} name={subscription.name} />
+                  <CategoryBadge
+                    colour={category?.colour}
+                    name={categoryName}
+                    icon={category?.icon}
+                  />
                 </span>
 
                 <div className="min-w-0 flex-1">
@@ -364,7 +369,7 @@ export function SubscriptionSection({
                     </span>
                     <span className="truncate text-fg-muted">
                       {' · '}
-                      {category?.name ?? 'Uncategorised'}
+                      {categoryName}
                     </span>
                   </p>
 

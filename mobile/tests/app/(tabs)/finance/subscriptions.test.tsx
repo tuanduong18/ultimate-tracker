@@ -62,6 +62,28 @@ describe('Subscriptions', () => {
     ).toBeOnTheScreen();
   });
 
+  it('leads each row with its category’s badge, never the service’s initial', async () => {
+    serve({
+      '/finance/categories': [
+        category('subs', 'Subscriptions', { icon: 'subscriptions' }),
+        category('food', 'Food'),
+      ],
+      '/finance/subscriptions': [
+        subscription('Netflix'),
+        subscription('Meal kit', { category_id: 'food' }),
+      ],
+    });
+    await renderScreen(<Subscriptions />);
+    await screen.findByRole('button', { name: /^Netflix, / });
+
+    // The badge is hidden from TalkBack (the row says the category in words), so look past that.
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getByTestId('symbol-subscriptions', hidden)).toBeOnTheScreen();
+    expect(screen.getByText('F', hidden)).toBeOnTheScreen();
+    expect(screen.queryByText('N', hidden)).toBeNull();
+    expect(screen.queryByText('M', hidden)).toBeNull();
+  });
+
   it('renews early only after saying what it will log, then says it did', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     serve({ '/finance/subscriptions': [subscription('Netflix')] });

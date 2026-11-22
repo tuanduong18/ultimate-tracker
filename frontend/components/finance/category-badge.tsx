@@ -12,10 +12,13 @@ export function initialOf(name: string): string {
  * and colour, before reading.
  *
  * **The symbol** is the category's, when it has one (Food → a fork and knife).
- * Without one — or with a key this app doesn't know yet — it falls back to an
- * initial. Subscriptions pass no `icon` on purpose: their badge shows the
- * service's initial ("N" for Netflix), which tells one subscription from
- * another, where the shared "Subscriptions" symbol would make every badge alike.
+ * Without one — or with a key this app doesn't know yet — it falls back to the
+ * category's initial. Every row passes its category, subscriptions included: a
+ * badge always means "this category", so a letter means "a category without a
+ * symbol" wherever it appears. (Subscriptions once showed the service's
+ * initial — "N" for Netflix — which read as a category with no symbol beside
+ * rows that had one; the user caught it, 2026-11-22. The name beside the badge
+ * already tells one subscription from another.)
  *
  * **The colour is the category's, solid, in both modes** — the same colour as
  * its slice in the chart and its dot in the filter. (It was a 28% wash at
@@ -33,7 +36,7 @@ export function CategoryBadge({
   icon,
 }: {
   colour: string | null | undefined;
-  /** What the fallback initial is taken from: the service, or the category. */
+  /** The category's name, which the fallback initial is taken from. */
   name: string;
   /** The category's symbol key, if any. */
   icon?: string | null;
