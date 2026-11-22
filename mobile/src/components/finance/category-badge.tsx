@@ -16,10 +16,11 @@ const SIZES = {
  * with its symbol on it (Food → a knife and fork), like an app icon on a bank statement. The
  * quickest way down a list is by shape and colour, before reading.
  *
- * Without a symbol — or with a key this app doesn't know yet — it shows the initial instead.
- * Subscriptions pass no `icon` on purpose: their badge shows the service's initial ("N" for
- * Netflix), which tells one from another where a shared Subscriptions symbol would make them all
- * alike.
+ * Without a symbol — or with a key this app doesn't know yet — it shows the category's initial
+ * instead. Every row passes its category, subscriptions included, so a badge always means "this
+ * category" and a letter always means "a category without a symbol". (Subscriptions once showed
+ * the service's initial — "N" for Netflix — which read as exactly that beside rows that had a
+ * symbol; the user caught it, 2026-11-22. The name beside the badge tells them apart.)
  *
  * The colour is the category's in both modes, the same as its slice in the chart, so a category
  * looks the same everywhere. The glyph takes pure white or black by `inkOn`, whichever contrasts
@@ -38,7 +39,7 @@ export function CategoryBadge({
   size = 'md',
 }: {
   colour: string | null | undefined;
-  /** What the fallback initial is taken from: the category, or the subscription. */
+  /** The category's name, which the fallback initial is taken from. */
   name: string;
   icon?: string | null;
   size?: keyof typeof SIZES;

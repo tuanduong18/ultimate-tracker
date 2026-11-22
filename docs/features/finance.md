@@ -82,7 +82,7 @@ Rows are drawn 50 at a time behind **Show N more**, with "Showing 50 of 312".
 
 **A row leads with what the expense was**: its description, or — when it has none — its
 category, with the line under it shortened to the date. A badge in front carries the category's
-colour and initial, as subscriptions do, so a column of expenses can be skimmed by category.
+colour and symbol (or initial), as on every row, so a column of expenses can be skimmed by category.
 There is no "No description" placeholder.
 
 - **Search** works like Ctrl+F: one case-insensitive phrase, found anywhere in what a row shows
@@ -466,8 +466,10 @@ subscription edits — writes none while they are off. Turned back on, they retu
 
 **Status: built on both clients.** The category form (new and edit) has a **Symbol** grid — the
 30 symbols and *None* — beside a preview of the badge, and expense and category rows draw the
-symbol in the category's badge. Subscription badges keep the service's initial ("N" for
-Netflix): one shared "Subscriptions" symbol would make every subscription look alike. The two
+symbol in the category's badge. **Subscription rows do too**: a badge always stands for its
+category, so the same colour and symbol mean the same thing on every list. (They showed the
+service's initial — "N" for Netflix — until 2026-11-22; beside rows with symbols, a letter read as
+"a category without one". The name beside the badge tells subscriptions apart.) The two
 halves of the dictionary are `frontend/lib/category-symbols.ts` (lucide) and
 `mobile/src/lib/finance/category-symbols.ts` (Material Symbols); a test on each pins the 30 keys.
 An edit on the phone sends the symbol only when it changed, so a key it doesn't know is kept.

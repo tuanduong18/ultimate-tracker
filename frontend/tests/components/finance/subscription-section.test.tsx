@@ -80,19 +80,23 @@ describe('SubscriptionSection', () => {
     expect(screen.getByText(/SUBSCRIPTIONS/)).toBeInTheDocument();
   });
 
-  it('marks each card with the first letter or digit of its name', async () => {
+  it('leads each row with its category’s badge, as every other row does', async () => {
     get.mockResolvedValue([
-      { ...STREAMING, id: 'a', name: 'iCloud+ 200GB' },
-      { ...STREAMING, id: 'b', name: '(Old) plan' },
-      { ...STREAMING, id: 'c', name: '1Password' },
+      { ...STREAMING, id: 'a', name: 'Netflix' },
+      { ...STREAMING, id: 'b', name: 'Meal kit', category_id: FOOD.id },
+      { ...STREAMING, id: 'c', name: 'Gym', category_id: null },
     ]);
-    render(<Harness />);
+    const { container } = render(
+      <Harness categories={[FOOD, { ...SUBSCRIPTIONS, icon: 'subscriptions' }]} />
+    );
+    await screen.findByText('Netflix');
 
-    expect(await screen.findByText('iCloud+ 200GB')).toBeInTheDocument();
-    // Skips leading punctuation; a digit counts, as it does on an app icon.
-    for (const initial of ['I', 'O', '1']) {
-      expect(screen.getByText(initial, { selector: 'span[aria-hidden]' })).toBeInTheDocument();
-    }
+    // The category's symbol, or the category's initial — never the service's ("N").
+    const badges = [...container.querySelectorAll('li[data-row-id]')].map((row) => {
+      const badge = row.querySelector('span[aria-hidden]');
+      return badge?.getAttribute('data-symbol') ?? badge?.textContent;
+    });
+    expect(badges).toEqual(['subscriptions', 'F', 'U']);
   });
 
   it('counts down inside the three-day reminder window', async () => {
